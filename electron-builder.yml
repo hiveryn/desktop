@@ -1,0 +1,29 @@
+appId: com.hiveryn.desktop
+productName: Hiveryn
+copyright: Copyright © 2026 Kareem Elbahrawy
+directories:
+  buildResources: build
+  output: dist/${version}
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!dist/**'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{biome.json,components.json,README.md}'
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+  extendInfo:
+    - CFBundleDisplayName: Hiveryn
+    - NSHumanReadableCopyright: Copyright © 2026 Kareem Elbahrawy
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: hiveryn
+  repo: desktop

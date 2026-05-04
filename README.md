@@ -1,5 +1,9 @@
-# desktop
+# Hiveryn Desktop
 
-Part of Hiveryn: an AI-native software engineering environment.
+> Work in progress.
 
-This repository is intentionally minimal while the initial architecture is scaffolded.
+The desktop client for Hiveryn — an AI-native software engineering environment.
+
+## License
+
+MIT
