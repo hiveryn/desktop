@@ -1,9 +1,7 @@
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron';
-import type { Theme } from '../shared/types';
-
-let theme: Theme = 'system';
+import { app, BrowserWindow, nativeTheme, shell } from 'electron';
+import { registerIpc } from './ipc';
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -37,25 +35,15 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
-  // Forward system theme changes to renderer
   nativeTheme.on('updated', () => {
-    if (theme === 'system' && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isDestroyed()) {
       const isDark = nativeTheme.shouldUseDarkColors;
       mainWindow.webContents.send('preferences:theme-change', isDark ? 'dark' : 'light');
     }
   });
 }
 
-// Preferences IPC
-ipcMain.handle('preferences:getTheme', () => theme);
-ipcMain.handle('preferences:setTheme', (_event, value: Theme) => {
-  theme = value;
-});
-
-// Mock user API — returns the shape of a future REST response
-ipcMain.handle('user:getProfile', () => ({
-  data: { name: 'Kareem' },
-}));
+registerIpc();
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.hiveryn.desktop');
