@@ -1,0 +1,19 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+  background: var(--theme-background);
+}
+
+.title {
+  margin: 0 0 1rem;
+}
+
+.buttonWrap {
+  width: fit-content;
+}
