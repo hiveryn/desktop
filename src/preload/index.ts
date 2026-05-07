@@ -2,8 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AgentProfile,
   AgentProfileInput,
+  ArchitectInfo,
   DaemonResult,
+  KanbanTicket,
   RequestLogEntry,
+  Session,
 } from '../shared/types';
 
 // ── Request log listeners ──────────────────────────────────────────────────
@@ -12,10 +15,15 @@ const requestListeners = new Set<RequestCallback>();
 
 // ── Channel → HTTP method/path map for the log display ────────────────────
 const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
-  'profiles:list': { method: 'GET', path: '/api/agent-profiles' },
-  'profiles:create': { method: 'POST', path: '/api/agent-profiles' },
-  'profiles:update': { method: 'PUT', path: '/api/agent-profiles/:id' },
-  'profiles:delete': { method: 'DELETE', path: '/api/agent-profiles/:id' },
+  'profiles:list':         { method: 'GET',    path: '/api/agent-profiles'     },
+  'profiles:create':       { method: 'POST',   path: '/api/agent-profiles'     },
+  'profiles:update':       { method: 'PUT',    path: '/api/agent-profiles/:id' },
+  'profiles:delete':       { method: 'DELETE', path: '/api/agent-profiles/:id' },
+  'sessions:list':         { method: 'GET',    path: '/api/sessions'           },
+  'sessions:create':       { method: 'POST',   path: '/api/sessions'           },
+  'tickets:list':          { method: 'GET',    path: '/api/tickets'            },
+  'architect:getInfo':     { method: 'GET',    path: '/architect/info'         },
+  'architect:openLauncher':{ method: 'POST',   path: '/architect/launcher'     },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -25,7 +33,6 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   try {
     result = await ipcRenderer.invoke(channel, ...args);
   } catch (err) {
-    // IPC-level failure (no handler registered, etc.) — not a daemon error
     const raw = (err as Error).message ?? String(err);
     throw new Error(raw.replace(/^Error invoking remote method '[^']+': Error: /, ''));
   }
@@ -82,6 +89,18 @@ contextBridge.exposeInMainWorld('hiveryn', {
     update: (id: string, input: AgentProfileInput): Promise<AgentProfile> =>
       invoke('profiles:update', id, input),
     delete: (id: string): Promise<void> => invoke('profiles:delete', id),
+  },
+  architect: {
+    getInfo: (): Promise<ArchitectInfo> => invoke('architect:getInfo'),
+    openLauncher: (): Promise<void> => invoke('architect:openLauncher'),
+  },
+  sessions: {
+    list: (): Promise<Session[]> => invoke('sessions:list'),
+    create: (profileId: string, workdir: string): Promise<Session> =>
+      invoke('sessions:create', profileId, workdir),
+  },
+  tickets: {
+    list: (): Promise<KanbanTicket[]> => invoke('tickets:list'),
   },
   daemon: {
     onRequest: (callback: RequestCallback): (() => void) => {

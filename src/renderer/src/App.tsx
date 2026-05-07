@@ -1,84 +1,80 @@
-import { LayoutDashboard, Settings2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { BottomPanel } from '@/components/bottom-panel';
 import { PageError } from '@/components/page-error';
-import { RequestLog } from '@/components/request-log';
-import { ThemeSwitcher } from '@/components/theme-switcher';
-import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
-import { cn } from '@/lib/utils';
-import { AgentProfilesPage } from './pages/agent-profiles';
-import { DashboardPage } from './pages/dashboard';
+import { TitleBar } from '@/components/architect/title-bar';
+import { SessionTabBar } from '@/components/architect/session-tab-bar';
+import { SessionView } from '@/components/architect/session-view';
+import type { Session } from '@/components/architect/types';
+import { SettingsOverlay } from './pages/settings';
 
-type Page = 'dashboard' | 'agent-profiles' | 'settings';
+const ARCHITECT_SESSION: Session = {
+  id: 'architect',
+  kind: 'architect',
+  label: 'Architect',
+  agentKind: 'claude',
+  status: 'running',
+  workdir: '/architects/hiveryn',
+};
 
-const NAV_ITEMS: { page: Page; icon: typeof LayoutDashboard; label: string }[] = [
-  { page: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { page: 'agent-profiles', icon: Users, label: 'Agent Profiles' },
-  { page: 'settings', icon: Settings2, label: 'Settings' },
-];
-
-function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-muted-foreground">{title} — coming soon</p>
-    </div>
-  );
-}
+type SettingsSection = 'agent-profiles' | 'appearance';
 
 function App(): React.JSX.Element {
-  const [page, setPage] = useState<Page>('dashboard');
-  const [platform, setPlatform] = useState('');
+  const [sessions, setSessions] = useState<Session[]>([ARCHITECT_SESSION]);
+  const [activeSessionId, setActiveSessionId] = useState('architect');
   const [logOpen, setLogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('agent-profiles');
 
   useEffect(() => {
-    void window.hiveryn.app.getPlatform().then(setPlatform);
+    void window.hiveryn.sessions.list().then((fetched) => {
+      if (fetched.length > 0) {
+        setSessions([ARCHITECT_SESSION, ...fetched]);
+      }
+    });
   }, []);
+
+  function handleOpenSettings(section: SettingsSection): void {
+    setSettingsSection(section);
+    setSettingsOpen(true);
+  }
+
+  function handleSessionCreated(session: Session): void {
+    setSessions((prev) => [...prev, session]);
+    setActiveSessionId(session.id);
+  }
+
+  function handleNewSession(): void {
+    handleOpenSettings('agent-profiles');
+  }
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
 
   return (
     <ErrorBoundary FallbackComponent={PageError}>
-      <div className="flex h-screen flex-col">
-        {/* Title bar / chrome */}
-        <div
-          className={cn(
-            'flex h-10 shrink-0 items-center border-b border-border bg-card transition-colors duration-300',
-            platform === 'darwin' ? 'pl-[80px] pr-4' : 'pl-4 pr-4',
-          )}
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
-          <span className="text-sm font-semibold text-foreground">Hiveryn</span>
+      <div className="relative flex h-screen flex-col overflow-hidden">
+        <TitleBar onOpenSettings={handleOpenSettings} />
+        <SessionTabBar
+          sessions={sessions}
+          activeId={activeSessionId}
+          onSelect={setActiveSessionId}
+          onNew={handleNewSession}
+        />
+        <SessionView
+          key={activeSession.id}
+          session={activeSession}
+          onSessionCreated={handleSessionCreated}
+        />
+        <BottomPanel logOpen={logOpen} onLogOpenChange={setLogOpen} />
 
-          <nav
-            className="ml-auto flex items-center gap-1"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            {NAV_ITEMS.map(({ page: p, icon: Icon, label }) => (
-              <Button
-                key={p}
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setPage(p)}
-                title={label}
-                className={page === p ? 'bg-accent' : ''}
-              >
-                <Icon className="size-3.5" />
-              </Button>
-            ))}
-            <div className="mx-1 h-4 w-px bg-border" />
-            <ThemeSwitcher />
-          </nav>
-        </div>
+        {settingsOpen && (
+          <SettingsOverlay
+            initialSection={settingsSection}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
 
-        {/* Page content — per-page boundary resets on navigation via key */}
-        <div className="flex-1 overflow-hidden">
-          <ErrorBoundary key={page} FallbackComponent={PageError}>
-            {page === 'dashboard' && <DashboardPage />}
-            {page === 'agent-profiles' && <AgentProfilesPage />}
-            {page === 'settings' && <PlaceholderPage title="Settings" />}
-          </ErrorBoundary>
-        </div>
-
-        <RequestLog open={logOpen} onOpenChange={setLogOpen} />
         <Toaster />
       </div>
     </ErrorBoundary>

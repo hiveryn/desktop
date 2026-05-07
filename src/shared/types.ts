@@ -59,6 +59,33 @@ export interface DaemonResult<T = unknown> {
   httpStatus: number;
 }
 
+// ── Sessions & tickets ─────────────────────────────────────────────────────
+
+export type SessionKind = 'architect' | 'ticket';
+export type SessionStatus = 'running' | 'idle' | 'error';
+
+export interface Session {
+  id: string;
+  kind: SessionKind;
+  label: string;
+  agentKind: AgentKind;
+  status: SessionStatus;
+  workdir: string;
+}
+
+export interface KanbanTicket {
+  id: string;
+  title: string;
+  tag: string;
+  col: 'backlog' | 'in-progress' | 'done';
+  agent?: string;
+}
+
+export interface ArchitectInfo {
+  name: string;
+  path: string;
+}
+
 // ── Request log ────────────────────────────────────────────────────────────
 
 export interface RequestLogEntry {

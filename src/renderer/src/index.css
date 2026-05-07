@@ -1,12 +1,13 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   /* ── Typography ───────────────────────────────────────────── */
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   /* ── Border Radii ─────────────────────────────────────────── */
   --radius-sm: 0.25rem;
@@ -49,35 +50,155 @@
   --color-hive-dark: #3730a3;
 }
 
-/* ── Dark theme overrides ───────────────────────────────────── */
+/* ── Flat dark theme ────────────────────────────────────────── */
 .dark {
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
+  --color-background: #000000;
+  --color-foreground: #ffffff;
 
-  --color-card: #18181b;
-  --color-card-foreground: #fafafa;
+  /* Cards sit on the same plane as background — no elevation */
+  --color-card: #000000;
+  --color-card-foreground: #ffffff;
 
-  --color-popover: #18181b;
-  --color-popover-foreground: #fafafa;
+  /* Popovers float, so a hair of lift keeps them legible */
+  --color-popover: #0c0c0c;
+  --color-popover-foreground: #ffffff;
 
   --color-primary: #6366f1;
   --color-primary-foreground: #ffffff;
 
-  --color-secondary: #27272a;
-  --color-secondary-foreground: #fafafa;
+  --color-secondary: #000000;
+  --color-secondary-foreground: #ffffff;
 
-  --color-muted: #27272a;
-  --color-muted-foreground: #a1a1aa;
+  --color-muted: #000000;
+  --color-muted-foreground: #888888;
 
-  --color-accent: #27272a;
-  --color-accent-foreground: #fafafa;
+  /* Hover/active state — the only visible surface shift */
+  --color-accent: #111111;
+  --color-accent-foreground: #ffffff;
 
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: #fafafa;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
 
-  --color-border: #3f3f46;
-  --color-input: #3f3f46;
+  /* Single-pixel cool line */
+  --color-border: rgba(255, 255, 255, 0.10);
+  --color-input: rgba(255, 255, 255, 0.10);
   --color-ring: #6366f1;
+
+  /* Sharp corners everywhere */
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+}
+
+/* ── Light gradient theme ──────────────────────────────────── */
+[data-theme="light-gradient"] {
+  --color-card: rgba(255, 255, 255, 0.72);
+  --color-card-foreground: #09090b;
+  --color-popover: rgba(255, 255, 255, 0.72);
+  --color-popover-foreground: #09090b;
+  --color-muted: rgba(244, 244, 245, 0.60);
+  --color-muted-foreground: #71717a;
+  --color-border: rgba(0, 0, 0, 0.10);
+  --color-input: rgba(0, 0, 0, 0.10);
+}
+
+/* ── Dark gradient theme ───────────────────────────────────── */
+[data-theme="dark-gradient"] {
+  --color-card: rgba(24, 24, 27, 0.65);
+  --color-card-foreground: #fafafa;
+  --color-popover: rgba(24, 24, 27, 0.65);
+  --color-popover-foreground: #fafafa;
+  --color-muted: rgba(39, 39, 42, 0.55);
+  --color-muted-foreground: #a1a1aa;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Chaos / Wave theme ─────────────────────────────────────── */
+[data-theme="chaos"] {
+  --color-background: #0a0e09;
+  --color-foreground: #e8ede4;
+
+  --color-card: rgba(14, 22, 12, 0.82);
+  --color-card-foreground: #e8ede4;
+  --color-popover: rgba(10, 17, 9, 0.92);
+  --color-popover-foreground: #e8ede4;
+
+  --color-primary: #58c142;
+  --color-primary-foreground: #000000;
+
+  --color-secondary: rgba(88, 193, 66, 0.10);
+  --color-secondary-foreground: #58c142;
+
+  --color-muted: rgba(88, 193, 66, 0.06);
+  --color-muted-foreground: #8b918a;
+
+  --color-accent: rgba(88, 193, 66, 0.14);
+  --color-accent-foreground: #58c142;
+
+  --color-destructive: #ef2929;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: rgba(88, 193, 66, 0.20);
+  --color-input: rgba(88, 193, 66, 0.20);
+  --color-ring: #58c142;
+}
+
+/* ── Body gradients ─────────────────────────────────────────── */
+[data-theme="light"] body,
+[data-theme="dark"] body {
+  background-image: none;
+}
+
+[data-theme="light-gradient"] body {
+  background-image: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #fff1f2 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="dark-gradient"] body {
+  background-image: linear-gradient(135deg, #0c0a1d 0%, #1a1030 40%, #0f172a 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="chaos"] body {
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(88, 193, 66, 0.028) 0px,
+      rgba(88, 193, 66, 0.028) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      72deg,
+      rgba(170, 103, 255, 0.018) 0px,
+      rgba(170, 103, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 42px
+    ),
+    radial-gradient(ellipse at 8% 88%, rgba(88, 193, 66, 0.26) 0%, transparent 44%),
+    radial-gradient(ellipse at 92% 8%, rgba(170, 103, 255, 0.22) 0%, transparent 40%),
+    radial-gradient(ellipse at 78% 78%, rgba(50, 175, 255, 0.12) 0%, transparent 35%),
+    radial-gradient(ellipse at 28% 38%, rgba(88, 193, 66, 0.10) 0%, transparent 28%),
+    linear-gradient(158deg, #060c05 0%, #080420 38%, #04100a 62%, #0a0414 100%);
+  background-attachment: fixed;
+}
+
+/* ── Frosted glass: card and popover surfaces in gradient + chaos themes ── */
+[data-theme="light-gradient"] .bg-card,
+[data-theme="light-gradient"] .bg-popover,
+[data-theme="dark-gradient"] .bg-card,
+[data-theme="dark-gradient"] .bg-popover {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="chaos"] .bg-card,
+[data-theme="chaos"] .bg-popover {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
 }
 
 @layer base {
@@ -91,6 +212,65 @@
 
   button:not(:disabled) {
     @apply cursor-pointer;
+  }
+
+  /* ── IDE-grade text rendering ─────────────────────────── */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, kbd, samp, pre {
+    @apply font-mono;
+  }
+
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ── Semantic text utilities ─────────────────────────────────────────────── */
+@layer utilities {
+  .label-section {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
+  }
+
+  .data-id {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-num {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-foreground);
   }
 }
 
@@ -115,4 +295,306 @@
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* WAVE TERMINAL THEMES                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="wave-onedark"] {
+  --color-background: #21252b;
+  --color-foreground: #abb2bf;
+  --color-card: rgba(33, 37, 43, 0.85);
+  --color-card-foreground: #abb2bf;
+  --color-popover: rgba(26, 29, 34, 0.92);
+  --color-popover-foreground: #abb2bf;
+  --color-primary: #61afef;
+  --color-primary-foreground: #21252b;
+  --color-secondary: rgba(97, 175, 239, 0.12);
+  --color-secondary-foreground: #61afef;
+  --color-muted: rgba(63, 68, 81, 0.60);
+  --color-muted-foreground: #495162;
+  --color-accent: rgba(97, 175, 239, 0.15);
+  --color-accent-foreground: #61afef;
+  --color-destructive: #e06c75;
+  --color-destructive-foreground: #abb2bf;
+  --color-border: rgba(171, 178, 191, 0.12);
+  --color-input: rgba(171, 178, 191, 0.12);
+  --color-ring: #61afef;
+}
+[data-theme="wave-onedark"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(97,175,239,0.022) 0px, rgba(97,175,239,0.022) 1px, transparent 1px, transparent 30px),
+    radial-gradient(ellipse at 12% 88%, rgba(97,175,239,0.13) 0%, transparent 48%),
+    radial-gradient(ellipse at 88% 12%, rgba(198,120,221,0.11) 0%, transparent 42%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-dracula"] {
+  --color-background: #282a36;
+  --color-foreground: #f8f8f2;
+  --color-card: rgba(40, 42, 54, 0.85);
+  --color-card-foreground: #f8f8f2;
+  --color-popover: rgba(33, 34, 44, 0.93);
+  --color-popover-foreground: #f8f8f2;
+  --color-primary: #bd93f9;
+  --color-primary-foreground: #282a36;
+  --color-secondary: rgba(189, 147, 249, 0.13);
+  --color-secondary-foreground: #bd93f9;
+  --color-muted: rgba(33, 34, 44, 0.65);
+  --color-muted-foreground: #6272a4;
+  --color-accent: rgba(189, 147, 249, 0.16);
+  --color-accent-foreground: #bd93f9;
+  --color-destructive: #ff5555;
+  --color-destructive-foreground: #f8f8f2;
+  --color-border: rgba(98, 114, 164, 0.24);
+  --color-input: rgba(98, 114, 164, 0.24);
+  --color-ring: #bd93f9;
+}
+[data-theme="wave-dracula"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(189,147,249,0.026) 0px, rgba(189,147,249,0.026) 1px, transparent 1px, transparent 26px),
+    radial-gradient(ellipse at 10% 90%, rgba(189,147,249,0.16) 0%, transparent 46%),
+    radial-gradient(ellipse at 85% 10%, rgba(255,121,198,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 60% 55%, rgba(80,250,123,0.06) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-monokai"] {
+  --color-background: #272822;
+  --color-foreground: #f8f8f2;
+  --color-card: rgba(39, 40, 34, 0.85);
+  --color-card-foreground: #f8f8f2;
+  --color-popover: rgba(30, 31, 28, 0.93);
+  --color-popover-foreground: #f8f8f2;
+  --color-primary: #a6e22e;
+  --color-primary-foreground: #272822;
+  --color-secondary: rgba(166, 226, 46, 0.12);
+  --color-secondary-foreground: #a6e22e;
+  --color-muted: rgba(27, 29, 30, 0.65);
+  --color-muted-foreground: #75715e;
+  --color-accent: rgba(166, 226, 46, 0.14);
+  --color-accent-foreground: #a6e22e;
+  --color-destructive: #f92672;
+  --color-destructive-foreground: #f8f8f2;
+  --color-border: rgba(117, 113, 94, 0.28);
+  --color-input: rgba(117, 113, 94, 0.28);
+  --color-ring: #a6e22e;
+}
+[data-theme="wave-monokai"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(166,226,46,0.026) 0px, rgba(166,226,46,0.026) 1px, transparent 1px, transparent 28px),
+    radial-gradient(ellipse at 12% 88%, rgba(166,226,46,0.13) 0%, transparent 46%),
+    radial-gradient(ellipse at 82% 14%, rgba(249,38,114,0.11) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(102,217,239,0.06) 0%, transparent 34%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-campbell"] {
+  --color-background: #0c0c0c;
+  --color-foreground: #cccccc;
+  --color-card: rgba(18, 18, 18, 0.88);
+  --color-card-foreground: #cccccc;
+  --color-popover: rgba(12, 12, 12, 0.95);
+  --color-popover-foreground: #cccccc;
+  --color-primary: #3b78ff;
+  --color-primary-foreground: #f2f2f2;
+  --color-secondary: rgba(59, 120, 255, 0.12);
+  --color-secondary-foreground: #3b78ff;
+  --color-muted: rgba(26, 26, 26, 0.70);
+  --color-muted-foreground: #767676;
+  --color-accent: rgba(59, 120, 255, 0.15);
+  --color-accent-foreground: #3b78ff;
+  --color-destructive: #e74856;
+  --color-destructive-foreground: #f2f2f2;
+  --color-border: rgba(118, 118, 118, 0.20);
+  --color-input: rgba(118, 118, 118, 0.20);
+  --color-ring: #3b78ff;
+}
+[data-theme="wave-campbell"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(59,120,255,0.024) 0px, rgba(59,120,255,0.024) 1px, transparent 1px, transparent 28px),
+    radial-gradient(ellipse at 14% 86%, rgba(59,120,255,0.16) 0%, transparent 48%),
+    radial-gradient(ellipse at 82% 14%, rgba(97,214,214,0.10) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-warmyellow"] {
+  --color-background: #2b2620;
+  --color-foreground: #f2e6d4;
+  --color-card: rgba(43, 38, 32, 0.87);
+  --color-card-foreground: #f2e6d4;
+  --color-popover: rgba(35, 31, 25, 0.94);
+  --color-popover-foreground: #f2e6d4;
+  --color-primary: #f9d784;
+  --color-primary-foreground: #2b2620;
+  --color-secondary: rgba(249, 215, 132, 0.13);
+  --color-secondary-foreground: #f9d784;
+  --color-muted: rgba(60, 50, 40, 0.65);
+  --color-muted-foreground: #7e705a;
+  --color-accent: rgba(249, 215, 132, 0.16);
+  --color-accent-foreground: #f9d784;
+  --color-destructive: #e67e22;
+  --color-destructive-foreground: #f2e6d4;
+  --color-border: rgba(126, 112, 90, 0.26);
+  --color-input: rgba(126, 112, 90, 0.26);
+  --color-ring: #f9d784;
+}
+[data-theme="wave-warmyellow"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(249,215,132,0.028) 0px, rgba(249,215,132,0.028) 1px, transparent 1px, transparent 28px),
+    radial-gradient(ellipse at 10% 90%, rgba(249,215,132,0.16) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 12%, rgba(230,126,34,0.12) 0%, transparent 42%),
+    radial-gradient(ellipse at 50% 50%, rgba(249,215,132,0.06) 0%, transparent 30%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-rosepine"] {
+  --color-background: #191724;
+  --color-foreground: #e0def4;
+  --color-card: rgba(31, 29, 46, 0.85);
+  --color-card-foreground: #e0def4;
+  --color-popover: rgba(22, 21, 35, 0.94);
+  --color-popover-foreground: #e0def4;
+  --color-primary: #c4a7e7;
+  --color-primary-foreground: #191724;
+  --color-secondary: rgba(196, 167, 231, 0.12);
+  --color-secondary-foreground: #c4a7e7;
+  --color-muted: rgba(38, 35, 58, 0.70);
+  --color-muted-foreground: #908caa;
+  --color-accent: rgba(196, 167, 231, 0.15);
+  --color-accent-foreground: #c4a7e7;
+  --color-destructive: #eb6f92;
+  --color-destructive-foreground: #e0def4;
+  --color-border: rgba(144, 140, 170, 0.20);
+  --color-input: rgba(144, 140, 170, 0.20);
+  --color-ring: #c4a7e7;
+}
+[data-theme="wave-rosepine"] body {
+  background-image:
+    repeating-linear-gradient(-45deg, rgba(196,167,231,0.024) 0px, rgba(196,167,231,0.024) 1px, transparent 1px, transparent 28px),
+    radial-gradient(ellipse at 10% 90%, rgba(196,167,231,0.15) 0%, transparent 46%),
+    radial-gradient(ellipse at 85% 10%, rgba(235,188,186,0.11) 0%, transparent 42%),
+    radial-gradient(ellipse at 55% 60%, rgba(156,207,216,0.07) 0%, transparent 32%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-onedark"] .bg-card,   [data-theme="wave-onedark"] .bg-popover,
+[data-theme="wave-dracula"] .bg-card,   [data-theme="wave-dracula"] .bg-popover,
+[data-theme="wave-monokai"] .bg-card,   [data-theme="wave-monokai"] .bg-popover,
+[data-theme="wave-campbell"] .bg-card,  [data-theme="wave-campbell"] .bg-popover,
+[data-theme="wave-warmyellow"] .bg-card,[data-theme="wave-warmyellow"] .bg-popover,
+[data-theme="wave-rosepine"] .bg-card,  [data-theme="wave-rosepine"] .bg-popover {
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* WAVE BACKGROUND THEMES                                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme^="wave-bg"] {
+  --color-background: #0d0d16;
+  --color-foreground: #e4e4f0;
+  --color-card: rgba(18, 18, 28, 0.80);
+  --color-card-foreground: #e4e4f0;
+  --color-popover: rgba(13, 13, 22, 0.92);
+  --color-popover-foreground: #e4e4f0;
+  --color-primary: #a0a0f8;
+  --color-primary-foreground: #0d0d16;
+  --color-secondary: rgba(160, 160, 248, 0.12);
+  --color-secondary-foreground: #a0a0f8;
+  --color-muted: rgba(30, 30, 50, 0.65);
+  --color-muted-foreground: #8888aa;
+  --color-accent: rgba(160, 160, 248, 0.15);
+  --color-accent-foreground: #a0a0f8;
+  --color-destructive: #ff5566;
+  --color-destructive-foreground: #ffffff;
+  --color-border: rgba(160, 160, 248, 0.16);
+  --color-input: rgba(160, 160, 248, 0.16);
+  --color-ring: #a0a0f8;
+}
+
+[data-theme="wave-bg-rainbow"] body {
+  background-image: linear-gradient(226.4deg, rgba(255,26,1,1) 28.9%, rgba(254,155,1,1) 33%, rgba(255,241,0,1) 48.6%, rgba(34,218,1,1) 65.3%, rgba(0,141,254,1) 80.6%, rgba(113,63,254,1) 100.1%);
+  background-attachment: fixed;
+}
+[data-theme="wave-bg-rainbow"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: -1;
+}
+
+[data-theme="wave-bg-ocean"] body {
+  background-image: linear-gradient(135deg, purple, blue, teal);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-aqua"] body {
+  background-image:
+    linear-gradient(135deg, rgba(15,30,50,1) 0%, rgba(40,90,130,0.85) 30%, rgba(20,100,150,0.75) 60%, rgba(0,120,160,0.65) 80%, rgba(0,140,180,0.55) 100%),
+    linear-gradient(135deg, rgba(100,80,255,0.4), rgba(0,180,220,0.4)),
+    radial-gradient(circle at 70% 70%, rgba(255,255,255,0.05), transparent 70%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-sunset"] body {
+  background-image: linear-gradient(135deg, rgba(128,0,0,1), rgba(255,69,0,0.8), rgba(75,0,130,1));
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-enchanted"] body {
+  background-image:
+    linear-gradient(145deg, rgba(0,50,0,1), rgba(34,139,34,0.7) 20%, rgba(0,100,0,0.5) 40%, rgba(0,200,100,0.3) 60%, rgba(34,139,34,0.8) 80%, rgba(0,50,0,1)),
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent 80%),
+    radial-gradient(circle at 70% 70%, rgba(255,255,255,0.1), transparent 80%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-twilight"] body {
+  background-image:
+    linear-gradient(180deg, rgba(60,60,90,1) 0%, rgba(90,110,140,0.8) 40%, rgba(120,140,160,0.6) 70%, rgba(60,60,90,1) 100%),
+    radial-gradient(circle at 30% 40%, rgba(255,255,255,0.15), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(255,255,255,0.1), transparent 70%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-dusk"] body {
+  background-image:
+    linear-gradient(0deg, rgba(128,0,0,1) 0%, rgba(204,85,0,0.7) 20%, rgba(255,140,0,0.6) 45%, rgba(160,90,160,0.5) 65%, rgba(60,60,120,1) 100%),
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(255,255,255,0.05), transparent 70%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-tropical"] body {
+  background-image:
+    linear-gradient(135deg, rgba(204,51,255,0.9) 0%, rgba(255,85,153,0.75) 30%, rgba(255,51,153,0.65) 60%, rgba(204,51,255,0.6) 80%, rgba(51,102,255,0.5) 100%),
+    radial-gradient(circle at 30% 40%, rgba(255,255,255,0.1), transparent 60%),
+    radial-gradient(circle at 70% 70%, rgba(255,255,255,0.05), transparent 70%);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-ember"] body {
+  background-image:
+    linear-gradient(120deg, hsla(350,65%,57%,1), hsla(30,60%,60%,0.75), hsla(208,69%,50%,0.15), hsl(230,60%,40%)),
+    radial-gradient(at top right, hsla(300,60%,70%,0.3), transparent),
+    radial-gradient(at top left, hsla(330,100%,70%,0.2), transparent),
+    radial-gradient(at bottom left, hsla(323,54%,50%,0.5), transparent),
+    radial-gradient(at bottom left, hsla(144,54%,50%,0.25), transparent);
+  background-attachment: fixed;
+}
+
+[data-theme="wave-bg-cosmic"] body {
+  background-image: linear-gradient(135deg, #00d9d9, #ff55aa, #1e1e2f, #2f3b57, #ff99ff);
+  background-attachment: fixed;
+}
+
+[data-theme^="wave-bg"] .bg-card,
+[data-theme^="wave-bg"] .bg-popover {
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
 }

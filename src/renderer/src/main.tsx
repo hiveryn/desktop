@@ -1,8 +1,10 @@
 import './index.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Provider } from 'jotai';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { applyTheme, readStoredTheme } from '@/lib/themes';
 import { App } from './App';
 
 const queryClient = new QueryClient({
@@ -15,28 +17,25 @@ const queryClient = new QueryClient({
 });
 
 async function initTheme(): Promise<void> {
-  const theme = await window.hiveryn.preferences.getTheme();
-
-  function applyTheme(isDark: boolean): void {
-    document.documentElement.classList.toggle('dark', isDark);
+  const stored = readStoredTheme();
+  if (stored) {
+    applyTheme(stored);
+    return;
   }
-
-  if (theme === 'system') {
-    applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
-  } else {
-    applyTheme(theme === 'dark');
-  }
-
-  window.hiveryn.preferences.onThemeChange((value: 'dark' | 'light') => {
-    applyTheme(value === 'dark');
+  const pref = await window.hiveryn.preferences.getTheme();
+  applyTheme(pref === 'light' ? 'light' : 'dark');
+  window.hiveryn.preferences.onThemeChange((value) => {
+    if (!readStoredTheme()) applyTheme(value === 'light' ? 'light' : 'dark');
   });
 }
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <Provider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </Provider>
   </StrictMode>,
 );
 

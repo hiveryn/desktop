@@ -68,6 +68,33 @@ interface AgentProfileInput {
   env: Record<string, string>;
 }
 
+// ── Sessions & tickets ─────────────────────────────────────────────────────
+
+type SessionKind = 'architect' | 'ticket';
+type SessionStatus = 'running' | 'idle' | 'error';
+
+interface Session {
+  id: string;
+  kind: SessionKind;
+  label: string;
+  agentKind: AgentKind;
+  status: SessionStatus;
+  workdir: string;
+}
+
+interface KanbanTicket {
+  id: string;
+  title: string;
+  tag: string;
+  col: 'backlog' | 'in-progress' | 'done';
+  agent?: string;
+}
+
+interface ArchitectInfo {
+  name: string;
+  path: string;
+}
+
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
@@ -87,6 +114,17 @@ interface HiverynAPI {
     create: (input: AgentProfileInput) => Promise<AgentProfile>;
     update: (id: string, input: AgentProfileInput) => Promise<AgentProfile>;
     delete: (id: string) => Promise<void>;
+  };
+  architect: {
+    getInfo: () => Promise<ArchitectInfo>;
+    openLauncher: () => Promise<void>;
+  };
+  sessions: {
+    list: () => Promise<Session[]>;
+    create: (profileId: string, workdir: string) => Promise<Session>;
+  };
+  tickets: {
+    list: () => Promise<KanbanTicket[]>;
   };
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;
