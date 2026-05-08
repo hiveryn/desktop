@@ -15,18 +15,13 @@ export function registerSessionsIpc(): void {
     if (result.httpStatus === 0 || result.httpStatus === 404) {
       return empty<Session[]>([]);
     }
-    const sessions =
-      (result.envelope.data as { sessions: Session[] } | null)?.sessions ?? [];
+    const sessions = (result.envelope.data as { sessions: Session[] } | null)?.sessions ?? [];
     return { httpStatus: result.httpStatus, envelope: { ...result.envelope, data: sessions } };
   });
 
   ipcMain.handle(
     'sessions:create',
-    async (
-      _event,
-      profileId: string,
-      workdir: string,
-    ): Promise<DaemonResult<Session>> => {
+    async (_event, profileId: string, workdir: string): Promise<DaemonResult<Session>> => {
       return daemonFetch<Session>('/api/sessions', {
         method: 'POST',
         body: JSON.stringify({ profile_id: profileId, workdir }),

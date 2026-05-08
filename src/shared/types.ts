@@ -81,9 +81,40 @@ export interface KanbanTicket {
   agent?: string;
 }
 
+export interface ArchitectGroupRef {
+  id: string;
+  name: string;
+}
+
+export interface ArchitectRepo {
+  id: string;
+  key: string;
+  path: string | null;
+  architect_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Architect {
+  id: string;
+  path: string;
+  title: string;
+  group?: ArchitectGroupRef;
+  exists: boolean;
+  repo_count?: number;
+  repos?: ArchitectRepo[];
+  last_opened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ArchitectInfo {
   name: string;
   path: string;
+}
+
+export interface SystemHome {
+  home: string;
 }
 
 // ── Request log ────────────────────────────────────────────────────────────

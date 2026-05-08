@@ -1,0 +1,42 @@
+.window {
+  min-height: 100vh;
+  background: var(--theme-background);
+  color: var(--theme-text);
+  padding-bottom: 3.25rem;
+}
+
+.navTitle {
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+}
+
+.content {
+  padding: 2rem 2rem 1.5rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.centerState {
+  min-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.dialogBody {
+  display: grid;
+  gap: 1rem;
+  min-width: min(28rem, calc(100vw - 6rem));
+}
+
+.error {
+  color: var(--ansi-9-red);
+}

@@ -1,15 +1,23 @@
-import { BottomBar, Button, ThemeSwitcher } from '@hiveryn/components';
-import styles from './App.module.css';
+import { useEffect, useState } from 'react';
+import ArchitectWindow from './pages/architect-window';
+import Launcher from './pages/launcher';
+
+function readRoute(): string {
+  return window.location.hash || '#/launcher';
+}
 
 export default function App() {
-  return (
-    <div className={styles.root}>
-      <h1 className={styles.title}>Hi</h1>
-      <div className={styles.buttonWrap}>
-        <Button>Click me</Button>
-      </div>
+  const [route, setRoute] = useState(readRoute);
 
-      <BottomBar right={<ThemeSwitcher />} />
-    </div>
-  );
+  useEffect(() => {
+    const handleHashChange = () => setRoute(readRoute());
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  if (route.startsWith('#/architect/')) {
+    return <ArchitectWindow />;
+  }
+
+  return <Launcher />;
 }

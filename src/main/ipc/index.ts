@@ -1,13 +1,23 @@
 import { registerArchitectIpc } from './architect';
+import { registerArchitectsIpc } from './architects';
+import { registerLauncherIpc } from './launcher';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
 import { registerSessionsIpc } from './sessions';
+import { registerSystemIpc } from './system';
 import { registerTicketsIpc } from './tickets';
 
-export function registerIpc(): void {
+interface RegisterIpcOptions {
+  openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
+}
+
+export function registerIpc(options: RegisterIpcOptions): void {
   registerPreferencesIpc();
   registerProfilesIpc();
   registerArchitectIpc();
+  registerArchitectsIpc();
+  registerLauncherIpc(options);
   registerSessionsIpc();
   registerTicketsIpc();
+  registerSystemIpc();
 }

@@ -1,0 +1,37 @@
+import { ipcMain } from 'electron';
+import type { Architect, DaemonResult } from '../../shared/types';
+import { daemonFetch } from '../daemon/client';
+
+interface ArchitectListPayload {
+  architects: Architect[];
+}
+
+function mapData<TInput, TOutput>(
+  result: DaemonResult<TInput>,
+  map: (data: TInput | null) => TOutput | null,
+): DaemonResult<TOutput> {
+  return {
+    httpStatus: result.httpStatus,
+    envelope: {
+      ...result.envelope,
+      data: result.envelope.error ? null : map(result.envelope.data),
+    },
+  };
+}
+
+export function registerArchitectsIpc(): void {
+  ipcMain.handle('architects:list', async (): Promise<DaemonResult<Architect[]>> => {
+    const result = await daemonFetch<ArchitectListPayload>('/api/architects');
+    return mapData(result, (data) => data?.architects ?? []);
+  });
+
+  ipcMain.handle('architects:get', async (_event, id: string): Promise<DaemonResult<Architect>> => {
+    return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(id)}`);
+  });
+
+  ipcMain.handle('architects:delete', async (_event, id: string): Promise<DaemonResult<null>> => {
+    return daemonFetch<null>(`/api/architects/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  });
+}

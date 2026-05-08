@@ -11,8 +11,7 @@ export function registerTicketsIpc(): void {
         envelope: { data: [], error: null, logs: [], commands: [], meta: { request_id: '' } },
       };
     }
-    const tickets =
-      (result.envelope.data as { tickets: KanbanTicket[] } | null)?.tickets ?? [];
+    const tickets = (result.envelope.data as { tickets: KanbanTicket[] } | null)?.tickets ?? [];
     return { httpStatus: result.httpStatus, envelope: { ...result.envelope, data: tickets } };
   });
 }

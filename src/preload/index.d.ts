@@ -95,6 +95,37 @@ interface ArchitectInfo {
   path: string;
 }
 
+interface SystemHome {
+  home: string;
+}
+
+interface ArchitectGroupRef {
+  id: string;
+  name: string;
+}
+
+interface ArchitectRepo {
+  id: string;
+  key: string;
+  path: string | null;
+  architect_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Architect {
+  id: string;
+  path: string;
+  title: string;
+  group?: ArchitectGroupRef;
+  exists: boolean;
+  repo_count?: number;
+  repos?: ArchitectRepo[];
+  last_opened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
@@ -119,12 +150,24 @@ interface HiverynAPI {
     getInfo: () => Promise<ArchitectInfo>;
     openLauncher: () => Promise<void>;
   };
+  architects: {
+    list: () => Promise<Architect[]>;
+    get: (id: string) => Promise<Architect>;
+    delete: (id: string) => Promise<void>;
+  };
+  launcher: {
+    openArchitect: (id: string) => Promise<void>;
+    registerArchitect: (path: string, title: string) => Promise<{ id: string }>;
+  };
   sessions: {
     list: () => Promise<Session[]>;
     create: (profileId: string, workdir: string) => Promise<Session>;
   };
   tickets: {
     list: () => Promise<KanbanTicket[]>;
+  };
+  system: {
+    getHome: () => Promise<SystemHome>;
   };
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;

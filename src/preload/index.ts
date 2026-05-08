@@ -2,11 +2,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AgentProfile,
   AgentProfileInput,
+  Architect,
   ArchitectInfo,
   DaemonResult,
   KanbanTicket,
   RequestLogEntry,
   Session,
+  SystemHome,
 } from '../shared/types';
 
 // ── Request log listeners ──────────────────────────────────────────────────
@@ -15,15 +17,21 @@ const requestListeners = new Set<RequestCallback>();
 
 // ── Channel → HTTP method/path map for the log display ────────────────────
 const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
-  'profiles:list':         { method: 'GET',    path: '/api/agent-profiles'     },
-  'profiles:create':       { method: 'POST',   path: '/api/agent-profiles'     },
-  'profiles:update':       { method: 'PUT',    path: '/api/agent-profiles/:id' },
-  'profiles:delete':       { method: 'DELETE', path: '/api/agent-profiles/:id' },
-  'sessions:list':         { method: 'GET',    path: '/api/sessions'           },
-  'sessions:create':       { method: 'POST',   path: '/api/sessions'           },
-  'tickets:list':          { method: 'GET',    path: '/api/tickets'            },
-  'architect:getInfo':     { method: 'GET',    path: '/architect/info'         },
-  'architect:openLauncher':{ method: 'POST',   path: '/architect/launcher'     },
+  'profiles:list': { method: 'GET', path: '/api/agent-profiles' },
+  'profiles:create': { method: 'POST', path: '/api/agent-profiles' },
+  'profiles:update': { method: 'PUT', path: '/api/agent-profiles/:id' },
+  'profiles:delete': { method: 'DELETE', path: '/api/agent-profiles/:id' },
+  'sessions:list': { method: 'GET', path: '/api/sessions' },
+  'sessions:create': { method: 'POST', path: '/api/sessions' },
+  'system:getHome': { method: 'GET', path: '/api/system/home' },
+  'tickets:list': { method: 'GET', path: '/api/tickets' },
+  'architect:getInfo': { method: 'GET', path: '/architect/info' },
+  'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
+  'architects:list': { method: 'GET', path: '/api/architects' },
+  'architects:get': { method: 'GET', path: '/api/architects/:id' },
+  'architects:delete': { method: 'DELETE', path: '/api/architects/:id' },
+  'launcher:open-architect': { method: 'GET', path: '/api/architects/:id' },
+  'launcher:register-architect': { method: 'POST', path: '/api/architects' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -94,6 +102,16 @@ contextBridge.exposeInMainWorld('hiveryn', {
     getInfo: (): Promise<ArchitectInfo> => invoke('architect:getInfo'),
     openLauncher: (): Promise<void> => invoke('architect:openLauncher'),
   },
+  architects: {
+    list: (): Promise<Architect[]> => invoke('architects:list'),
+    get: (id: string): Promise<Architect> => invoke('architects:get', id),
+    delete: (id: string): Promise<void> => invoke('architects:delete', id),
+  },
+  launcher: {
+    openArchitect: (id: string): Promise<void> => invoke('launcher:open-architect', id),
+    registerArchitect: (path: string, title: string): Promise<{ id: string }> =>
+      invoke('launcher:register-architect', path, title),
+  },
   sessions: {
     list: (): Promise<Session[]> => invoke('sessions:list'),
     create: (profileId: string, workdir: string): Promise<Session> =>
@@ -101,6 +119,9 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   tickets: {
     list: (): Promise<KanbanTicket[]> => invoke('tickets:list'),
+  },
+  system: {
+    getHome: (): Promise<SystemHome> => invoke('system:getHome'),
   },
   daemon: {
     onRequest: (callback: RequestCallback): (() => void) => {
