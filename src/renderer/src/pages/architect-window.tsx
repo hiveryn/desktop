@@ -1,8 +1,17 @@
-import { BottomBar, Caption, Navigation, Text, ThemeSwitcher } from '@hiveryn/components';
+import {
+  BottomBar,
+  Caption,
+  Glyph,
+  IconButton,
+  Navigation,
+  Plus,
+  Text,
+  ThemeSwitcher,
+} from '@hiveryn/components';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './architect-window.module.css';
 
-function readArchitectId(): string {
+function readArchitectKey(): string {
   const prefix = '#/architect/';
   const hash = window.location.hash;
   if (!hash.startsWith(prefix)) {
@@ -18,46 +27,70 @@ function errorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
+function shortenPath(path: string, home: string | null): string {
+  if (home && path === home) return '~';
+  if (home && path.startsWith(`${home}/`)) return `~/${path.slice(home.length + 1)}`;
+  return path;
+}
+
 export default function ArchitectWindow() {
-  const architectId = useMemo(readArchitectId, []);
+  const architectKey = useMemo(readArchitectKey, []);
   const [architect, setArchitect] = useState<Architect | null>(null);
+  const [home, setHome] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadArchitect() {
-      if (!architectId) {
-        setError('Missing architect id');
+    async function loadData() {
+      if (!architectKey) {
+        setError('Missing architect key');
         return;
       }
 
-      try {
-        const nextArchitect = await window.hiveryn.architects.get(architectId);
-        if (!cancelled) {
-          setArchitect(nextArchitect);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(errorMessage(err));
-        }
+      const [architectResult, homeResult] = await Promise.allSettled([
+        window.hiveryn.architects.get(architectKey),
+        window.hiveryn.system.getHome(),
+      ]);
+
+      if (cancelled) return;
+
+      if (architectResult.status === 'fulfilled') {
+        setArchitect(architectResult.value);
+      } else {
+        setError(errorMessage(architectResult.reason));
+      }
+
+      if (homeResult.status === 'fulfilled') {
+        setHome(homeResult.value.home);
       }
     }
 
-    loadArchitect();
+    loadData();
     return () => {
       cancelled = true;
     };
-  }, [architectId]);
+  }, [architectKey]);
 
   return (
     <div className={styles.window}>
-      <Navigation>
+      <Navigation
+        right={
+          <IconButton
+            onClick={() => window.hiveryn.architect.openLauncher()}
+            aria-label="Open launcher"
+          >
+            <Glyph>
+              <Plus />
+            </Glyph>
+          </IconButton>
+        }
+      >
         <div className={styles.navTitle}>
           <Text as="span" className={styles.architectTitle}>
-            {architect?.title.toUpperCase() ?? 'ARCHITECT'}
+            {architect?.key.toUpperCase() ?? 'ARCHITECT'}
           </Text>
-          <Caption>{architect?.path ?? ''}</Caption>
+          <Caption>{architect ? shortenPath(architect.path, home) : ''}</Caption>
         </div>
       </Navigation>
 

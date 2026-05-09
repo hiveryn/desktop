@@ -5,6 +5,7 @@ import { registerIpc } from './ipc';
 
 const rendererEntry = join(__dirname, '../renderer/index.html');
 let launcherWindow: BrowserWindow | null = null;
+const architectWindows = new Map<string, BrowserWindow>();
 
 function configureWindow(window: BrowserWindow): void {
   window.on('ready-to-show', () => {
@@ -55,7 +56,13 @@ function createLauncherWindow(): BrowserWindow {
   return launcherWindow;
 }
 
-function createArchitectWindow(architectId: string): BrowserWindow {
+function createArchitectWindow(architectKey: string): BrowserWindow {
+  const existing = architectWindows.get(architectKey);
+  if (existing && !existing.isDestroyed()) {
+    existing.focus();
+    return existing;
+  }
+
   const architectWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -73,12 +80,20 @@ function createArchitectWindow(architectId: string): BrowserWindow {
     },
   });
 
+  architectWindows.set(architectKey, architectWindow);
+  architectWindow.on('closed', () => {
+    architectWindows.delete(architectKey);
+  });
+
   configureWindow(architectWindow);
-  loadRoute(architectWindow, `/architect/${encodeURIComponent(architectId)}`);
+  loadRoute(architectWindow, `/architect/${encodeURIComponent(architectKey)}`);
   return architectWindow;
 }
 
-registerIpc({ openArchitectWindow: createArchitectWindow });
+registerIpc({
+  openArchitectWindow: createArchitectWindow,
+  openLauncherWindow: createLauncherWindow,
+});
 
 nativeTheme.on('updated', () => {
   const isDark = nativeTheme.shouldUseDarkColors;

@@ -25,13 +25,10 @@ export function registerArchitectsIpc(): void {
     return mapData(result, (data) => data?.architects ?? []);
   });
 
-  ipcMain.handle('architects:get', async (_event, id: string): Promise<DaemonResult<Architect>> => {
-    return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(id)}`);
-  });
-
-  ipcMain.handle('architects:delete', async (_event, id: string): Promise<DaemonResult<null>> => {
-    return daemonFetch<null>(`/api/architects/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
-  });
+  ipcMain.handle(
+    'architects:get',
+    async (_event, key: string): Promise<DaemonResult<Architect>> => {
+      return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(key)}`);
+    },
+  );
 }

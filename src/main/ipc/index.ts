@@ -9,12 +9,13 @@ import { registerTicketsIpc } from './tickets';
 
 interface RegisterIpcOptions {
   openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
+  openLauncherWindow: () => void;
 }
 
 export function registerIpc(options: RegisterIpcOptions): void {
   registerPreferencesIpc();
   registerProfilesIpc();
-  registerArchitectIpc();
+  registerArchitectIpc({ openLauncherWindow: options.openLauncherWindow });
   registerArchitectsIpc();
   registerLauncherIpc(options);
   registerSessionsIpc();

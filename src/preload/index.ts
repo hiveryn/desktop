@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AgentProfile,
-  AgentProfileInput,
   Architect,
   ArchitectInfo,
   DaemonResult,
@@ -18,9 +17,6 @@ const requestListeners = new Set<RequestCallback>();
 // ── Channel → HTTP method/path map for the log display ────────────────────
 const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'profiles:list': { method: 'GET', path: '/api/agent-profiles' },
-  'profiles:create': { method: 'POST', path: '/api/agent-profiles' },
-  'profiles:update': { method: 'PUT', path: '/api/agent-profiles/:id' },
-  'profiles:delete': { method: 'DELETE', path: '/api/agent-profiles/:id' },
   'sessions:list': { method: 'GET', path: '/api/sessions' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'system:getHome': { method: 'GET', path: '/api/system/home' },
@@ -28,10 +24,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:getInfo': { method: 'GET', path: '/architect/info' },
   'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
-  'architects:get': { method: 'GET', path: '/api/architects/:id' },
-  'architects:delete': { method: 'DELETE', path: '/api/architects/:id' },
-  'launcher:open-architect': { method: 'GET', path: '/api/architects/:id' },
-  'launcher:register-architect': { method: 'POST', path: '/api/architects' },
+  'architects:get': { method: 'GET', path: '/api/architects/:key' },
+  'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -93,10 +87,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   profiles: {
     list: (): Promise<AgentProfile[]> => invoke('profiles:list'),
-    create: (input: AgentProfileInput): Promise<AgentProfile> => invoke('profiles:create', input),
-    update: (id: string, input: AgentProfileInput): Promise<AgentProfile> =>
-      invoke('profiles:update', id, input),
-    delete: (id: string): Promise<void> => invoke('profiles:delete', id),
   },
   architect: {
     getInfo: (): Promise<ArchitectInfo> => invoke('architect:getInfo'),
@@ -104,13 +94,10 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
-    get: (id: string): Promise<Architect> => invoke('architects:get', id),
-    delete: (id: string): Promise<void> => invoke('architects:delete', id),
+    get: (key: string): Promise<Architect> => invoke('architects:get', key),
   },
   launcher: {
-    openArchitect: (id: string): Promise<void> => invoke('launcher:open-architect', id),
-    registerArchitect: (path: string, title: string): Promise<{ id: string }> =>
-      invoke('launcher:register-architect', path, title),
+    openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
   },
   sessions: {
     list: (): Promise<Session[]> => invoke('sessions:list'),

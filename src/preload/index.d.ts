@@ -52,18 +52,8 @@ interface IpcError extends Error {
 type AgentKind = 'claude' | 'codex' | 'opencode';
 
 interface AgentProfile {
-  id: string;
   name: string;
-  agent_kind: AgentKind;
-  args: string[];
-  env: Record<string, string>;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AgentProfileInput {
-  name: string;
-  agent_kind: AgentKind;
+  agent: string;
   args: string[];
   env: Record<string, string>;
 }
@@ -90,6 +80,8 @@ interface KanbanTicket {
   agent?: string;
 }
 
+// ── Architects ─────────────────────────────────────────────────────────────
+
 interface ArchitectInfo {
   name: string;
   path: string;
@@ -99,31 +91,16 @@ interface SystemHome {
   home: string;
 }
 
-interface ArchitectGroupRef {
-  id: string;
-  name: string;
-}
-
 interface ArchitectRepo {
-  id: string;
   key: string;
-  path: string | null;
-  architect_id?: string;
-  created_at: string;
-  updated_at: string;
+  path: string;
 }
 
 interface Architect {
-  id: string;
+  key: string;
   path: string;
-  title: string;
-  group?: ArchitectGroupRef;
-  exists: boolean;
-  repo_count?: number;
+  group: string;
   repos?: ArchitectRepo[];
-  last_opened_at: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 // ── Window API ─────────────────────────────────────────────────────────────
@@ -142,9 +119,6 @@ interface HiverynAPI {
   };
   profiles: {
     list: () => Promise<AgentProfile[]>;
-    create: (input: AgentProfileInput) => Promise<AgentProfile>;
-    update: (id: string, input: AgentProfileInput) => Promise<AgentProfile>;
-    delete: (id: string) => Promise<void>;
   };
   architect: {
     getInfo: () => Promise<ArchitectInfo>;
@@ -152,12 +126,10 @@ interface HiverynAPI {
   };
   architects: {
     list: () => Promise<Architect[]>;
-    get: (id: string) => Promise<Architect>;
-    delete: (id: string) => Promise<void>;
+    get: (key: string) => Promise<Architect>;
   };
   launcher: {
-    openArchitect: (id: string) => Promise<void>;
-    registerArchitect: (path: string, title: string) => Promise<{ id: string }>;
+    openArchitect: (key: string) => Promise<void>;
   };
   sessions: {
     list: () => Promise<Session[]>;
