@@ -1,6 +1,6 @@
 import type { DaemonResult, Envelope } from '../../shared/types';
 
-const DAEMON_URL = process.env.HIVERYN_DAEMON_URL ?? 'http://127.0.0.1:4200';
+export const DAEMON_URL = process.env.HIVERYN_DAEMON_URL ?? 'http://127.0.0.1:4200';
 
 function networkErrorEnvelope(message: string): Envelope {
   return {

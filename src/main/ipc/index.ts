@@ -3,6 +3,7 @@ import { registerArchitectsIpc } from './architects';
 import { registerLauncherIpc } from './launcher';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
+import { registerSessionIpc } from './session';
 import { registerSessionsIpc } from './sessions';
 import { registerSystemIpc } from './system';
 import { registerTicketsIpc } from './tickets';
@@ -19,6 +20,7 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerArchitectsIpc();
   registerLauncherIpc(options);
   registerSessionsIpc();
+  registerSessionIpc();
   registerTicketsIpc();
   registerSystemIpc();
 }

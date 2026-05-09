@@ -80,6 +80,13 @@ interface KanbanTicket {
   agent?: string;
 }
 
+// ── Spawn ──────────────────────────────────────────────────────────────────
+
+interface SpawnResult {
+  session_id: string;
+  ws_url: string;
+}
+
 // ── Architects ─────────────────────────────────────────────────────────────
 
 interface ArchitectInfo {
@@ -127,6 +134,14 @@ interface HiverynAPI {
   architects: {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
+    spawn: (key: string, profileName: string) => Promise<SpawnResult>;
+  };
+  session: {
+    connect: (sessionId: string, wsUrl: string) => Promise<void>;
+    disconnect: () => Promise<void>;
+    send: (data: string) => void;
+    resize: (cols: number, rows: number) => void;
+    onData: (callback: (data: string) => void) => () => void;
   };
   launcher: {
     openArchitect: (key: string) => Promise<void>;

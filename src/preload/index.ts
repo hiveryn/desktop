@@ -7,6 +7,7 @@ import type {
   KanbanTicket,
   RequestLogEntry,
   Session,
+  SpawnResult,
   SystemHome,
 } from '../shared/types';
 
@@ -25,7 +26,10 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
+  'architects:spawn': { method: 'POST', path: '/api/architects/:key/spawn' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
+  'session:connect': { method: 'WS', path: '/session/connect' },
+  'session:disconnect': { method: 'WS', path: '/session/disconnect' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -95,6 +99,24 @@ contextBridge.exposeInMainWorld('hiveryn', {
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
+    spawn: (key: string, profileName: string): Promise<SpawnResult> =>
+      invoke('architects:spawn', key, profileName),
+  },
+  session: {
+    connect: (sessionId: string, wsUrl: string): Promise<void> =>
+      invoke('session:connect', sessionId, wsUrl),
+    disconnect: (): Promise<void> => invoke('session:disconnect'),
+    send: (data: string): void => {
+      ipcRenderer.send('session:send', data);
+    },
+    resize: (cols: number, rows: number): void => {
+      ipcRenderer.send('session:resize', cols, rows);
+    },
+    onData: (callback: (data: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data);
+      ipcRenderer.on('session:data', listener);
+      return () => ipcRenderer.removeListener('session:data', listener);
+    },
   },
   launcher: {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),

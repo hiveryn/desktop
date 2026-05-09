@@ -88,6 +88,11 @@ export interface ArchitectInfo {
   path: string;
 }
 
+export interface SpawnResult {
+  session_id: string;
+  ws_url: string;
+}
+
 export interface SystemHome {
   home: string;
 }

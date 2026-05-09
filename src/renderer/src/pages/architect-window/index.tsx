@@ -9,22 +9,14 @@ import {
   ThemeSwitcher,
 } from '@hiveryn/components';
 import { useEffect, useMemo, useState } from 'react';
-import styles from './architect-window.module.css';
+import ArchitectTerminal from './ArchitectTerminal';
+import styles from './index.module.css';
 
 function readArchitectKey(): string {
   const prefix = '#/architect/';
   const hash = window.location.hash;
-  if (!hash.startsWith(prefix)) {
-    return '';
-  }
+  if (!hash.startsWith(prefix)) return '';
   return decodeURIComponent(hash.slice(prefix.length));
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'Something went wrong';
 }
 
 function shortenPath(path: string, home: string | null): string {
@@ -37,14 +29,14 @@ export default function ArchitectWindow() {
   const architectKey = useMemo(readArchitectKey, []);
   const [architect, setArchitect] = useState<Architect | null>(null);
   const [home, setHome] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadData() {
+    async function load() {
       if (!architectKey) {
-        setError('Missing architect key');
+        setLoadError('Missing architect key');
         return;
       }
 
@@ -58,7 +50,11 @@ export default function ArchitectWindow() {
       if (architectResult.status === 'fulfilled') {
         setArchitect(architectResult.value);
       } else {
-        setError(errorMessage(architectResult.reason));
+        setLoadError(
+          architectResult.reason instanceof Error
+            ? architectResult.reason.message
+            : 'Failed to load architect',
+        );
       }
 
       if (homeResult.status === 'fulfilled') {
@@ -66,7 +62,7 @@ export default function ArchitectWindow() {
       }
     }
 
-    loadData();
+    load();
     return () => {
       cancelled = true;
     };
@@ -95,10 +91,15 @@ export default function ArchitectWindow() {
       </Navigation>
 
       <main className={styles.content}>
-        {error ? (
-          <Text className={styles.error}>{error}</Text>
+        {loadError ? (
+          <Text className={styles.error}>{loadError}</Text>
         ) : (
-          <Caption as="p">(empty - terminal + kanban later)</Caption>
+          <div className={styles.splitPane}>
+            <div className={styles.leftPane}>
+              <ArchitectTerminal architectKey={architectKey} />
+            </div>
+            <div className={styles.rightPane} />
+          </div>
         )}
       </main>
 

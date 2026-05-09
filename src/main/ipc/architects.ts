@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import type { Architect, DaemonResult } from '../../shared/types';
+import type { Architect, DaemonResult, SpawnResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 
 interface ArchitectListPayload {
@@ -29,6 +29,16 @@ export function registerArchitectsIpc(): void {
     'architects:get',
     async (_event, key: string): Promise<DaemonResult<Architect>> => {
       return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(key)}`);
+    },
+  );
+
+  ipcMain.handle(
+    'architects:spawn',
+    async (_event, key: string, profileName: string): Promise<DaemonResult<SpawnResult>> => {
+      return daemonFetch<SpawnResult>(`/api/architects/${encodeURIComponent(key)}/spawn`, {
+        method: 'POST',
+        body: JSON.stringify({ profile_name: profileName }),
+      });
     },
   );
 }
