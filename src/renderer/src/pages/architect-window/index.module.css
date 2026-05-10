@@ -56,5 +56,13 @@
 
 .rightPane {
   width: 50%;
+  display: flex;
+  min-width: 0;
   overflow: hidden;
+}
+
+.eventLog {
+  flex: 1;
+  min-height: 0;
+  border: 0;
 }

@@ -1,6 +1,9 @@
 import {
   BottomBar,
   Caption,
+  EventLog,
+  type SessionEvent as EventLogSessionEvent,
+  type EventStatus,
   Glyph,
   IconButton,
   Navigation,
@@ -11,6 +14,38 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import ArchitectTerminal from './ArchitectTerminal';
 import styles from './index.module.css';
+
+const EVENT_STATUSES: EventStatus[] = [
+  'starting',
+  'working',
+  'idle',
+  'awaiting_input',
+  'error',
+  'ended',
+];
+
+function isEventStatus(status: string): status is EventStatus {
+  return EVENT_STATUSES.includes(status as EventStatus);
+}
+
+function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
+  if (event.type !== 'status' || !event.status || !isEventStatus(event.status)) {
+    return null;
+  }
+
+  return {
+    id: event.id,
+    session_id: event.session_id,
+    seq: event.seq,
+    type: 'status',
+    status: event.status,
+    tool: event.tool,
+    message: event.message,
+    metadata: event.metadata,
+    raw: event.raw,
+    at: event.at,
+  };
+}
 
 function readArchitectKey(): string {
   const prefix = '#/architect/';
@@ -30,6 +65,14 @@ export default function ArchitectWindow() {
   const [architect, setArchitect] = useState<Architect | null>(null);
   const [home, setHome] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [events, setEvents] = useState<SessionEvent[]>([]);
+  const [eventStream, setEventStream] = useState<{ sessionId: string } | null>(null);
+
+  const eventLogEvents = useMemo(
+    () =>
+      events.map(toEventLogEvent).filter((event): event is EventLogSessionEvent => event !== null),
+    [events],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +111,25 @@ export default function ArchitectWindow() {
     };
   }, [architectKey]);
 
+  useEffect(() => {
+    if (!eventStream) return;
+
+    return window.hiveryn.session.onEvent((event) => {
+      if (event.session_id !== eventStream.sessionId) return;
+      setEvents((current) => [...current, event]);
+    });
+  }, [eventStream]);
+
+  function handleSessionConnected(sessionId: string): void {
+    setEvents([]);
+    setEventStream({ sessionId });
+  }
+
+  function handleSessionDisconnected(): void {
+    setEvents([]);
+    setEventStream(null);
+  }
+
   return (
     <div className={styles.window}>
       <Navigation
@@ -96,9 +158,15 @@ export default function ArchitectWindow() {
         ) : (
           <div className={styles.splitPane}>
             <div className={styles.leftPane}>
-              <ArchitectTerminal architectKey={architectKey} />
+              <ArchitectTerminal
+                architectKey={architectKey}
+                onSessionConnected={handleSessionConnected}
+                onSessionDisconnected={handleSessionDisconnected}
+              />
             </div>
-            <div className={styles.rightPane} />
+            <div className={styles.rightPane}>
+              <EventLog className={styles.eventLog} events={eventLogEvents} />
+            </div>
           </div>
         )}
       </main>

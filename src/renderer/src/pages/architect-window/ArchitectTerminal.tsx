@@ -4,6 +4,8 @@ import styles from './ArchitectTerminal.module.css';
 
 interface Props {
   architectKey: string;
+  onSessionConnected?: (sessionId: string) => void;
+  onSessionDisconnected?: () => void;
 }
 
 // idle      → profile selector + Start button
@@ -22,7 +24,11 @@ function errorMessage(error: unknown): string {
   return 'Something went wrong';
 }
 
-export default function ArchitectTerminal({ architectKey }: Props) {
+export default function ArchitectTerminal({
+  architectKey,
+  onSessionConnected,
+  onSessionDisconnected,
+}: Props) {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [profilesError, setProfilesError] = useState<string | null>(null);
@@ -33,10 +39,17 @@ export default function ArchitectTerminal({ architectKey }: Props) {
 
   const writeRef = useRef<((data: string) => void) | null>(null);
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const onSessionConnectedRef = useRef(onSessionConnected);
+  const onSessionDisconnectedRef = useRef(onSessionDisconnected);
   // Guards the disconnect effect against React StrictMode's fake unmount:
   // only disconnect if .then() actually completed (connectedRef becomes true
   // after connect resolves, which is after the fake unmount fires).
   const connectedRef = useRef(false);
+
+  useEffect(() => {
+    onSessionConnectedRef.current = onSessionConnected;
+    onSessionDisconnectedRef.current = onSessionDisconnected;
+  }, [onSessionConnected, onSessionDisconnected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +92,7 @@ export default function ArchitectTerminal({ architectKey }: Props) {
       .then(() => {
         if (cancelled) return;
         connectedRef.current = true;
+        onSessionConnectedRef.current?.(pendingSession.session_id);
         if (lastSizeRef.current) {
           window.hiveryn.session.resize(lastSizeRef.current.cols, lastSizeRef.current.rows);
         }
@@ -105,6 +119,7 @@ export default function ArchitectTerminal({ architectKey }: Props) {
     return () => {
       if (connectedRef.current) {
         connectedRef.current = false;
+        onSessionDisconnectedRef.current?.();
         void window.hiveryn.session.disconnect();
       }
     };
