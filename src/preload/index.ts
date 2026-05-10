@@ -7,6 +7,7 @@ import type {
   KanbanTicket,
   RequestLogEntry,
   Session,
+  SessionEvent,
   SpawnResult,
   SystemHome,
 } from '../shared/types';
@@ -116,6 +117,12 @@ contextBridge.exposeInMainWorld('hiveryn', {
       const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data);
       ipcRenderer.on('session:data', listener);
       return () => ipcRenderer.removeListener('session:data', listener);
+    },
+    onEvent: (callback: (event: SessionEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: SessionEvent): void =>
+        callback(event);
+      ipcRenderer.on('session:event', listener);
+      return () => ipcRenderer.removeListener('session:event', listener);
     },
   },
   launcher: {

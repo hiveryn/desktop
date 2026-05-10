@@ -72,6 +72,22 @@ interface Session {
   workdir: string;
 }
 
+interface SessionEvent {
+  id: string;
+  session_id: string;
+  seq: number;
+  type: string;
+  status?: string;
+  tool?: string;
+  message?: string;
+  native_id?: string;
+  primary_native_id?: string;
+  native_session_role?: string;
+  metadata?: Record<string, string>;
+  raw?: Record<string, unknown>;
+  at: string;
+}
+
 interface KanbanTicket {
   id: string;
   title: string;
@@ -142,6 +158,7 @@ interface HiverynAPI {
     send: (data: string) => void;
     resize: (cols: number, rows: number) => void;
     onData: (callback: (data: string) => void) => () => void;
+    onEvent: (callback: (event: SessionEvent) => void) => () => void;
   };
   launcher: {
     openArchitect: (key: string) => Promise<void>;

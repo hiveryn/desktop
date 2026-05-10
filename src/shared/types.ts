@@ -63,6 +63,22 @@ export interface Session {
   workdir: string;
 }
 
+export interface SessionEvent {
+  id: string;
+  session_id: string;
+  seq: number;
+  type: string;
+  status?: string;
+  tool?: string;
+  message?: string;
+  native_id?: string;
+  primary_native_id?: string;
+  native_session_role?: string;
+  metadata?: Record<string, string>;
+  raw?: Record<string, unknown>;
+  at: string;
+}
+
 export interface KanbanTicket {
   id: string;
   title: string;

@@ -1,13 +1,52 @@
 import type { WebContents } from 'electron';
+import type { SessionEvent } from '../../shared/types';
 import { DAEMON_URL } from './client';
 
 interface ActiveSession {
   ws: WebSocket;
   sseAbort: AbortController;
   sendToRenderer: (data: string) => void;
+  sendEventToRenderer: (event: SessionEvent) => void;
 }
 
-async function consumeSse(sessionId: string, signal: AbortSignal): Promise<void> {
+function dispatchSseBlock(block: string, sendEventToRenderer: (event: SessionEvent) => void): void {
+  const data = block
+    .split('\n')
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n');
+
+  if (!data) return;
+
+  try {
+    sendEventToRenderer(JSON.parse(data) as SessionEvent);
+  } catch {
+    // Ignore malformed event payloads and keep consuming the stream.
+  }
+}
+
+function consumeSseBuffer(
+  buffer: string,
+  sendEventToRenderer: (event: SessionEvent) => void,
+): string {
+  let remaining = buffer.replace(/\r\n/g, '\n');
+  let boundaryIndex = remaining.indexOf('\n\n');
+
+  while (boundaryIndex !== -1) {
+    const block = remaining.slice(0, boundaryIndex);
+    dispatchSseBlock(block, sendEventToRenderer);
+    remaining = remaining.slice(boundaryIndex + 2);
+    boundaryIndex = remaining.indexOf('\n\n');
+  }
+
+  return remaining;
+}
+
+async function consumeSse(
+  sessionId: string,
+  signal: AbortSignal,
+  sendEventToRenderer: (event: SessionEvent) => void,
+): Promise<void> {
   try {
     const response = await fetch(
       `${DAEMON_URL}/api/sessions/${encodeURIComponent(sessionId)}/events`,
@@ -16,10 +55,20 @@ async function consumeSse(sessionId: string, signal: AbortSignal): Promise<void>
     const reader = response.body?.getReader();
     if (!reader) return;
     const decoder = new TextDecoder();
+    let buffer = '';
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      console.log('[session SSE]', decoder.decode(value, { stream: true }));
+      buffer = consumeSseBuffer(
+        buffer + decoder.decode(value, { stream: true }),
+        sendEventToRenderer,
+      );
+    }
+
+    buffer = consumeSseBuffer(buffer + decoder.decode(), sendEventToRenderer);
+    if (buffer.trim()) {
+      dispatchSseBlock(buffer, sendEventToRenderer);
     }
   } catch {
     // Aborted or stream ended — expected on disconnect
@@ -59,13 +108,19 @@ export function connect(
     }
   };
 
+  const sendEventToRenderer = (event: SessionEvent): void => {
+    if (!sender.isDestroyed()) {
+      sender.send('session:event', event);
+    }
+  };
+
   return new Promise((resolve) => {
     const ws = new WebSocket(wsUrl);
 
     ws.addEventListener('open', () => {
       const sseAbort = new AbortController();
-      sessions.set(wcId, { ws, sseAbort, sendToRenderer });
-      void consumeSse(sessionId, sseAbort.signal);
+      sessions.set(wcId, { ws, sseAbort, sendToRenderer, sendEventToRenderer });
+      void consumeSse(sessionId, sseAbort.signal, sendEventToRenderer);
       resolve({ ok: true });
     });
 
