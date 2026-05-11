@@ -34,10 +34,16 @@ export function registerArchitectsIpc(): void {
 
   ipcMain.handle(
     'architects:spawn',
-    async (_event, key: string, profileName: string): Promise<DaemonResult<SpawnResult>> => {
+    async (
+      _event,
+      key: string,
+      profileName: string,
+      cols?: number,
+      rows?: number,
+    ): Promise<DaemonResult<SpawnResult>> => {
       return daemonFetch<SpawnResult>(`/api/architects/${encodeURIComponent(key)}/spawn`, {
         method: 'POST',
-        body: JSON.stringify({ profile_name: profileName }),
+        body: JSON.stringify({ profile_name: profileName, cols, rows }),
       });
     },
   );

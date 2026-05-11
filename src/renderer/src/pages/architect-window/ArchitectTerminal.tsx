@@ -2,6 +2,10 @@ import { Button, Caption, TerminalPane } from '@hiveryn/components';
 import { useEffect, useRef, useState } from 'react';
 import styles from './ArchitectTerminal.module.css';
 
+// Approximate Geist Mono cell metrics at fontSize=13px in this layout.
+const CHAR_WIDTH = 7.8;
+const CHAR_HEIGHT = 17;
+
 interface Props {
   architectKey: string;
   onSessionConnected?: (sessionId: string) => void;
@@ -37,7 +41,8 @@ export default function ArchitectTerminal({
   const [spawnError, setSpawnError] = useState<string | null>(null);
   const [pendingSession, setPendingSession] = useState<PendingSession | null>(null);
 
-  const writeRef = useRef<((data: string) => void) | null>(null);
+  const idlePaneRef = useRef<HTMLDivElement | null>(null);
+  const writeRef = useRef<((data: string | Uint8Array) => void) | null>(null);
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const onSessionConnectedRef = useRef(onSessionConnected);
   const onSessionDisconnectedRef = useRef(onSessionDisconnected);
@@ -87,20 +92,32 @@ export default function ArchitectTerminal({
     if (spawnState !== 'connecting' || !pendingSession) return;
     let cancelled = false;
 
+    console.log('[AT] connect effect starting', { sessionId: pendingSession.session_id });
     window.hiveryn.session
       .connect(pendingSession.session_id, pendingSession.ws_url)
       .then(() => {
-        if (cancelled) return;
+        if (cancelled) {
+          console.log('[AT] connect resolved but effect cancelled — skipping post-connect resize');
+          return;
+        }
+        console.log('[AT] connect resolved ✓', { lastSize: lastSizeRef.current });
         connectedRef.current = true;
         onSessionConnectedRef.current?.(pendingSession.session_id);
         if (lastSizeRef.current) {
+          console.log('[AT] sending post-connect resize', lastSizeRef.current);
           window.hiveryn.session.resize(lastSizeRef.current.cols, lastSizeRef.current.rows);
+        } else {
+          console.warn('[AT] post-connect: no lastSizeRef — SIGWINCH will not be sent!');
         }
         setSpawnState('running');
         setPendingSession(null);
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled) {
+          console.log('[AT] connect rejected but effect cancelled — ignoring', err);
+          return;
+        }
+        console.warn('[AT] connect rejected', err);
         setSpawnError(
           (err as { status?: number }).status === 409
             ? 'Architect is already running'
@@ -125,16 +142,40 @@ export default function ArchitectTerminal({
     };
   }, []);
 
+  function estimateTerminalSize(): { cols: number; rows: number } {
+    const container = idlePaneRef.current;
+    if (!container) {
+      console.log('[AT] estimateTerminalSize: no container ref, returning zeros');
+      return { cols: 0, rows: 0 };
+    }
+
+    const width = container.offsetWidth;
+    const height = container.offsetHeight;
+    const cols = Math.max(0, Math.floor(width / CHAR_WIDTH));
+    const rows = Math.max(0, Math.floor(height / CHAR_HEIGHT));
+    console.log('[AT] estimateTerminalSize:', { width, height, cols, rows });
+    return { cols, rows };
+  }
+
   async function handleStart() {
     if (!architectKey || !selectedProfile) return;
     setSpawnState('spawning');
     setSpawnError(null);
 
     try {
-      const result = await window.hiveryn.architects.spawn(architectKey, selectedProfile);
+      const { cols, rows } = estimateTerminalSize();
+      console.log('[AT] spawning with', { architectKey, profile: selectedProfile, cols, rows });
+      const result = await window.hiveryn.architects.spawn(
+        architectKey,
+        selectedProfile,
+        cols,
+        rows,
+      );
+      console.log('[AT] spawn result', result);
       setSpawnState('connecting');
       setPendingSession(result);
     } catch (err: unknown) {
+      console.warn('[AT] spawn failed', err);
       setSpawnError(
         (err as { status?: number }).status === 409
           ? 'Architect is already running'
@@ -148,11 +189,13 @@ export default function ArchitectTerminal({
     return (
       <TerminalPane
         className={styles.terminal}
-        onWrite={(fn: (data: string) => void) => {
+        onWrite={(fn: (data: string | Uint8Array) => void) => {
+          console.log('[AT] onWrite registered (terminal write fn ready)');
           writeRef.current = fn;
         }}
         onData={(data: string) => window.hiveryn.session.send(data)}
         onResize={(cols: number, rows: number) => {
+          console.log('[AT] onResize from TerminalPane', { cols, rows });
           lastSizeRef.current = { cols, rows };
           window.hiveryn.session.resize(cols, rows);
         }}
@@ -161,7 +204,7 @@ export default function ArchitectTerminal({
   }
 
   return (
-    <div className={styles.idlePane}>
+    <div ref={idlePaneRef} className={styles.idlePane}>
       {profilesError ? (
         <Caption className={styles.error}>{profilesError}</Caption>
       ) : profiles.length === 0 ? (

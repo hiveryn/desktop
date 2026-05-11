@@ -100,8 +100,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
-    spawn: (key: string, profileName: string): Promise<SpawnResult> =>
-      invoke('architects:spawn', key, profileName),
+    spawn: (key: string, profileName: string, cols?: number, rows?: number): Promise<SpawnResult> =>
+      invoke('architects:spawn', key, profileName, cols, rows),
   },
   session: {
     connect: (sessionId: string, wsUrl: string): Promise<void> =>
@@ -113,8 +113,9 @@ contextBridge.exposeInMainWorld('hiveryn', {
     resize: (cols: number, rows: number): void => {
       ipcRenderer.send('session:resize', cols, rows);
     },
-    onData: (callback: (data: string) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data);
+    onData: (callback: (data: Uint8Array | string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: Uint8Array | string): void =>
+        callback(data);
       ipcRenderer.on('session:data', listener);
       return () => ipcRenderer.removeListener('session:data', listener);
     },
