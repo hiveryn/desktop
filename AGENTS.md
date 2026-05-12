@@ -26,17 +26,25 @@ src/
     index.ts              Electron app setup — window creation, registerIpc()
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
+      session.ts          sessionManager — WebSocket + SSE lifecycle, one session per webContents
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
       preferences.ts      preferences:*, user:* handlers (local, no daemon call)
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
+      architects.ts       architects:* handlers → daemon HTTP via daemonFetch
+      session.ts          session:connect/disconnect/send/resize → sessionManager
+      sessions.ts         sessions:list/create → daemon HTTP; enriches list with ws_url
+      tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
+      launcher.ts         launcher:open-architect handler
   preload/
     index.ts              contextBridge — invoke() wrapper + daemon.onRequest listeners
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
   renderer/src/
-    App.tsx               Root component — nav, page routing, error boundaries, RequestLog
+    App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
     main.tsx              React entry, QueryClient, theme init
     pages/
+      launcher/           Launcher page — architect list, open architect window
+      architect-window/   Architect window — split-pane layout, terminal, kanban, event log
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
@@ -44,7 +52,7 @@ src/
       request-log/        Daemon activity log panel
       page-error.tsx      Per-page error boundary fallback
   shared/
-    types.ts              Types shared across main and preload (Envelope, AgentProfile…)
+    types.ts              Types shared across main and preload (Envelope, AgentProfile, Session…)
 ```
 
 ## IPC and envelope pattern
@@ -80,6 +88,16 @@ All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, 
 - shadcn components live in `src/renderer/src/components/ui/` and are excluded from Biome formatting. Page-specific components live next to their page's `index.tsx`.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
+
+## Architect session lifecycle
+
+Architect sessions run in the daemon and survive component mount/unmount cycles in the renderer. Component lifecycle is NOT session lifecycle.
+
+- **`ArchitectTerminal`** does NOT disconnect on unmount. The WebSocket/SSE stay alive in the main process.
+- **On mount**, `ArchitectTerminal` calls `sessions:list` to find a running session matching the architect key (`architect_key`) and reconnects to it. This handles both layout-change remounts (desktop↔compact) and app relaunches.
+- **`sessions:list`** enriches each session with a derived `ws_url` (`ws://{daemon}/ws/session/{id}`) since the daemon's spawn endpoint is the only source of the WS URL.
+- The daemon enforces **one running session per architect** (partial unique index), so `.find()` is safe.
+- Session disconnect will be a future explicit user action — never an automatic cleanup.
 
 ## Development
 

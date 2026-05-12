@@ -70,6 +70,8 @@ interface Session {
   agentKind: AgentKind;
   status: SessionStatus;
   workdir: string;
+  architect_key: string;
+  ws_url: string;
 }
 
 interface SessionEvent {

@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { DaemonResult, Session } from '../../shared/types';
-import { daemonFetch } from '../daemon/client';
+import { DAEMON_URL, daemonFetch } from '../daemon/client';
 
 function empty<T>(data: T): DaemonResult<T> {
   return {
@@ -11,11 +11,17 @@ function empty<T>(data: T): DaemonResult<T> {
 
 export function registerSessionsIpc(): void {
   ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
-    const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
+    const result = await daemonFetch<{ sessions: Record<string, unknown>[] }>('/api/sessions');
     if (result.httpStatus === 0 || result.httpStatus === 404) {
       return empty<Session[]>([]);
     }
-    const sessions = (result.envelope.data as { sessions: Session[] } | null)?.sessions ?? [];
+    const rawSessions =
+      (result.envelope.data as { sessions: Record<string, unknown>[] } | null)?.sessions ?? [];
+    const wsBase = DAEMON_URL.replace(/^http/, 'ws');
+    const sessions = rawSessions.map((s) => ({
+      ...s,
+      ws_url: `${wsBase}/ws/session/${s.id}`,
+    })) as unknown as Session[];
     return { httpStatus: result.httpStatus, envelope: { ...result.envelope, data: sessions } };
   });
 

@@ -46,10 +46,6 @@ export default function ArchitectTerminal({
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const onSessionConnectedRef = useRef(onSessionConnected);
   const onSessionDisconnectedRef = useRef(onSessionDisconnected);
-  // Guards the disconnect effect against React StrictMode's fake unmount:
-  // only disconnect if .then() actually completed (connectedRef becomes true
-  // after connect resolves, which is after the fake unmount fires).
-  const connectedRef = useRef(false);
 
   useEffect(() => {
     onSessionConnectedRef.current = onSessionConnected;
@@ -101,7 +97,6 @@ export default function ArchitectTerminal({
           return;
         }
         console.log('[AT] connect resolved ✓', { lastSize: lastSizeRef.current });
-        connectedRef.current = true;
         onSessionConnectedRef.current?.(pendingSession.session_id);
         if (lastSizeRef.current) {
           console.log('[AT] sending post-connect resize', lastSizeRef.current);
@@ -132,15 +127,30 @@ export default function ArchitectTerminal({
     };
   }, [spawnState, pendingSession]);
 
+  // Restore a running session on mount — handles both initial load (app
+  // relaunch with an existing session) and responsive layout changes that
+  // unmount/remount the terminal component in a different DOM subtree.
   useEffect(() => {
+    let cancelled = false;
+    window.hiveryn.sessions
+      .list()
+      .then((sessions) => {
+        if (cancelled) return;
+        const running = sessions.find(
+          (s) => s.status === 'running' && s.architect_key === architectKey,
+        );
+        if (running) {
+          setPendingSession({ session_id: running.id, ws_url: running.ws_url });
+          setSpawnState('connecting');
+        }
+      })
+      .catch(() => {
+        // Non-fatal — user can start a new session.
+      });
     return () => {
-      if (connectedRef.current) {
-        connectedRef.current = false;
-        onSessionDisconnectedRef.current?.();
-        void window.hiveryn.session.disconnect();
-      }
+      cancelled = true;
     };
-  }, []);
+  }, [architectKey]);
 
   function estimateTerminalSize(): { cols: number; rows: number } {
     const container = idlePaneRef.current;
