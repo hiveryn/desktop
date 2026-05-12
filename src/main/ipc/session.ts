@@ -31,10 +31,21 @@ export function registerSessionIpc(): void {
     },
   );
 
-  ipcMain.handle('session:disconnect', (event): DaemonResult<null> => {
-    sessionManager.disconnect(event.sender.id);
-    return ok();
-  });
+  ipcMain.handle(
+    'session:disconnect',
+    async (_event, sessionId?: string): Promise<DaemonResult<null>> => {
+      sessionManager.disconnect(_event.sender.id, sessionId);
+      return ok();
+    },
+  );
+
+  ipcMain.handle(
+    'session:setActive',
+    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
+      sessionManager.setActive(_event.sender.id, sessionId);
+      return ok();
+    },
+  );
 
   ipcMain.on('session:send', (event, data: string) => {
     sessionManager.send(event.sender.id, data);

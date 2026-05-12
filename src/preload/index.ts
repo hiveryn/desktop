@@ -41,6 +41,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:spawn': { method: 'POST', path: '/api/architects/:key/spawn' },
+  'architects:spawnWorker': { method: 'POST', path: '/api/architects/:key/tickets/:id/spawn' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
@@ -117,6 +118,14 @@ contextBridge.exposeInMainWorld('hiveryn', {
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
     spawn: (key: string, profileName: string, cols?: number, rows?: number): Promise<SpawnResult> =>
       invoke('architects:spawn', key, profileName, cols, rows),
+    spawnWorker: (
+      key: string,
+      ticketId: string,
+      profileName: string,
+      cols?: number,
+      rows?: number,
+    ): Promise<SpawnResult> =>
+      invoke('architects:spawnWorker', key, ticketId, profileName, cols, rows),
     subscribeEvents: (
       key: string,
       callback: (event: WorkspaceChangedEvent) => void,
@@ -136,16 +145,21 @@ contextBridge.exposeInMainWorld('hiveryn', {
   session: {
     connect: (sessionId: string, wsUrl: string): Promise<void> =>
       invoke('session:connect', sessionId, wsUrl),
-    disconnect: (): Promise<void> => invoke('session:disconnect'),
+    disconnect: (sessionId?: string): Promise<void> => invoke('session:disconnect', sessionId),
+    setActive: (sessionId: string): Promise<void> => invoke('session:setActive', sessionId),
     send: (data: string): void => {
       ipcRenderer.send('session:send', data);
     },
     resize: (cols: number, rows: number): void => {
       ipcRenderer.send('session:resize', cols, rows);
     },
-    onData: (callback: (data: Uint8Array | string) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: Uint8Array | string): void =>
-        callback(data);
+    onData: (
+      callback: (payload: { sessionId: string; data: Uint8Array | string }) => void,
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: { sessionId: string; data: Uint8Array | string },
+      ): void => callback(payload);
       ipcRenderer.on('session:data', listener);
       return () => ipcRenderer.removeListener('session:data', listener);
     },

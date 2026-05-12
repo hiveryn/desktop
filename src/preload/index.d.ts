@@ -161,6 +161,13 @@ interface SpawnResult {
   ws_url: string;
 }
 
+// ── Session data event ─────────────────────────────────────────────────────
+
+interface SessionDataEvent {
+  sessionId: string;
+  data: Uint8Array | string;
+}
+
 // ── Architects ─────────────────────────────────────────────────────────────
 
 interface ArchitectInfo {
@@ -217,14 +224,22 @@ interface HiverynAPI {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
     spawn: (key: string, profileName: string, cols?: number, rows?: number) => Promise<SpawnResult>;
+    spawnWorker: (
+      key: string,
+      ticketId: string,
+      profileName: string,
+      cols?: number,
+      rows?: number,
+    ) => Promise<SpawnResult>;
     subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
     connect: (sessionId: string, wsUrl: string) => Promise<void>;
-    disconnect: () => Promise<void>;
+    disconnect: (sessionId?: string) => Promise<void>;
+    setActive: (sessionId: string) => Promise<void>;
     send: (data: string) => void;
     resize: (cols: number, rows: number) => void;
-    onData: (callback: (data: Uint8Array | string) => void) => () => void;
+    onData: (callback: (payload: SessionDataEvent) => void) => () => void;
     onEvent: (callback: (event: SessionEvent) => void) => () => void;
   };
   launcher: {

@@ -98,6 +98,11 @@
   border: 0;
 }
 
+.terminal {
+  flex: 1;
+  min-height: 0;
+}
+
 .bottomBar {
   position: static;
   flex-shrink: 0;

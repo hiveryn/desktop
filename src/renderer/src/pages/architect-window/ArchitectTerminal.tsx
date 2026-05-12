@@ -1,6 +1,8 @@
-import { Button, Caption, TerminalPane } from '@hiveryn/components';
+import type { AgentProfile } from '@hiveryn/components';
+import { Button, Caption, ProfileSelector } from '@hiveryn/components';
 import { useEffect, useRef, useState } from 'react';
 import styles from './ArchitectTerminal.module.css';
+import SessionTerminal from './SessionTerminal';
 
 // Approximate Geist Mono cell metrics at fontSize=13px in this layout.
 const CHAR_WIDTH = 7.8;
@@ -8,13 +10,14 @@ const CHAR_HEIGHT = 17;
 
 interface Props {
   architectKey: string;
-  onSessionConnected?: (sessionId: string) => void;
+  visible?: boolean;
+  onSessionConnected?: (sessionId: string, wsUrl: string) => void;
   onSessionDisconnected?: () => void;
 }
 
 // idle      → profile selector + Start button
 // spawning  → HTTP spawn in flight, button disabled
-// connecting → TerminalPane mounted (measuring size), WebSocket being opened
+// connecting → SessionTerminal mounted, WebSocket being opened
 // running   → session live, data flowing
 type SpawnState = 'idle' | 'spawning' | 'connecting' | 'running';
 
@@ -30,19 +33,19 @@ function errorMessage(error: unknown): string {
 
 export default function ArchitectTerminal({
   architectKey,
+  visible = true,
   onSessionConnected,
   onSessionDisconnected,
 }: Props) {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [profilesError, setProfilesError] = useState<string | null>(null);
 
+  const [showProfileSelector, setShowProfileSelector] = useState(false);
   const [spawnState, setSpawnState] = useState<SpawnState>('idle');
   const [spawnError, setSpawnError] = useState<string | null>(null);
   const [pendingSession, setPendingSession] = useState<PendingSession | null>(null);
 
   const idlePaneRef = useRef<HTMLDivElement | null>(null);
-  const writeRef = useRef<((data: string | Uint8Array) => void) | null>(null);
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const onSessionConnectedRef = useRef(onSessionConnected);
   const onSessionDisconnectedRef = useRef(onSessionDisconnected);
@@ -59,7 +62,6 @@ export default function ArchitectTerminal({
       .then((list) => {
         if (cancelled) return;
         setProfiles(list ?? []);
-        if (list.length > 0) setSelectedProfile(list[0].name);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -69,63 +71,6 @@ export default function ArchitectTerminal({
       cancelled = true;
     };
   }, []);
-
-  // Effect 1 — register the session:data listener as soon as the terminal is
-  // visible. Depends on terminalVisible (not spawnState) so the listener is
-  // never torn down during the connecting→running transition, which is exactly
-  // when the daemon sends the SIGWINCH redraw burst.
-  const terminalVisible = spawnState === 'connecting' || spawnState === 'running';
-  useEffect(() => {
-    if (!terminalVisible) return;
-    return window.hiveryn.session.onData((data) => {
-      writeRef.current?.(data);
-    });
-  }, [terminalVisible]);
-
-  // Effect 2 — open the WebSocket only after Effect 1 has registered the
-  // listener so no data arrives before we're ready to receive it.
-  useEffect(() => {
-    if (spawnState !== 'connecting' || !pendingSession) return;
-    let cancelled = false;
-
-    console.log('[AT] connect effect starting', { sessionId: pendingSession.session_id });
-    window.hiveryn.session
-      .connect(pendingSession.session_id, pendingSession.ws_url)
-      .then(() => {
-        if (cancelled) {
-          console.log('[AT] connect resolved but effect cancelled — skipping post-connect resize');
-          return;
-        }
-        console.log('[AT] connect resolved ✓', { lastSize: lastSizeRef.current });
-        onSessionConnectedRef.current?.(pendingSession.session_id);
-        if (lastSizeRef.current) {
-          console.log('[AT] sending post-connect resize', lastSizeRef.current);
-          window.hiveryn.session.resize(lastSizeRef.current.cols, lastSizeRef.current.rows);
-        } else {
-          console.warn('[AT] post-connect: no lastSizeRef — SIGWINCH will not be sent!');
-        }
-        setSpawnState('running');
-        setPendingSession(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) {
-          console.log('[AT] connect rejected but effect cancelled — ignoring', err);
-          return;
-        }
-        console.warn('[AT] connect rejected', err);
-        setSpawnError(
-          (err as { status?: number }).status === 409
-            ? 'Architect is already running'
-            : errorMessage(err),
-        );
-        setSpawnState('idle');
-        setPendingSession(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [spawnState, pendingSession]);
 
   // Restore a running session on mount — handles both initial load (app
   // relaunch with an existing session) and responsive layout changes that
@@ -154,38 +99,32 @@ export default function ArchitectTerminal({
 
   function estimateTerminalSize(): { cols: number; rows: number } {
     const container = idlePaneRef.current;
-    if (!container) {
-      console.log('[AT] estimateTerminalSize: no container ref, returning zeros');
-      return { cols: 0, rows: 0 };
-    }
+    if (!container) return { cols: 0, rows: 0 };
 
     const width = container.offsetWidth;
     const height = container.offsetHeight;
     const cols = Math.max(0, Math.floor(width / CHAR_WIDTH));
     const rows = Math.max(0, Math.floor(height / CHAR_HEIGHT));
-    console.log('[AT] estimateTerminalSize:', { width, height, cols, rows });
     return { cols, rows };
   }
 
-  async function handleStart() {
-    if (!architectKey || !selectedProfile) return;
+  function handleProfileSelect(profileName: string): void {
+    setShowProfileSelector(false);
+    void handleStart(profileName);
+  }
+
+  async function handleStart(profileName: string): Promise<void> {
+    if (!architectKey || !profileName) return;
     setSpawnState('spawning');
     setSpawnError(null);
 
     try {
       const { cols, rows } = estimateTerminalSize();
-      console.log('[AT] spawning with', { architectKey, profile: selectedProfile, cols, rows });
-      const result = await window.hiveryn.architects.spawn(
-        architectKey,
-        selectedProfile,
-        cols,
-        rows,
-      );
-      console.log('[AT] spawn result', result);
+      lastSizeRef.current = { cols, rows };
+      const result = await window.hiveryn.architects.spawn(architectKey, profileName, cols, rows);
       setSpawnState('connecting');
       setPendingSession(result);
     } catch (err: unknown) {
-      console.warn('[AT] spawn failed', err);
       setSpawnError(
         (err as { status?: number }).status === 409
           ? 'Architect is already running'
@@ -195,51 +134,55 @@ export default function ArchitectTerminal({
     }
   }
 
-  if (terminalVisible) {
+  const terminalVisible = spawnState === 'connecting' || spawnState === 'running';
+
+  if (terminalVisible && pendingSession) {
     return (
-      <TerminalPane
+      <SessionTerminal
+        sessionId={pendingSession.session_id}
+        wsUrl={pendingSession.ws_url}
         className={styles.terminal}
-        onWrite={(fn: (data: string | Uint8Array) => void) => {
-          console.log('[AT] onWrite registered (terminal write fn ready)');
-          writeRef.current = fn;
+        visible={visible}
+        onConnected={(sessionId) => {
+          setSpawnState('running');
+          onSessionConnectedRef.current?.(sessionId, pendingSession.ws_url);
         }}
-        onData={(data: string) => window.hiveryn.session.send(data)}
-        onResize={(cols: number, rows: number) => {
-          console.log('[AT] onResize from TerminalPane', { cols, rows });
-          lastSizeRef.current = { cols, rows };
-          window.hiveryn.session.resize(cols, rows);
+        onDisconnected={() => {
+          setPendingSession(null);
+          setSpawnState('idle');
+          onSessionDisconnectedRef.current?.();
         }}
       />
     );
   }
 
   return (
-    <div ref={idlePaneRef} className={styles.idlePane}>
+    <div
+      ref={idlePaneRef}
+      className={styles.idlePane}
+      style={{ display: visible ? undefined : 'none' }}
+    >
       {profilesError ? (
         <Caption className={styles.error}>{profilesError}</Caption>
       ) : profiles.length === 0 ? (
         <Caption>No agent profiles configured</Caption>
       ) : (
         <>
-          <select
-            className={styles.profileSelect}
-            value={selectedProfile}
-            onChange={(e) => setSelectedProfile(e.target.value)}
-            disabled={spawnState === 'spawning'}
-            aria-label="Agent profile"
+          <Button
+            onClick={() => setShowProfileSelector(true)}
+            isDisabled={spawnState === 'spawning'}
           >
-            {profiles.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <Button onClick={handleStart} isDisabled={spawnState === 'spawning' || !selectedProfile}>
             {spawnState === 'spawning' ? 'Starting…' : 'Start'}
           </Button>
           {spawnError && <Caption className={styles.error}>{spawnError}</Caption>}
         </>
       )}
+      <ProfileSelector
+        profiles={profiles}
+        open={showProfileSelector}
+        onSelect={handleProfileSelect}
+        onClose={() => setShowProfileSelector(false)}
+      />
     </div>
   );
 }

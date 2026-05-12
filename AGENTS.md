@@ -27,7 +27,7 @@ src/
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
       sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
-      session.ts          sessionManager — WebSocket + SSE lifecycle, one session per webContents
+      session.ts          sessionManager — WebSocket + SSE lifecycle, multi-session per webContents
       architect-events.ts Architect SSE subscription manager — live kanban refresh
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
@@ -47,6 +47,8 @@ src/
     pages/
       launcher/           Launcher page — architect list, open architect window
       architect-window/   Architect window — split-pane layout, terminal, kanban, event log
+        SessionTerminal.tsx    Reusable terminal component — connect to any session by id+wsUrl
+        ArchitectTerminal.tsx  Architect spawn flow — ProfileSelector → spawn → SessionTerminal
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
@@ -90,6 +92,57 @@ All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, 
 - shadcn components live in `src/renderer/src/components/ui/` and are excluded from Biome formatting. Page-specific components live next to their page's `index.tsx`.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
+
+## CSS/UI handoff policy
+
+CSS and UI component work must be done in the `@hiveryn/components` library, NOT in the desktop app. The desktop app should consume components and their styles from the library. If a new design need arises (layout, styling, visual component), create a follow-up ticket for the component library. **Always flag CSS/UI changes in your plan/implementation notes** so they can be handed off.
+
+## Multi-session architecture
+
+The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurrent sessions per webContents** — keyed by `wcId → sessionId → ActiveSession`. This enables architect + worker sessions to run simultaneously in the same window.
+
+### Session data routing
+
+- **`session:data` IPC events** carry `{ sessionId: string; data: Uint8Array | string }` so the renderer can route PTY output to the correct terminal.
+- **`session:event` IPC events** already include `session_id` in the payload — no change needed.
+- **`session.setActive(sessionId)`** must be called before `send()` or `resize()` so input reaches the correct WebSocket. SessionTerminal calls this automatically on mount.
+
+### Session lifecycle
+
+Sessions survive component mount/unmount cycles. `SessionTerminal` connects on mount and does NOT disconnect on unmount. The WebSocket/SSE stay alive in the main process.
+
+Duplicate `connect()` calls for the same `sessionId` (e.g. from React StrictMode) are deduplicated via `pendingConnects` map in the session manager — the second caller reuses the first's promise.
+
+Terminal DOM persistence: `TerminalPane` xterm instances survive tab switches via `display: none`/`flex` toggling on the `visible` prop of `ArchitectTerminal` and `SessionTerminal`. Hidden terminals are kept in the DOM (invisible but alive), preserving scrollback. Only session disconnect removes the terminal from the DOM.
+
+### Adding a new session type
+
+1. Spawn via the appropriate daemon endpoint (architect spawn, worker spawn, etc.)
+2. Add the resulting `{ session_id, ws_url }` to the `activeSessions` state map
+3. Render `<SessionTerminal sessionId={...} wsUrl={...} />`
+
+## Bottom bar session tabs
+
+The architect window's `BottomBar` renders a `<TabBar side="bottom">` with session tabs:
+- **Architect tab** — always present. When the architect session connects, the tab is backed by the active session (label stays "Architect").
+- **Worker tabs** — added dynamically on successful `spawnWorker` and restored on app relaunch.
+- Tabs use the `Terminal` icon; labels are "Architect" or truncated ticket titles.
+- Selecting a tab calls `session.setActive()` and switches the left-pane terminal.
+
+Session terminals stay mounted via `display: none`/`flex` toggling (controlled by `visible` prop on `ArchitectTerminal` and `SessionTerminal`). This keeps `TerminalPane`'s xterm instance alive across tab switches, preserving scrollback content.
+
+### Session restore on restart
+
+`ArchitectWindow` restores running sessions on mount via `sessions:list`:
+- Architect sessions (`kind === 'architect'`) stored under `ARCHITECT_TAB_ID` key
+- Worker sessions (`kind === 'ticket'`) stored under their `sessionId`
+- `ArchitectTerminal` has its own restore effect to reconnect xterm
+- Worker `SessionTerminal`s connect when their tab is selected
+- If the daemon isn't running, restore silently fails — user can start fresh sessions
+
+The right-pane `TabBar` is separate:
+- Architect active → Kanban + Activity tabs
+- Worker active → Activity tab only (no kanban for workers)
 
 ## Architect session lifecycle
 

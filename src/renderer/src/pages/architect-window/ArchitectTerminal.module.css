@@ -3,7 +3,7 @@
   min-height: 0;
 }
 
-/* ── Idle state: profile selector + centered Start button ────────────────── */
+/* ── Idle state: centered Start button ────────────────────────────────────── */
 
 .idlePane {
   flex: 1;
@@ -13,23 +13,6 @@
   justify-content: center;
   gap: 1rem;
   padding: 2rem;
-}
-
-.profileSelect {
-  background: var(--theme-input-background, var(--theme-surface));
-  color: var(--theme-text);
-  border: 1px solid var(--theme-border, rgba(128, 128, 128, 0.3));
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
-  font-family: inherit;
-  min-width: 180px;
-  cursor: pointer;
-  outline: none;
-}
-
-.profileSelect:focus {
-  border-color: var(--theme-focused-foreground, currentColor);
 }
 
 .error {
