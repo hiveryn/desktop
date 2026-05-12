@@ -167,6 +167,14 @@ export interface SpawnResult {
   ws_url: string;
 }
 
+export interface WorkspaceChangedEvent {
+  type: string;
+  architect_key: string;
+  reason: string;
+  ticket_id: string;
+  at: string;
+}
+
 export interface SystemHome {
   home: string;
 }

@@ -26,7 +26,9 @@ src/
     index.ts              Electron app setup — window creation, registerIpc()
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
+      sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
       session.ts          sessionManager — WebSocket + SSE lifecycle, one session per webContents
+      architect-events.ts Architect SSE subscription manager — live kanban refresh
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
       preferences.ts      preferences:*, user:* handlers (local, no daemon call)
@@ -98,6 +100,16 @@ Architect sessions run in the daemon and survive component mount/unmount cycles 
 - **`sessions:list`** enriches each session with a derived `ws_url` (`ws://{daemon}/ws/session/{id}`) since the daemon's spawn endpoint is the only source of the WS URL.
 - The daemon enforces **one running session per architect** (partial unique index), so `.find()` is safe.
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
+
+## Architect workspace events
+
+The architect window subscribes to the daemon's `GET /api/architects/{key}/events` SSE stream for live kanban refresh when tickets change.
+
+- **`architects.subscribeEvents(key, callback)`** (renderer API) — opens SSE, `callback` fires on each `WorkspaceChangedEvent`. Returns unsubscribe function.
+- **Main process** — `architect-events.ts` manages SSE connections per `(webContents, architectKey)`. Parses `data:` lines, forwards `WorkspaceChangedEvent` to renderer via `sender.send('architect:workspace-event', ...)`.
+- **Subscription lifecycle** — `subscribeEvents` invokes `architects:events:subscribe` IPC (opens SSE), `unsubscribe` invokes `architects:events:unsubscribe` IPC (aborts SSE). Window `destroyed` auto-cleans up.
+- **Re-fetch on event** — renderer callback checks `event.type === 'workspace_changed'`, then re-fetches `tickets.list(architectKey)` and updates board state without toggling loading.
+- **Event shape** — `{ type: string, architect_key: string, reason: string, ticket_id: string, at: string }`. Reasons: `ticket_created`, `ticket_updated`, `ticket_moved`, `ticket_deleted`.
 
 ## Development
 

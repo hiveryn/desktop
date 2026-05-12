@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import type { Architect, DaemonResult, SpawnResult } from '../../shared/types';
+import * as architectEvents from '../daemon/architect-events';
 import { daemonFetch } from '../daemon/client';
 
 interface ArchitectListPayload {
@@ -16,6 +17,13 @@ function mapData<TInput, TOutput>(
       ...result.envelope,
       data: result.envelope.error ? null : map(result.envelope.data),
     },
+  };
+}
+
+function ok(): DaemonResult<null> {
+  return {
+    httpStatus: 200,
+    envelope: { data: null, error: null, logs: [], commands: [], meta: { request_id: '' } },
   };
 }
 
@@ -47,4 +55,14 @@ export function registerArchitectsIpc(): void {
       });
     },
   );
+
+  ipcMain.handle('architects:events:subscribe', (event, key: string): DaemonResult<null> => {
+    architectEvents.subscribe(event.sender, key);
+    return ok();
+  });
+
+  ipcMain.handle('architects:events:unsubscribe', (event, key: string): DaemonResult<null> => {
+    architectEvents.unsubscribe(event.sender.id, key);
+    return ok();
+  });
 }

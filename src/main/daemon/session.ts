@@ -1,6 +1,7 @@
 import type { WebContents } from 'electron';
 import type { SessionEvent } from '../../shared/types';
 import { DAEMON_URL } from './client';
+import { consumeSseBuffer, dispatchSseBlock } from './sse';
 
 interface ActiveSession {
   finish: (result: ConnectResult | ConnectError) => void;
@@ -10,15 +11,7 @@ interface ActiveSession {
   sendEventToRenderer: (event: SessionEvent) => void;
 }
 
-function dispatchSseBlock(block: string, sendEventToRenderer: (event: SessionEvent) => void): void {
-  const data = block
-    .split('\n')
-    .filter((line) => line.startsWith('data:'))
-    .map((line) => line.slice(5).trimStart())
-    .join('\n');
-
-  if (!data) return;
-
+function parseSessionEvent(data: string, sendEventToRenderer: (event: SessionEvent) => void): void {
   try {
     sendEventToRenderer(JSON.parse(data) as SessionEvent);
   } catch {
@@ -26,28 +19,13 @@ function dispatchSseBlock(block: string, sendEventToRenderer: (event: SessionEve
   }
 }
 
-function consumeSseBuffer(
-  buffer: string,
-  sendEventToRenderer: (event: SessionEvent) => void,
-): string {
-  let remaining = buffer.replace(/\r\n/g, '\n');
-  let boundaryIndex = remaining.indexOf('\n\n');
-
-  while (boundaryIndex !== -1) {
-    const block = remaining.slice(0, boundaryIndex);
-    dispatchSseBlock(block, sendEventToRenderer);
-    remaining = remaining.slice(boundaryIndex + 2);
-    boundaryIndex = remaining.indexOf('\n\n');
-  }
-
-  return remaining;
-}
-
 async function consumeSse(
   sessionId: string,
   signal: AbortSignal,
   sendEventToRenderer: (event: SessionEvent) => void,
 ): Promise<void> {
+  const onData = (data: string): void => parseSessionEvent(data, sendEventToRenderer);
+
   try {
     const response = await fetch(
       `${DAEMON_URL}/api/sessions/${encodeURIComponent(sessionId)}/events`,
@@ -61,15 +39,12 @@ async function consumeSse(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer = consumeSseBuffer(
-        buffer + decoder.decode(value, { stream: true }),
-        sendEventToRenderer,
-      );
+      buffer = consumeSseBuffer(buffer + decoder.decode(value, { stream: true }), onData);
     }
 
-    buffer = consumeSseBuffer(buffer + decoder.decode(), sendEventToRenderer);
+    buffer = consumeSseBuffer(buffer + decoder.decode(), onData);
     if (buffer.trim()) {
-      dispatchSseBlock(buffer, sendEventToRenderer);
+      dispatchSseBlock(buffer, onData);
     }
   } catch {
     // Aborted or stream ended — expected on disconnect

@@ -187,6 +187,25 @@ export default function ArchitectWindow() {
   }, [architectKey]);
 
   useEffect(() => {
+    if (!architectKey) return;
+
+    const unsubscribe = window.hiveryn.architects.subscribeEvents(architectKey, (event) => {
+      if (event.type !== 'workspace_changed') return;
+      window.hiveryn.tickets
+        .list(architectKey)
+        .then((newBoard) => {
+          setBoard(newBoard);
+          setBoardError(null);
+        })
+        .catch((error: unknown) => {
+          setBoardError(error instanceof Error ? error.message : 'Failed to refresh tickets');
+        });
+    });
+
+    return unsubscribe;
+  }, [architectKey]);
+
+  useEffect(() => {
     if (!eventStream) return;
 
     return window.hiveryn.session.onEvent((event) => {

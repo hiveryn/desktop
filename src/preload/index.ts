@@ -16,6 +16,7 @@ import type {
   TicketEditInput,
   TicketMetadataInput,
   TicketStatus,
+  WorkspaceChangedEvent,
 } from '../shared/types';
 
 // ── Request log listeners ──────────────────────────────────────────────────
@@ -40,6 +41,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:spawn': { method: 'POST', path: '/api/architects/:key/spawn' },
+  'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
+  'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
@@ -114,6 +117,21 @@ contextBridge.exposeInMainWorld('hiveryn', {
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
     spawn: (key: string, profileName: string, cols?: number, rows?: number): Promise<SpawnResult> =>
       invoke('architects:spawn', key, profileName, cols, rows),
+    subscribeEvents: (
+      key: string,
+      callback: (event: WorkspaceChangedEvent) => void,
+    ): (() => void) => {
+      void ipcRenderer.invoke('architects:events:subscribe', key);
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        workspaceEvent: WorkspaceChangedEvent,
+      ): void => callback(workspaceEvent);
+      ipcRenderer.on('architect:workspace-event', listener);
+      return () => {
+        void ipcRenderer.invoke('architects:events:unsubscribe', key);
+        ipcRenderer.removeListener('architect:workspace-event', listener);
+      };
+    },
   },
   session: {
     connect: (sessionId: string, wsUrl: string): Promise<void> =>

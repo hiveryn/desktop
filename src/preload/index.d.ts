@@ -184,6 +184,14 @@ interface Architect {
   repos?: ArchitectRepo[];
 }
 
+interface WorkspaceChangedEvent {
+  type: string;
+  architect_key: string;
+  reason: string;
+  ticket_id: string;
+  at: string;
+}
+
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
@@ -209,6 +217,7 @@ interface HiverynAPI {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
     spawn: (key: string, profileName: string, cols?: number, rows?: number) => Promise<SpawnResult>;
+    subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
     connect: (sessionId: string, wsUrl: string) => Promise<void>;
