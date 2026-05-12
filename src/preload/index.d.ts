@@ -88,12 +88,68 @@ interface SessionEvent {
   at: string;
 }
 
-interface KanbanTicket {
+type TicketStatus = 'backlog' | 'progress' | 'done';
+
+interface TicketWarning {
+  code: string;
+  message: string;
+}
+
+interface TicketConclusion {
+  started_at: string;
+  concluded_at: string;
+  agent: string;
+  profile: string;
+  rejected: boolean;
+  rejection_reason: string;
+  commits: string[];
+  body: string;
+}
+
+interface TicketSummary {
   id: string;
+  status: TicketStatus;
   title: string;
-  tag: string;
-  col: 'backlog' | 'in-progress' | 'done';
-  agent?: string;
+  repo: string;
+  created: string;
+  updated: string;
+  references: string[];
+  has_conclusion: boolean;
+}
+
+interface Ticket extends TicketSummary {
+  warnings: TicketWarning[];
+  body: string;
+  conclusion: TicketConclusion | null;
+}
+
+interface TicketBoard {
+  backlog: TicketSummary[];
+  progress: TicketSummary[];
+  done: TicketSummary[];
+}
+
+interface TicketEditInput {
+  oldString: string;
+  newString: string;
+  replaceAll?: boolean;
+}
+
+interface TicketMetadataInput {
+  title?: string;
+  repo?: string;
+  references?: string[];
+}
+
+interface TicketCreateInput {
+  title: string;
+  repo?: string;
+  body?: string;
+  references?: string[];
+}
+
+interface TicketDeleteResult {
+  deleted: boolean;
 }
 
 // ── Spawn ──────────────────────────────────────────────────────────────────
@@ -168,7 +224,17 @@ interface HiverynAPI {
     create: (profileId: string, workdir: string) => Promise<Session>;
   };
   tickets: {
-    list: () => Promise<KanbanTicket[]>;
+    list: (architectKey: string) => Promise<TicketBoard>;
+    get: (architectKey: string, id: string) => Promise<Ticket>;
+    edit: (architectKey: string, id: string, input: TicketEditInput) => Promise<Ticket>;
+    updateMetadata: (
+      architectKey: string,
+      id: string,
+      input: TicketMetadataInput,
+    ) => Promise<Ticket>;
+    move: (architectKey: string, id: string, to: TicketStatus) => Promise<Ticket>;
+    delete: (architectKey: string, id: string) => Promise<TicketDeleteResult>;
+    create: (architectKey: string, input: TicketCreateInput) => Promise<Ticket>;
   };
   system: {
     getHome: () => Promise<SystemHome>;

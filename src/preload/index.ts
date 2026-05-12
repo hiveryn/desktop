@@ -4,12 +4,18 @@ import type {
   Architect,
   ArchitectInfo,
   DaemonResult,
-  KanbanTicket,
   RequestLogEntry,
   Session,
   SessionEvent,
   SpawnResult,
   SystemHome,
+  Ticket,
+  TicketBoard,
+  TicketCreateInput,
+  TicketDeleteResult,
+  TicketEditInput,
+  TicketMetadataInput,
+  TicketStatus,
 } from '../shared/types';
 
 // ── Request log listeners ──────────────────────────────────────────────────
@@ -22,7 +28,13 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'sessions:list': { method: 'GET', path: '/api/sessions' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'system:getHome': { method: 'GET', path: '/api/system/home' },
-  'tickets:list': { method: 'GET', path: '/api/tickets' },
+  'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
+  'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
+  'tickets:edit': { method: 'PATCH', path: '/api/architects/:key/tickets/:id' },
+  'tickets:updateMetadata': { method: 'PATCH', path: '/api/architects/:key/tickets/:id/metadata' },
+  'tickets:move': { method: 'POST', path: '/api/architects/:key/tickets/:id/move?to=:status' },
+  'tickets:delete': { method: 'DELETE', path: '/api/architects/:key/tickets/:id' },
+  'tickets:create': { method: 'POST', path: '/api/architects/:key/tickets' },
   'architect:getInfo': { method: 'GET', path: '/architect/info' },
   'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
@@ -135,7 +147,22 @@ contextBridge.exposeInMainWorld('hiveryn', {
       invoke('sessions:create', profileId, workdir),
   },
   tickets: {
-    list: (): Promise<KanbanTicket[]> => invoke('tickets:list'),
+    list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),
+    get: (architectKey: string, id: string): Promise<Ticket> =>
+      invoke('tickets:get', architectKey, id),
+    edit: (architectKey: string, id: string, input: TicketEditInput): Promise<Ticket> =>
+      invoke('tickets:edit', architectKey, id, input),
+    updateMetadata: (
+      architectKey: string,
+      id: string,
+      input: TicketMetadataInput,
+    ): Promise<Ticket> => invoke('tickets:updateMetadata', architectKey, id, input),
+    move: (architectKey: string, id: string, to: TicketStatus): Promise<Ticket> =>
+      invoke('tickets:move', architectKey, id, to),
+    delete: (architectKey: string, id: string): Promise<TicketDeleteResult> =>
+      invoke('tickets:delete', architectKey, id),
+    create: (architectKey: string, input: TicketCreateInput): Promise<Ticket> =>
+      invoke('tickets:create', architectKey, input),
   },
   system: {
     getHome: (): Promise<SystemHome> => invoke('system:getHome'),

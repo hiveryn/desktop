@@ -30,7 +30,6 @@
   flex: 1;
   display: flex;
   overflow: hidden;
-  padding-bottom: 3.25rem;
 }
 
 .error {
@@ -47,22 +46,75 @@
 }
 
 .leftPane {
+  flex: 1 1 50%;
   width: 50%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--theme-border, rgba(128, 128, 128, 0.15));
   overflow: hidden;
 }
 
 .rightPane {
+  flex: 1 1 50%;
   width: 50%;
   display: flex;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
+}
+
+.rightPaneTabs {
+  flex-shrink: 0;
+}
+
+.rightPaneContent {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kanbanPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kanbanBoard {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .eventLog {
   flex: 1;
   min-height: 0;
   border: 0;
+}
+
+.bottomBar {
+  position: static;
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .splitPane {
+    flex-direction: column;
+  }
+
+  .leftPane,
+  .rightPane {
+    width: 100%;
+  }
+
+  .leftPane {
+    border-right: 0;
+    border-bottom: 1px solid var(--theme-border, rgba(128, 128, 128, 0.15));
+  }
 }

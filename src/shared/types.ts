@@ -79,12 +79,68 @@ export interface SessionEvent {
   at: string;
 }
 
-export interface KanbanTicket {
+export type TicketStatus = 'backlog' | 'progress' | 'done';
+
+export interface TicketWarning {
+  code: string;
+  message: string;
+}
+
+export interface TicketConclusion {
+  started_at: string;
+  concluded_at: string;
+  agent: string;
+  profile: string;
+  rejected: boolean;
+  rejection_reason: string;
+  commits: string[];
+  body: string;
+}
+
+export interface TicketSummary {
   id: string;
+  status: TicketStatus;
   title: string;
-  tag: string;
-  col: 'backlog' | 'in-progress' | 'done';
-  agent?: string;
+  repo: string;
+  created: string;
+  updated: string;
+  references: string[];
+  has_conclusion: boolean;
+}
+
+export interface Ticket extends TicketSummary {
+  warnings: TicketWarning[];
+  body: string;
+  conclusion: TicketConclusion | null;
+}
+
+export interface TicketBoard {
+  backlog: TicketSummary[];
+  progress: TicketSummary[];
+  done: TicketSummary[];
+}
+
+export interface TicketEditInput {
+  oldString: string;
+  newString: string;
+  replaceAll?: boolean;
+}
+
+export interface TicketMetadataInput {
+  title?: string;
+  repo?: string;
+  references?: string[];
+}
+
+export interface TicketCreateInput {
+  title: string;
+  repo?: string;
+  body?: string;
+  references?: string[];
+}
+
+export interface TicketDeleteResult {
+  deleted: boolean;
 }
 
 export interface ArchitectRepo {
