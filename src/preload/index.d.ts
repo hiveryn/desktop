@@ -72,6 +72,7 @@ interface Session {
   workdir: string;
   architect_key: string;
   ws_url: string;
+  ticket_id?: string;
 }
 
 interface SessionEvent {
@@ -219,6 +220,7 @@ interface HiverynAPI {
   architect: {
     getInfo: () => Promise<ArchitectInfo>;
     openLauncher: () => Promise<void>;
+    closeWindow: () => Promise<void>;
   };
   architects: {
     list: () => Promise<Architect[]>;
@@ -248,6 +250,7 @@ interface HiverynAPI {
   sessions: {
     list: () => Promise<Session[]>;
     create: (profileId: string, workdir: string) => Promise<Session>;
+    delete: (sessionId: string) => Promise<void>;
   };
   tickets: {
     list: (architectKey: string) => Promise<TicketBoard>;

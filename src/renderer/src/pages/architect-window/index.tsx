@@ -13,6 +13,7 @@ import {
   Navigation,
   Plus,
   ProfileSelector,
+  SessionConcludedDialog,
   TabBar,
   type TabBarTab,
   Terminal,
@@ -53,6 +54,15 @@ interface ActiveSessionTab {
   label: string;
   wsUrl: string;
   ticketId?: string;
+}
+
+interface ConcludedSession {
+  sessionId: string;
+  sessionType: 'architect' | 'work';
+  conclusionBody: string;
+  commits?: string[];
+  rejected?: boolean;
+  rejectionReason?: string;
 }
 
 function isCompactViewport(): boolean {
@@ -118,6 +128,15 @@ export default function ArchitectWindow() {
   // ── Bottom bar session tabs ──────────────────────────────────────────────
   const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionTab>>({});
   const [activeBottomTab, setActiveBottomTab] = useState<string>(ARCHITECT_TAB_ID);
+
+  // ── Session concluded dialog ──────────────────────────────────────────────
+  const [concludedSession, setConcludedSession] = useState<ConcludedSession | null>(null);
+
+  // ── Refs for stable access from event listeners ───────────────────────────
+  const activeSessionsRef = useRef(activeSessions);
+  activeSessionsRef.current = activeSessions;
+  const concludedSessionRef = useRef(concludedSession);
+  concludedSessionRef.current = concludedSession;
 
   // ── Worker spawn ─────────────────────────────────────────────────────────
   const [showWorkerProfileSelector, setShowWorkerProfileSelector] = useState(false);
@@ -270,10 +289,38 @@ export default function ArchitectWindow() {
     return unsubscribe;
   }, [architectKey]);
 
-  // Always-on session event listener — accumulates events from all sessions.
+  // Always-on session event listener — accumulates events from all sessions
+  // and detects session-ended events to show the conclusion dialog.
   useEffect(() => {
     return window.hiveryn.session.onEvent((event) => {
       setEvents((current) => [...current, event]);
+
+      if (event.type === 'status' && event.status === 'ended') {
+        const sessions = activeSessionsRef.current;
+
+        // Don't show another dialog if one is already displayed.
+        if (concludedSessionRef.current) return;
+
+        const sessionTab = sessions[event.session_id];
+        const archSession = sessions[ARCHITECT_TAB_ID];
+        const isArchitect = archSession?.sessionId === event.session_id;
+
+        if (!sessionTab && !isArchitect) return;
+
+        const sessionType = isArchitect ? ('architect' as const) : ('work' as const);
+        const raw = event.raw as
+          | { body?: string; commits?: string[]; rejected?: boolean; rejection_reason?: string }
+          | undefined;
+
+        setConcludedSession({
+          sessionId: event.session_id,
+          sessionType,
+          conclusionBody: raw?.body ?? 'Session concluded',
+          commits: raw?.commits,
+          rejected: raw?.rejected,
+          rejectionReason: raw?.rejection_reason,
+        });
+      }
     });
   }, []);
 
@@ -313,6 +360,7 @@ export default function ArchitectWindow() {
               sessionId: s.id,
               label: s.label,
               wsUrl: s.ws_url,
+              ticketId: s.ticket_id,
             };
           }
         }
@@ -604,6 +652,45 @@ export default function ArchitectWindow() {
         >
           {workerSpawnError}
         </Text>
+      ) : null}
+
+      {concludedSession ? (
+        <SessionConcludedDialog
+          sessionType={concludedSession.sessionType}
+          conclusionBody={concludedSession.conclusionBody}
+          commits={concludedSession.commits}
+          rejected={concludedSession.rejected}
+          rejectionReason={concludedSession.rejectionReason}
+          timerSeconds={5}
+          onComplete={() => {
+            const sessionId = concludedSession.sessionId;
+            const isArchitect = concludedSession.sessionType === 'architect';
+
+            // Delete session on the daemon — full cleanup (kill PTY, bridges, subscribers).
+            window.hiveryn.sessions.delete(sessionId).catch(() => {});
+            // Clean up client-side WebSocket/SSE subscription.
+            window.hiveryn.session.disconnect(sessionId).catch(() => {});
+
+            if (isArchitect) {
+              // Close the entire architect window.
+              window.hiveryn.architect.closeWindow().catch(() => {});
+            } else {
+              // Remove the worker tab and switch back to architect.
+              setActiveSessions((prev) => {
+                const next = { ...prev };
+                delete next[sessionId];
+                return next;
+              });
+              setActiveBottomTab(ARCHITECT_TAB_ID);
+              const archSession = activeSessionsRef.current[ARCHITECT_TAB_ID];
+              if (archSession) {
+                window.hiveryn.session.setActive(archSession.sessionId);
+              }
+            }
+
+            setConcludedSession(null);
+          }}
+        />
       ) : null}
     </div>
   );

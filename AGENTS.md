@@ -35,7 +35,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          session:connect/disconnect/send/resize → sessionManager
-      sessions.ts         sessions:list/create → daemon HTTP; enriches list with ws_url
+      sessions.ts         sessions:list/create/delete → daemon HTTP; enriches list with ws_url
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       launcher.ts         launcher:open-architect handler
   preload/
@@ -153,6 +153,17 @@ Architect sessions run in the daemon and survive component mount/unmount cycles 
 - **`sessions:list`** enriches each session with a derived `ws_url` (`ws://{daemon}/ws/session/{id}`) since the daemon's spawn endpoint is the only source of the WS URL.
 - The daemon enforces **one running session per architect** (partial unique index), so `.find()` is safe.
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
+
+## Session conclusion dialog
+
+When a session ends (architect or worker), the daemon sends a `status: ended` SSE event with conclusion data in `event.raw` (`{body, commits, rejected, rejection_reason}`). The `ArchitectWindow` detects this and renders `SessionConcludedDialog` (from `@hiveryn/components`) — a non-dismissable modal with a countdown timer (5s) and "Terminate Now" button.
+
+On complete (timer or click):
+
+1. `sessions.delete(sessionId)` — kills the daemon session (PTY, bridges, subscribers, DB record)
+2. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
+3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
+4. **Worker session**: removes the worker tab from `activeSessions`, switches back to the architect tab, and calls `session.setActive()` on the architect session to restore input routing
 
 ## Architect workspace events
 

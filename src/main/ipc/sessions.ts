@@ -34,4 +34,13 @@ export function registerSessionsIpc(): void {
       });
     },
   );
+
+  ipcMain.handle(
+    'sessions:delete',
+    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      });
+    },
+  );
 }

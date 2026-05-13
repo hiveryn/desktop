@@ -47,6 +47,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
+  'sessions:delete': { method: 'DELETE', path: '/api/sessions/:id' },
+  'architect:closeWindow': { method: 'POST', path: '/architect/close' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -112,6 +114,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   architect: {
     getInfo: (): Promise<ArchitectInfo> => invoke('architect:getInfo'),
     openLauncher: (): Promise<void> => invoke('architect:openLauncher'),
+    closeWindow: (): Promise<void> => invoke('architect:closeWindow'),
   },
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
@@ -177,6 +180,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (): Promise<Session[]> => invoke('sessions:list'),
     create: (profileId: string, workdir: string): Promise<Session> =>
       invoke('sessions:create', profileId, workdir),
+    delete: (sessionId: string): Promise<void> => invoke('sessions:delete', sessionId),
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),

@@ -63,6 +63,7 @@ export interface Session {
   workdir: string;
   architect_key: string;
   ws_url: string;
+  ticket_id?: string;
 }
 
 export interface SessionEvent {

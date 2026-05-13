@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import type { ArchitectInfo, DaemonResult } from '../../shared/types';
 
 interface ArchitectIpcOptions {
@@ -19,6 +19,14 @@ export function registerArchitectIpc({ openLauncherWindow }: ArchitectIpcOptions
 
   ipcMain.handle('architect:openLauncher', (): DaemonResult<null> => {
     openLauncherWindow();
+    return ok(null);
+  });
+
+  ipcMain.handle('architect:closeWindow', (event): DaemonResult<null> => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (window && !window.isDestroyed()) {
+      window.close();
+    }
     return ok(null);
   });
 }
