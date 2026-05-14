@@ -60,19 +60,22 @@ interface AgentProfile {
 
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
-type SessionKind = 'architect' | 'ticket';
-type SessionStatus = 'running' | 'idle' | 'error';
+type SessionKind = 'architect' | 'work';
+type SessionStatus = 'running' | 'completed' | 'failed';
 
 interface Session {
   id: string;
-  kind: SessionKind;
-  label: string;
-  agentKind: AgentKind;
+  profile_name: string;
+  session_type: SessionKind;
   status: SessionStatus;
-  workdir: string;
+  prompt: string;
+  instructions: string;
   architect_key: string;
-  ws_url: string;
   ticket_id?: string;
+  native_id?: string;
+  main_terminal_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface SessionEvent {
@@ -159,6 +162,7 @@ interface TicketDeleteResult {
 
 interface SpawnResult {
   session_id: string;
+  main_terminal_id: string;
   ws_url: string;
 }
 
@@ -166,21 +170,29 @@ interface SpawnResult {
 
 interface SessionDataEvent {
   sessionId: string;
-  terminalName: string;
+  terminalId: string;
   data: Uint8Array | string;
 }
 
 // ── Multi-terminal ──────────────────────────────────────────────────────────
 
 interface TerminalInfo {
-  name: string;
-  ws_url: string;
+  terminal_id: string;
+  session_id: string;
+  command: string;
+  status: string;
 }
 
 interface CreateTerminalBody {
-  name: string;
   command?: string;
   args?: string[];
+}
+
+interface SessionTab {
+  type: 'kanban' | 'event-log' | 'terminal';
+  id?: string;
+  command?: string;
+  status?: string;
 }
 
 // ── Architects ─────────────────────────────────────────────────────────────
@@ -250,17 +262,15 @@ interface HiverynAPI {
     subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
-    connect: (sessionId: string, wsUrl: string, terminalName?: string) => Promise<void>;
-    connectByTerminalName: (sessionId: string, terminalName: string) => Promise<void>;
-    disconnect: (sessionId?: string, terminalName?: string) => Promise<void>;
-    send: (sessionId: string, terminalName: string, data: string) => void;
-    resize: (sessionId: string, terminalName: string, cols: number, rows: number) => void;
+    connect: (sessionId: string, terminalId: string) => Promise<void>;
+    disconnect: (sessionId?: string, terminalId?: string) => Promise<void>;
+    send: (sessionId: string, terminalId: string, data: string) => void;
+    resize: (sessionId: string, terminalId: string, cols: number, rows: number) => void;
     onData: (callback: (payload: SessionDataEvent) => void) => () => void;
     onEvent: (callback: (event: SessionEvent) => void) => () => void;
     onTerminalClosed: (
-      callback: (payload: { sessionId: string; terminalName: string }) => void,
+      callback: (payload: { sessionId: string; terminalId: string }) => void,
     ) => () => void;
-    getWsUrl: (sessionId: string, terminalName: string) => Promise<string>;
   };
   launcher: {
     openArchitect: (key: string) => Promise<void>;
@@ -289,7 +299,10 @@ interface HiverynAPI {
   terminals: {
     list: (sessionId: string) => Promise<TerminalInfo[]>;
     create: (sessionId: string, body: CreateTerminalBody) => Promise<TerminalInfo>;
-    kill: (sessionId: string, terminalName: string) => Promise<void>;
+    kill: (sessionId: string, terminalId: string) => Promise<void>;
+  };
+  tabs: {
+    list: (sessionId: string) => Promise<SessionTab[]>;
   };
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;

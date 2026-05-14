@@ -51,19 +51,22 @@ export interface DaemonResult<T = unknown> {
 
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
-export type SessionKind = 'architect' | 'ticket';
-export type SessionStatus = 'running' | 'idle' | 'error';
+export type SessionKind = 'architect' | 'work';
+export type SessionStatus = 'running' | 'completed' | 'failed';
 
 export interface Session {
   id: string;
-  kind: SessionKind;
-  label: string;
-  agentKind: AgentKind;
+  profile_name: string;
+  session_type: SessionKind;
   status: SessionStatus;
-  workdir: string;
+  prompt: string;
+  instructions: string;
   architect_key: string;
-  ws_url: string;
   ticket_id?: string;
+  native_id?: string;
+  main_terminal_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SessionEvent {
@@ -165,18 +168,27 @@ export interface ArchitectInfo {
 
 export interface SpawnResult {
   session_id: string;
+  main_terminal_id: string;
   ws_url: string;
 }
 
 export interface TerminalInfo {
-  name: string;
-  ws_url: string;
+  terminal_id: string;
+  session_id: string;
+  command: string;
+  status: string;
 }
 
 export interface CreateTerminalBody {
-  name: string;
   command?: string;
   args?: string[];
+}
+
+export interface SessionTab {
+  type: 'kanban' | 'event-log' | 'terminal';
+  id?: string;
+  command?: string;
+  status?: string;
 }
 
 export interface WorkspaceChangedEvent {

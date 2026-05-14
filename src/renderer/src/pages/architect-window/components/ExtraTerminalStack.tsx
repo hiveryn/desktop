@@ -9,42 +9,38 @@ export default function ExtraTerminalStack() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const activeRightTab = useSessionStore((s) => s.activeRightTab);
-  const removeTerminal = useSessionStore((s) => s.removeTerminal);
-  const setActiveRightTab = useSessionStore((s) => s.setActiveRightTab);
 
   const extras = useMemo(
     () =>
       Object.values(sessions).flatMap((session) =>
-        Object.values(session.terminals)
-          .filter((t) => t.name !== 'main')
-          .map((terminal) => ({ session, terminal })),
+        session.tabs
+          .filter((tab) => tab.type === 'terminal' && tab.id)
+          .map((tab) => ({ session, tab })),
       ),
     [sessions],
   );
 
   return (
     <>
-      {extras.map(({ session, terminal }) => {
-        const isVisible = session.id === activeSessionId && activeRightTab === terminal.name;
+      {extras.map(({ session, tab }) => {
+        const terminalId = tab.id;
+        if (!terminalId) return null;
+        const isVisible = session.id === activeSessionId && activeRightTab === terminalId;
         return (
           <div
-            key={`${session.id}:${terminal.name}`}
+            key={`${session.id}:${terminalId}`}
             className={styles.extraSlot}
             style={{ display: isVisible ? 'flex' : 'none' }}
           >
             <SessionTerminal
               sessionId={session.id}
-              wsUrl={terminal.wsUrl}
-              terminalName={terminal.name}
+              terminalId={terminalId}
               visible={isVisible}
               onDisconnected={() => {
-                removeTerminal(session.id, terminal.name);
-                if (
-                  useSessionStore.getState().activeSessionId === session.id &&
-                  useSessionStore.getState().activeRightTab === terminal.name
-                ) {
-                  setActiveRightTab('kanban');
-                }
+                void window.hiveryn.tabs
+                  .list(session.id)
+                  .then((tabs) => useSessionStore.getState().setSessionTabs(session.id, tabs))
+                  .catch(() => {});
               }}
             />
           </div>

@@ -11,7 +11,12 @@ import {
   Text,
 } from '@hiveryn/components';
 import { useMemo } from 'react';
-import type { SessionEvent, TicketBoard, TicketSummary } from '../../../../../shared/types';
+import type {
+  SessionEvent,
+  SessionTab,
+  TicketBoard,
+  TicketSummary,
+} from '../../../../../shared/types';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -84,14 +89,10 @@ export default function RightPane({
     if (isCompact) {
       result.push({ id: 'terminal', icon: Terminal });
     }
-    if (activeSession?.type === 'architect') {
-      result.push({ id: 'kanban', icon: Kanban });
-    }
-    result.push({ id: 'event-log', icon: Activity });
     if (activeSession) {
-      for (const t of Object.values(activeSession.terminals)) {
-        if (t.name === 'main') continue;
-        result.push({ id: t.name, icon: Terminal, closable: true });
+      for (const tab of activeSession.tabs) {
+        const mapped = mapTabToBarTab(tab);
+        if (mapped) result.push(mapped);
       }
     }
     return result;
@@ -102,15 +103,19 @@ export default function RightPane({
   const tabIsValid = tabs.some((t) => t.id === activeRightTab);
   const effectiveTab = tabIsValid ? activeRightTab : (tabs[0]?.id ?? 'event-log');
 
-  function handleTabClose(id: string): void {
+  async function handleTabClose(id: string): Promise<void> {
     if (!activeSession) return;
-    const terminal = activeSession.terminals[id];
-    if (!terminal) return;
-    void window.hiveryn.terminals.kill(activeSession.id, terminal.name).catch(() => {});
-    window.hiveryn.session.disconnect(activeSession.id, terminal.name);
-    useSessionStore.getState().removeTerminal(activeSession.id, terminal.name);
-    if (activeRightTab === id) {
-      setActiveRightTab(activeSession.type === 'architect' ? 'kanban' : 'event-log');
+    const terminalTab = activeSession.tabs.find((tab) => tab.type === 'terminal' && tab.id === id);
+    if (!terminalTab?.id) return;
+    try {
+      await window.hiveryn.terminals.kill(activeSession.id, terminalTab.id);
+    } catch {
+      return;
+    }
+    await window.hiveryn.session.disconnect(activeSession.id, terminalTab.id).catch(() => {});
+    const nextTabs = await window.hiveryn.tabs.list(activeSession.id).catch(() => null);
+    if (nextTabs) {
+      useSessionStore.getState().setSessionTabs(activeSession.id, nextTabs);
     }
   }
 
@@ -172,7 +177,7 @@ export default function RightPane({
         tabs={tabs}
         activeTab={effectiveTab}
         onTabChange={setActiveRightTab}
-        onTabClose={handleTabClose}
+        onTabClose={(id) => void handleTabClose(id)}
         onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
         addLabel="New terminal"
         side="right"
@@ -183,30 +188,28 @@ export default function RightPane({
 
 async function handleOpenNewTerminal(sessionId: string | undefined): Promise<void> {
   if (!sessionId) return;
-  const session = useSessionStore.getState().sessions[sessionId];
-  if (!session) return;
-
-  // Find a fresh name like 'bash', 'bash-2', etc.
-  const existingNames = new Set(Object.keys(session.terminals));
-  let candidate = 'bash';
-  let i = 2;
-  while (existingNames.has(candidate)) {
-    candidate = `bash-${i++}`;
-  }
 
   try {
     const created = await window.hiveryn.terminals.create(sessionId, {
-      name: candidate,
       command: 'bash',
     });
-    useSessionStore.getState().addTerminal(sessionId, {
-      sessionId,
-      name: created.name,
-      wsUrl: created.ws_url,
-      status: 'connecting',
-    });
-    useSessionStore.getState().setActiveRightTab(created.name);
+    const tabs = await window.hiveryn.tabs.list(sessionId);
+    useSessionStore.getState().setSessionTabs(sessionId, tabs);
+    useSessionStore.getState().setActiveRightTab(created.terminal_id);
   } catch {
-    // daemon may reject duplicate names; ignore
+    // Non-fatal — keep current layout.
+  }
+}
+
+function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
+  switch (tab.type) {
+    case 'kanban':
+      return { id: 'kanban', icon: Kanban };
+    case 'event-log':
+      return { id: 'event-log', icon: Activity };
+    case 'terminal':
+      return tab.id ? { id: tab.id, icon: Terminal, closable: tab.status !== 'exited' } : null;
+    default:
+      return null;
   }
 }

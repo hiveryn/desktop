@@ -1,12 +1,8 @@
 import { useEffect } from 'react';
-import {
-  type SessionRecord,
-  type TerminalRecord,
-  useSessionStore,
-} from '../../../state/sessionStore';
+import type { SessionTab } from '../../../../../shared/types';
+import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 
-// Restores running sessions and their terminals from the daemon into the store.
-// Replaces ArchitectTerminal's ad-hoc session lookup and index.tsx's restore loop.
+// Restores running sessions, their main terminal UUIDs, and daemon-owned right-pane tabs.
 export function useSessionRestore(architectKey: string): void {
   useEffect(() => {
     if (!architectKey) return;
@@ -19,20 +15,18 @@ export function useSessionRestore(architectKey: string): void {
 
         for (const s of sessions) {
           if (s.status !== 'running' || s.architect_key !== architectKey) continue;
+          if (!s.main_terminal_id) continue;
 
-          let terminals: { name: string; ws_url: string }[];
+          let tabs: SessionTab[];
           try {
-            terminals = await window.hiveryn.terminals.list(s.id);
+            tabs = await window.hiveryn.tabs.list(s.id);
           } catch {
             continue;
           }
           if (cancelled) return;
 
-          const main = terminals.find((t) => t.name === 'main');
-          if (!main) continue;
-
-          const isArchitect = s.kind === 'architect';
-          const label = isArchitect ? 'Architect' : s.label || s.ticket_id;
+          const isArchitect = s.session_type === 'architect';
+          const label = isArchitect ? 'Architect' : s.ticket_id || s.profile_name;
           if (!label) continue;
 
           const record: SessionRecord = {
@@ -40,18 +34,9 @@ export function useSessionRestore(architectKey: string): void {
             type: isArchitect ? 'architect' : 'work',
             label,
             ticketId: s.ticket_id,
-            terminals: {},
+            mainTerminalId: s.main_terminal_id,
+            tabs,
           };
-
-          for (const term of terminals) {
-            const terminal: TerminalRecord = {
-              sessionId: s.id,
-              name: term.name,
-              wsUrl: term.ws_url,
-              status: 'connecting',
-            };
-            record.terminals[term.name] = terminal;
-          }
 
           useSessionStore.getState().registerSession(record);
 

@@ -22,9 +22,7 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
 
   const mains = useMemo(
     () =>
-      Object.values(sessions)
-        .map((session) => ({ session, terminal: session.terminals.main }))
-        .filter((entry) => entry.terminal !== undefined),
+      Object.values(sessions).map((session) => ({ session, terminalId: session.mainTerminalId })),
     [sessions],
   );
 
@@ -32,14 +30,13 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
 
   return (
     <div className={[styles.stack, className].filter(Boolean).join(' ')}>
-      {mains.map(({ session, terminal }) => {
+      {mains.map(({ session, terminalId }) => {
         const isVisible = paneVisible && session.id === activeSessionId;
         return (
           <SessionTerminal
-            key={session.id}
+            key={`${session.id}:${terminalId}`}
             sessionId={session.id}
-            wsUrl={terminal.wsUrl}
-            terminalName="main"
+            terminalId={terminalId}
             visible={isVisible}
             onDisconnected={() => {
               unregisterSession(session.id);

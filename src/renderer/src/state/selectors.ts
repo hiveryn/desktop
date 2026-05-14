@@ -1,17 +1,11 @@
 import { useShallow } from 'zustand/react/shallow';
 import type { SessionEvent } from '../../../shared/types';
-import {
-  type SessionRecord,
-  type SessionStore,
-  type TerminalRecord,
-  useSessionStore,
-} from './sessionStore';
+import { type SessionRecord, type SessionStore, useSessionStore } from './sessionStore';
 
 // Stable empty references — returned when there's no matching data so the
 // selector doesn't produce a fresh array on every render (which would loop
 // useSyncExternalStore).
 const EMPTY_EVENTS: SessionEvent[] = [];
-const EMPTY_TERMINALS: TerminalRecord[] = [];
 const EMPTY_SESSIONS: SessionRecord[] = [];
 
 export function useArchitectSession(): SessionRecord | undefined {
@@ -34,18 +28,6 @@ export function useWorkSessions(): SessionRecord[] {
 
 export function useActiveSession(): SessionRecord | undefined {
   return useSessionStore((s) => (s.activeSessionId ? s.sessions[s.activeSessionId] : undefined));
-}
-
-export function useExtraTerminalsForActiveSession(): TerminalRecord[] {
-  return useSessionStore(
-    useShallow((s) => {
-      if (!s.activeSessionId) return EMPTY_TERMINALS;
-      const session = s.sessions[s.activeSessionId];
-      if (!session) return EMPTY_TERMINALS;
-      const extras = Object.values(session.terminals).filter((t) => t.name !== 'main');
-      return extras.length === 0 ? EMPTY_TERMINALS : extras;
-    }),
-  );
 }
 
 export function useEventsForActiveSession(): SessionEvent[] {

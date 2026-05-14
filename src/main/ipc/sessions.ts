@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { DaemonResult, Session } from '../../shared/types';
-import { DAEMON_URL, daemonFetch } from '../daemon/client';
+import { daemonFetch } from '../daemon/client';
 
 function empty<T>(data: T): DaemonResult<T> {
   return {
@@ -11,20 +11,14 @@ function empty<T>(data: T): DaemonResult<T> {
 
 export function registerSessionsIpc(): void {
   ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
-    const result = await daemonFetch<{ sessions: Record<string, unknown>[] }>('/api/sessions');
+    const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
     if (result.httpStatus === 0 || result.httpStatus === 404) {
       return empty<Session[]>([]);
     }
-    const rawSessions =
-      (result.envelope.data as { sessions: Record<string, unknown>[] } | null)?.sessions ?? [];
-    const wsBase = DAEMON_URL.replace(/^http/, 'ws');
-    const sessions = rawSessions.map((s) => ({
-      ...s,
-      // Daemon uses session_type; desktop Session interface uses kind.
-      kind: s.session_type,
-      ws_url: `${wsBase}/ws/session/${encodeURIComponent(String(s.id))}/terminal/main`,
-    })) as unknown as Session[];
-    return { httpStatus: result.httpStatus, envelope: { ...result.envelope, data: sessions } };
+    return {
+      httpStatus: result.httpStatus,
+      envelope: { ...result.envelope, data: result.envelope.data?.sessions ?? [] },
+    };
   });
 
   ipcMain.handle(

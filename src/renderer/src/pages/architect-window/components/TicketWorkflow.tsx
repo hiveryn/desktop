@@ -2,11 +2,7 @@ import type { AgentProfile } from '@hiveryn/components';
 import { ProfileSelector, Text, TicketDetail } from '@hiveryn/components';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Ticket } from '../../../../../shared/types';
-import {
-  type SessionRecord,
-  type TerminalRecord,
-  useSessionStore,
-} from '../../../state/sessionStore';
+import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 
 function truncate(str: string, max: number): string {
@@ -74,29 +70,12 @@ export default function TicketWorkflow({
           type: 'work',
           label: truncate(ticket.title, 30),
           ticketId: ticket.id,
-          terminals: {
-            main: {
-              sessionId: result.session_id,
-              name: 'main',
-              wsUrl: result.ws_url,
-              status: 'connecting',
-            },
-          },
+          mainTerminalId: result.main_terminal_id,
+          tabs: [],
         };
 
-        // Fetch all terminals (main + auto-created) and add them all.
         try {
-          const terminals = await window.hiveryn.terminals.list(result.session_id);
-          for (const term of terminals) {
-            if (term.name === 'main') continue;
-            const t: TerminalRecord = {
-              sessionId: result.session_id,
-              name: term.name,
-              wsUrl: term.ws_url,
-              status: 'connecting',
-            };
-            record.terminals[term.name] = t;
-          }
+          record.tabs = await window.hiveryn.tabs.list(result.session_id);
         } catch {
           // Non-fatal — extras will appear on next restore.
         }

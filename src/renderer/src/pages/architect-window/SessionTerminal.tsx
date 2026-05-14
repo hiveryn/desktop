@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   sessionId: string;
-  wsUrl: string;
-  terminalName?: string;
+  terminalId: string;
   className?: string;
   visible?: boolean;
   onConnected?: (sessionId: string) => void;
@@ -13,8 +12,7 @@ interface Props {
 
 export default function SessionTerminal({
   sessionId,
-  wsUrl,
-  terminalName = 'main',
+  terminalId,
   className,
   visible = true,
   onConnected,
@@ -32,23 +30,23 @@ export default function SessionTerminal({
   });
 
   useEffect(() => {
-    return window.hiveryn.session.onData(({ sessionId: sid, terminalName: tname, data }) => {
-      if (sid !== sessionId || tname !== terminalName) return;
+    return window.hiveryn.session.onData(({ sessionId: sid, terminalId: tid, data }) => {
+      if (sid !== sessionId || tid !== terminalId) return;
       writeRef.current?.(data);
     });
-  }, [sessionId, terminalName]);
+  }, [sessionId, terminalId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function connect() {
       try {
-        await window.hiveryn.session.connect(sessionId, wsUrl, terminalName);
+        await window.hiveryn.session.connect(sessionId, terminalId);
         if (cancelled) return;
         if (lastSizeRef.current) {
           window.hiveryn.session.resize(
             sessionId,
-            terminalName,
+            terminalId,
             lastSizeRef.current.cols,
             lastSizeRef.current.rows,
           );
@@ -72,14 +70,14 @@ export default function SessionTerminal({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, wsUrl, terminalName]);
+  }, [sessionId, terminalId]);
 
   useEffect(() => {
-    return window.hiveryn.session.onTerminalClosed(({ sessionId: sid, terminalName: tname }) => {
-      if (sid !== sessionId || tname !== terminalName) return;
+    return window.hiveryn.session.onTerminalClosed(({ sessionId: sid, terminalId: tid }) => {
+      if (sid !== sessionId || tid !== terminalId) return;
       onDisconnectedRef.current?.();
     });
-  }, [sessionId, terminalName]);
+  }, [sessionId, terminalId]);
 
   if (error) {
     return (
@@ -121,11 +119,11 @@ export default function SessionTerminal({
         onWrite={(fn: (data: string | Uint8Array) => void) => {
           writeRef.current = fn;
         }}
-        onData={(data: string) => window.hiveryn.session.send(sessionId, terminalName, data)}
+        onData={(data: string) => window.hiveryn.session.send(sessionId, terminalId, data)}
         onResize={(cols: number, rows: number) => {
           if (cols <= 0 || rows <= 0) return;
           lastSizeRef.current = { cols, rows };
-          window.hiveryn.session.resize(sessionId, terminalName, cols, rows);
+          window.hiveryn.session.resize(sessionId, terminalId, cols, rows);
         }}
       />
     </div>

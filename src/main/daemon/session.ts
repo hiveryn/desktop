@@ -5,7 +5,7 @@ import { consumeSseBuffer, dispatchSseBlock } from './sse';
 
 interface TerminalConnection {
   ws: WebSocket;
-  terminalName: string;
+  terminalId: string;
 }
 
 interface ActiveSession {
@@ -13,9 +13,9 @@ interface ActiveSession {
   terminals: Map<string, TerminalConnection>;
   sseAbort: AbortController;
   sseRunning: boolean;
-  sendToRenderer: (sessionId: string, terminalName: string, data: Uint8Array | string) => void;
+  sendToRenderer: (sessionId: string, terminalId: string, data: Uint8Array | string) => void;
   sendEventToRenderer: (event: SessionEvent) => void;
-  sendTerminalClosedToRenderer: (sessionId: string, terminalName: string) => void;
+  sendTerminalClosedToRenderer: (sessionId: string, terminalId: string) => void;
   sessionId: string;
 }
 
@@ -59,16 +59,16 @@ async function consumeSse(
 // Supports multiple concurrent sessions per window (e.g. architect + workers).
 const sessionsByWcId = new Map<number, Map<string, ActiveSession>>();
 
-// In-flight connect promises, keyed by "wcId:sessionId:terminalName".
+// In-flight connect promises, keyed by "wcId:sessionId:terminalId".
 const pendingConnects = new Map<string, Promise<ConnectResult | ConnectError>>();
 
-function connectKey(wcId: number, sessionId: string, terminalName: string): string {
-  return `${wcId}:${sessionId}:${terminalName}`;
+function connectKey(wcId: number, sessionId: string, terminalId: string): string {
+  return `${wcId}:${sessionId}:${terminalId}`;
 }
 
-function terminalWsUrl(sessionId: string, terminalName: string): string {
+function terminalWsUrl(sessionId: string, terminalId: string): string {
   const wsBase = DAEMON_URL.replace(/^http/, 'ws');
-  return `${wsBase}/ws/session/${encodeURIComponent(sessionId)}/terminal/${encodeURIComponent(terminalName)}`;
+  return `${wsBase}/ws/session/${encodeURIComponent(sessionId)}/terminal/${encodeURIComponent(terminalId)}`;
 }
 
 export interface ConnectResult {
@@ -90,12 +90,12 @@ function cleanupTerminal(
   wcId: number,
   sessionId: string,
   session: ActiveSession,
-  terminalName: string,
+  terminalId: string,
 ): void {
-  const conn = session.terminals.get(terminalName);
+  const conn = session.terminals.get(terminalId);
   if (conn) {
     conn.ws.close();
-    session.terminals.delete(terminalName);
+    session.terminals.delete(terminalId);
   }
 
   if (session.terminals.size === 0) {
@@ -112,15 +112,15 @@ function cleanupTerminal(
 export function connect(
   sender: WebContents,
   sessionId: string,
-  wsUrl: string,
-  terminalName: string,
+  terminalId: string,
 ): Promise<ConnectResult | ConnectError> {
   const wcId = sender.id;
-  const key = connectKey(wcId, sessionId, terminalName);
+  const wsUrl = terminalWsUrl(sessionId, terminalId);
+  const key = connectKey(wcId, sessionId, terminalId);
 
   // If this terminal's WS is already open, return success immediately.
   const existing = sessionsByWcId.get(wcId)?.get(sessionId);
-  const existingTerminal = existing?.terminals.get(terminalName);
+  const existingTerminal = existing?.terminals.get(terminalId);
   if (existingTerminal?.ws.readyState === WebSocket.OPEN) {
     return Promise.resolve({ ok: true });
   }
@@ -131,16 +131,16 @@ export function connect(
     console.log('[main:session] connect → reusing pending promise', {
       wcId,
       sessionId,
-      terminalName,
+      terminalId,
     });
     return pending;
   }
 
-  console.log('[main:session] connect', { wcId, sessionId, terminalName, wsUrl });
+  console.log('[main:session] connect', { wcId, sessionId, terminalId, wsUrl });
 
-  const sendToRenderer = (sid: string, tName: string, data: Uint8Array | string): void => {
+  const sendToRenderer = (sid: string, tid: string, data: Uint8Array | string): void => {
     if (!sender.isDestroyed()) {
-      sender.send('session:data', { sessionId: sid, terminalName: tName, data });
+      sender.send('session:data', { sessionId: sid, terminalId: tid, data });
     }
   };
 
@@ -150,9 +150,9 @@ export function connect(
     }
   };
 
-  const sendTerminalClosedToRenderer = (sid: string, tName: string): void => {
+  const sendTerminalClosedToRenderer = (sid: string, tid: string): void => {
     if (!sender.isDestroyed()) {
-      sender.send('session:terminal-closed', { sessionId: sid, terminalName: tName });
+      sender.send('session:terminal-closed', { sessionId: sid, terminalId: tid });
     }
   };
 
@@ -190,31 +190,31 @@ export function connect(
       wcSessions.set(sessionId, session);
     }
 
-    // Replace existing terminal connection with same name.
-    const oldConn = session.terminals.get(terminalName);
+    // Replace any existing terminal connection with the same UUID.
+    const oldConn = session.terminals.get(terminalId);
     if (oldConn) {
       console.log('[main:session] connect → replacing existing terminal WS', {
         wcId,
         sessionId,
-        terminalName,
+        terminalId,
       });
       oldConn.ws.close();
     }
 
-    const conn: TerminalConnection = { ws, terminalName };
-    session.terminals.set(terminalName, conn);
+    const conn: TerminalConnection = { ws, terminalId };
+    session.terminals.set(terminalId, conn);
 
     ws.addEventListener('open', () => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
-      if (!stillActive || stillActive.terminals.get(terminalName) !== conn) {
+      if (!stillActive || stillActive.terminals.get(terminalId) !== conn) {
         console.log('[main:session] open fired but session/terminal was replaced — ignoring', {
           wcId,
           sessionId,
-          terminalName,
+          terminalId,
         });
         return;
       }
-      console.log('[main:session] open ✓', { wcId, sessionId, terminalName });
+      console.log('[main:session] open ✓', { wcId, sessionId, terminalId });
       startSse(session, sessionId);
       finish({ ok: true });
       resolve({ ok: true });
@@ -222,37 +222,37 @@ export function connect(
 
     ws.addEventListener('error', (ev) => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
-      if (!stillActive || stillActive.terminals.get(terminalName) !== conn) return;
-      console.warn('[main:session] error', { wcId, sessionId, terminalName, ev });
-      cleanupTerminal(wcId, sessionId, stillActive, terminalName);
+      if (!stillActive || stillActive.terminals.get(terminalId) !== conn) return;
+      console.warn('[main:session] error', { wcId, sessionId, terminalId, ev });
+      cleanupTerminal(wcId, sessionId, stillActive, terminalId);
       finish({ ok: false, message: 'WebSocket connection failed' });
       resolve({ ok: false, message: 'WebSocket connection failed' });
     });
 
     ws.addEventListener('message', (ev) => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
-      if (!stillActive || stillActive.terminals.get(terminalName) !== conn) return;
+      if (!stillActive || stillActive.terminals.get(terminalId) !== conn) return;
       if (ev.data instanceof ArrayBuffer) {
-        sendToRenderer(sessionId, terminalName, new Uint8Array(ev.data));
+        sendToRenderer(sessionId, terminalId, new Uint8Array(ev.data));
       } else {
-        sendToRenderer(sessionId, terminalName, String(ev.data));
+        sendToRenderer(sessionId, terminalId, String(ev.data));
       }
     });
 
     ws.addEventListener('close', (ev) => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
-      const wasActive = stillActive && stillActive.terminals.get(terminalName) === conn;
+      const wasActive = stillActive && stillActive.terminals.get(terminalId) === conn;
       console.log('[main:session] close', {
         wcId,
         sessionId,
-        terminalName,
+        terminalId,
         wasActive,
         code: ev.code,
         reason: ev.reason,
       });
       if (stillActive && wasActive) {
-        stillActive.sendTerminalClosedToRenderer(sessionId, terminalName);
-        cleanupTerminal(wcId, sessionId, stillActive, terminalName);
+        stillActive.sendTerminalClosedToRenderer(sessionId, terminalId);
+        cleanupTerminal(wcId, sessionId, stillActive, terminalId);
       }
       finish({ ok: false, message: 'WebSocket connection closed' });
     });
@@ -262,26 +262,18 @@ export function connect(
   return promise;
 }
 
-export function connectByTerminalName(
-  sender: WebContents,
-  sessionId: string,
-  terminalName: string,
-): Promise<ConnectResult | ConnectError> {
-  return connect(sender, sessionId, terminalWsUrl(sessionId, terminalName), terminalName);
-}
-
-export function disconnect(wcId: number, sessionId?: string, terminalName?: string): void {
+export function disconnect(wcId: number, sessionId?: string, terminalId?: string): void {
   const wcSessions = sessionsByWcId.get(wcId);
   if (!wcSessions) {
     console.log('[main:session] disconnect → no active sessions', { wcId });
     return;
   }
 
-  if (sessionId && terminalName) {
+  if (sessionId && terminalId) {
     const session = wcSessions.get(sessionId);
     if (!session) return;
-    console.log('[main:session] disconnect terminal', { wcId, sessionId, terminalName });
-    cleanupTerminal(wcId, sessionId, session, terminalName);
+    console.log('[main:session] disconnect terminal', { wcId, sessionId, terminalId });
+    cleanupTerminal(wcId, sessionId, session, terminalId);
   } else if (sessionId) {
     const session = wcSessions.get(sessionId);
     if (!session) {
@@ -313,9 +305,9 @@ export function disconnect(wcId: number, sessionId?: string, terminalName?: stri
   }
 }
 
-export function send(wcId: number, sessionId: string, terminalName: string, data: string): void {
+export function send(wcId: number, sessionId: string, terminalId: string, data: string): void {
   const session = sessionsByWcId.get(wcId)?.get(sessionId);
-  const conn = session?.terminals.get(terminalName);
+  const conn = session?.terminals.get(terminalId);
   if (conn && conn.ws.readyState === WebSocket.OPEN) {
     conn.ws.send(data);
   }
@@ -324,17 +316,13 @@ export function send(wcId: number, sessionId: string, terminalName: string, data
 export function resize(
   wcId: number,
   sessionId: string,
-  terminalName: string,
+  terminalId: string,
   cols: number,
   rows: number,
 ): void {
   if (cols <= 0 || rows <= 0) return;
   const session = sessionsByWcId.get(wcId)?.get(sessionId);
-  const conn = session?.terminals.get(terminalName);
+  const conn = session?.terminals.get(terminalId);
   if (!conn || conn.ws.readyState !== WebSocket.OPEN) return;
   conn.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
-}
-
-export function getWsUrl(sessionId: string, terminalName: string): string {
-  return terminalWsUrl(sessionId, terminalName);
 }

@@ -1,21 +1,13 @@
 import { create } from 'zustand';
-import type { SessionEvent } from '../../../shared/types';
-
-export type TerminalStatus = 'connecting' | 'connected' | 'disconnected';
-
-export interface TerminalRecord {
-  sessionId: string;
-  name: string;
-  wsUrl: string;
-  status: TerminalStatus;
-}
+import type { SessionEvent, SessionTab } from '../../../shared/types';
 
 export interface SessionRecord {
   id: string;
   type: 'architect' | 'work';
   label: string;
   ticketId?: string;
-  terminals: Record<string, TerminalRecord>;
+  mainTerminalId: string;
+  tabs: SessionTab[];
 }
 
 const EVENTS_PER_SESSION_CAP = 500;
@@ -25,7 +17,7 @@ interface SessionState {
   events: Record<string, SessionEvent[]>;
   // Which session is selected in the bottom tab bar.
   activeSessionId: string | null;
-  // Which right-pane tab is shown. 'kanban' | 'event-log' | 'terminal' | <terminal-name>.
+  // Which right-pane tab is shown. 'kanban' | 'event-log' | 'terminal' | <terminal-uuid>.
   // 'terminal' is only used in compact mode (shows main terminal in the single pane).
   activeRightTab: string;
 }
@@ -35,9 +27,7 @@ interface SessionActions {
   unregisterSession(id: string): void;
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
-  addTerminal(sessionId: string, terminal: TerminalRecord): void;
-  removeTerminal(sessionId: string, name: string): void;
-  setTerminalStatus(sessionId: string, name: string, status: TerminalStatus): void;
+  setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
   reset(): void;
@@ -79,7 +69,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set({ activeRightTab: tab });
   },
 
-  addTerminal(sessionId, terminal) {
+  setSessionTabs(sessionId, tabs) {
     set((state) => {
       const session = state.sessions[sessionId];
       if (!session) return state;
@@ -88,41 +78,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
           ...state.sessions,
           [sessionId]: {
             ...session,
-            terminals: { ...session.terminals, [terminal.name]: terminal },
-          },
-        },
-      };
-    });
-  },
-
-  removeTerminal(sessionId, name) {
-    set((state) => {
-      const session = state.sessions[sessionId];
-      if (!session?.terminals[name]) return state;
-      const { [name]: _removed, ...terminals } = session.terminals;
-      return {
-        sessions: {
-          ...state.sessions,
-          [sessionId]: { ...session, terminals },
-        },
-      };
-    });
-  },
-
-  setTerminalStatus(sessionId, name, status) {
-    set((state) => {
-      const session = state.sessions[sessionId];
-      const terminal = session?.terminals[name];
-      if (!terminal) return state;
-      return {
-        sessions: {
-          ...state.sessions,
-          [sessionId]: {
-            ...session,
-            terminals: {
-              ...session.terminals,
-              [name]: { ...terminal, status },
-            },
+            tabs,
           },
         },
       };
