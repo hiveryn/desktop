@@ -43,11 +43,15 @@ export default function SessionTerminal({
 
     async function connect() {
       try {
-        await window.hiveryn.session.setActive(sessionId, terminalName);
         await window.hiveryn.session.connect(sessionId, wsUrl, terminalName);
         if (cancelled) return;
         if (lastSizeRef.current) {
-          window.hiveryn.session.resize(lastSizeRef.current.cols, lastSizeRef.current.rows);
+          window.hiveryn.session.resize(
+            sessionId,
+            terminalName,
+            lastSizeRef.current.cols,
+            lastSizeRef.current.rows,
+          );
         }
         onConnectedRef.current?.(sessionId);
       } catch (err: unknown) {
@@ -70,7 +74,6 @@ export default function SessionTerminal({
     };
   }, [sessionId, wsUrl, terminalName]);
 
-  // Listen for server-side terminal close (e.g. user ran `exit` in a bash terminal).
   useEffect(() => {
     return window.hiveryn.session.onTerminalClosed(({ sessionId: sid, terminalName: tname }) => {
       if (sid !== sessionId || tname !== terminalName) return;
@@ -113,14 +116,16 @@ export default function SessionTerminal({
     >
       <TerminalPane
         className={className}
+        visible={visible}
         style={{ flex: 1, minHeight: 0, height: 'auto' }}
         onWrite={(fn: (data: string | Uint8Array) => void) => {
           writeRef.current = fn;
         }}
-        onData={(data: string) => window.hiveryn.session.send(data)}
+        onData={(data: string) => window.hiveryn.session.send(sessionId, terminalName, data)}
         onResize={(cols: number, rows: number) => {
+          if (cols <= 0 || rows <= 0) return;
           lastSizeRef.current = { cols, rows };
-          window.hiveryn.session.resize(cols, rows);
+          window.hiveryn.session.resize(sessionId, terminalName, cols, rows);
         }}
       />
     </div>

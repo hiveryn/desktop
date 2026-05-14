@@ -61,21 +61,16 @@ export function registerSessionIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    'session:setActive',
-    async (_event, sessionId: string, terminalName: string): Promise<DaemonResult<null>> => {
-      sessionManager.setActive(_event.sender.id, sessionId, terminalName ?? 'main');
-      return ok();
+  ipcMain.on('session:send', (event, sessionId: string, terminalName: string, data: string) => {
+    sessionManager.send(event.sender.id, sessionId, terminalName, data);
+  });
+
+  ipcMain.on(
+    'session:resize',
+    (event, sessionId: string, terminalName: string, cols: number, rows: number) => {
+      sessionManager.resize(event.sender.id, sessionId, terminalName, cols, rows);
     },
   );
-
-  ipcMain.on('session:send', (event, data: string) => {
-    sessionManager.send(event.sender.id, data);
-  });
-
-  ipcMain.on('session:resize', (event, cols: number, rows: number) => {
-    sessionManager.resize(event.sender.id, cols, rows);
-  });
 
   ipcMain.handle(
     'session:getWsUrl',

@@ -45,11 +45,17 @@ src/
   renderer/src/
     App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
     main.tsx              React entry, QueryClient, theme init
+    state/
+      sessionStore.ts     Zustand store — sessions, terminals, events (FIFO-capped), active selection
+      selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     pages/
-      launcher/           Launcher page — architect list, open architect window
-      architect-window/   Architect window — split-pane layout, terminal, kanban, event log
-        SessionTerminal.tsx    Reusable terminal component — connect to any session by id+wsUrl
-        ArchitectTerminal.tsx  Architect spawn flow — ProfileSelector → spawn → SessionTerminal
+      launcher.tsx        Launcher page — architect list, variant selection on click
+      architect-window/
+        index.tsx                Thin shell — composes hooks + view components
+        SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalName)
+        hooks/                   useArchitectData, useSessionRestore, useSessionEvents, useViewportMode
+        components/              LeftPane, RightPane, BottomTabs, MainTerminalStack,
+                                 ExtraTerminalStack, TicketWorkflow, ConcludedSessionFlow
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
@@ -107,7 +113,7 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 - **`session:data` IPC events** carry `{ sessionId: string; terminalName: string; data: Uint8Array | string }` so the renderer can route PTY output to the correct terminal.
 - **`session:terminal-closed` IPC events** carry `{ sessionId: string; terminalName: string }` — fired when a terminal's WebSocket closes server-side (e.g. user ran `exit`). `SessionTerminal` subscribes via `onTerminalClosed` and calls `onDisconnected` in response.
 - **`session:event` IPC events** include `session_id` in the payload — session-level lifecycle events unchanged.
-- **`session.setActive(sessionId, terminalName)`** must be called before `send()` or `resize()` so input reaches the correct terminal's WebSocket. `SessionTerminal` calls this on mount; clicking a terminal in the UI also routes input via click handlers.
+- **`session.send(sessionId, terminalName, data)`** and **`session.resize(sessionId, terminalName, cols, rows)`** take explicit identifiers — there is no global "active terminal" concept in the main process. Each `SessionTerminal` knows its own (sessionId, terminalName) and routes accordingly.
 
 ### Terminal lifecycle
 
@@ -115,24 +121,24 @@ Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` co
 
 Duplicate `connect()` calls for the same terminal (e.g. from React StrictMode) are deduplicated via `pendingConnects` map keyed by `wcId:sessionId:terminalName`.
 
-Terminal DOM persistence: `TerminalPane` xterm instances survive tab switches via `display: none`/`flex` toggling. All right-pane elements (kanban, event-log, user terminals) are always mounted; only the active one is shown. This preserves xterm instances and scrollback across tab switches.
+Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists in the store. Visibility is toggled via `display:none` + the `visible` prop, which triggers an immediate `fit()` + `refresh()` in `useLayoutEffect` — no black-screen-on-tab-switch and full scrollback preservation across switches.
 
 ### Layout
 
 | Pane | Content |
 |---|---|
-| **Left pane** | Always the **main terminal** of the active session. Architect sessions use `ArchitectTerminal` (idle/spawn/running lifecycle). Worker sessions use `SessionTerminal` with `terminalName="main"`. |
-| **Right pane** | Views scoped to the active session: Kanban + Activity (architect) or Activity only (worker), plus user-created terminal tabs. User terminals are created via `TERMINALS.create()` with auto-generated names (`bash`, `bash-2`, ...) and default command `bash`. |
-| **Bottom bar** | Session switcher only: Architect tab (always present) + worker session tabs. No user terminals in the bottom bar. |
+| **Left pane** | `MainTerminalStack` — every session's main terminal mounted as a sibling; visibility picked by `activeSessionId`. Shows a "No active session / Return to Launcher" fallback when no session is registered. |
+| **Right pane** | Kanban (architect only) + Activity log + `ExtraTerminalStack` for non-main terminals (`bash`, `bash-2`, …) created via `terminals.create()`. Tab visibility picked by `activeRightTab`. |
+| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then workers). Active tab driven by `activeSessionId`. |
 
-Input routing: clicking anywhere in the left pane routes input to the main terminal. Clicking a right-pane terminal tab or inside the terminal area routes input to that terminal. Switching to kanban/event-log routes input back to main.
+Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, terminalName)` props — no shared input-routing state needed.
 
 ### Adding a new terminal
 
 1. Call `window.hiveryn.terminals.create(sessionId, { name, command, args })` → POST to daemon
-2. The daemon returns `{ name, ws_url }`; desktop derives the WebSocket URL per terminal
-3. Add the terminal to `activeTerminals` state with the appropriate tab key (`arch:{name}` or `{sessionId}:{name}`)
-4. Render a `<SessionTerminal>` with the terminal's `wsUrl` and `terminalName`
+2. The daemon returns `{ name, ws_url }`
+3. Call `useSessionStore.getState().addTerminal(sessionId, { sessionId, name, wsUrl, status: 'connecting' })`
+4. `ExtraTerminalStack` (already mounted) picks it up automatically and renders a new `SessionTerminal`
 
 ### Terminal CRUD
 
@@ -146,22 +152,22 @@ Input routing: clicking anywhere in the left pane routes input to the main termi
 
 Architect sessions run in the daemon and survive component mount/unmount cycles in the renderer. Component lifecycle is NOT session lifecycle.
 
-- **`ArchitectTerminal`** does NOT disconnect on unmount. The WebSocket/SSE stay alive in the main process.
-- **On mount**, `ArchitectTerminal` calls `sessions:list` to find a running session matching the architect key (`architect_key`) and reconnects to it. This handles both layout-change remounts (desktop↔compact) and app relaunches.
-- **`sessions:list`** enriches each session with a derived `ws_url` (`ws://{daemon}/ws/session/{id}/terminal/main`) since the daemon's spawn endpoint is the only source of the WS URL.
-- The daemon enforces **one running session per architect** (partial unique index), so `.find()` is safe.
+- **Spawn**: the launcher spawns the architect session via `architects.spawn(key, profileName)` and opens the architect window. The architect window does not spawn — it only restores.
+- **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `terminals.list(id)` for every running session that matches the architect key, and populates the Zustand store. `MainTerminalStack` and `ExtraTerminalStack` render the resulting terminals.
+- **`sessions:list`** enriches each session with a derived `ws_url` (`ws://{daemon}/ws/session/{id}/terminal/main`) and maps the daemon's `session_type` field to `kind`.
+- The daemon enforces **one running session per architect** (partial unique index).
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
 
 ## Session conclusion dialog
 
-When a session ends (architect or worker), the daemon sends a `status: ended` SSE event with conclusion data in `event.raw` (`{body, commits, rejected, rejection_reason}`). The `ArchitectWindow` detects this and renders `SessionConcludedDialog` (from `@hiveryn/components`) — a non-dismissable modal with a countdown timer (5s) and "Terminate Now" button.
+When a session ends (architect or worker), the daemon sends a `status: ended` SSE event with conclusion data in `event.raw` (`{body, commits, rejected, rejection_reason}`). `useSessionEvents` detects this and surfaces it via `ConcludedSessionFlow`, which renders `SessionConcludedDialog` (from `@hiveryn/components`) — a non-dismissable modal with a countdown timer (5s) and "Terminate Now" button.
 
 On complete (timer or click):
 
 1. `sessions.delete(sessionId)` — kills the daemon session (PTY, bridges, subscribers, DB record)
 2. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
-4. **Worker session**: removes the worker tab from `activeTerminals`, switches back to the architect tab, and calls `session.setActive()` on the architect session to restore input routing
+4. **Worker session**: calls `store.unregisterSession(sessionId)`, which removes the worker from the store; `BottomTabs` / `MainTerminalStack` re-render automatically and the active session falls back to the architect
 
 ## Architect workspace events
 

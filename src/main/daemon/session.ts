@@ -59,9 +59,6 @@ async function consumeSse(
 // Supports multiple concurrent sessions per window (e.g. architect + workers).
 const sessionsByWcId = new Map<number, Map<string, ActiveSession>>();
 
-// Tracks the "active" terminal per webContents (send/resize target).
-const activeByWcId = new Map<number, { sessionId: string; terminalName: string }>();
-
 // In-flight connect promises, keyed by "wcId:sessionId:terminalName".
 const pendingConnects = new Map<string, Promise<ConnectResult | ConnectError>>();
 
@@ -109,11 +106,6 @@ function cleanupTerminal(
       wcSessions.delete(sessionId);
       if (wcSessions.size === 0) sessionsByWcId.delete(wcId);
     }
-  }
-
-  const active = activeByWcId.get(wcId);
-  if (active?.sessionId === sessionId && active?.terminalName === terminalName) {
-    activeByWcId.delete(wcId);
   }
 }
 
@@ -212,11 +204,6 @@ export function connect(
     const conn: TerminalConnection = { ws, terminalName };
     session.terminals.set(terminalName, conn);
 
-    // Auto-set as active if no terminal is active for this wcId.
-    if (!activeByWcId.has(wcId)) {
-      activeByWcId.set(wcId, { sessionId, terminalName });
-    }
-
     ws.addEventListener('open', () => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
       if (!stillActive || stillActive.terminals.get(terminalName) !== conn) {
@@ -311,10 +298,6 @@ export function disconnect(wcId: number, sessionId?: string, terminalName?: stri
     session.finish({ ok: false, message: 'Session disconnected' });
     wcSessions.delete(sessionId);
     if (wcSessions.size === 0) sessionsByWcId.delete(wcId);
-    const active = activeByWcId.get(wcId);
-    if (active?.sessionId === sessionId) {
-      activeByWcId.delete(wcId);
-    }
   } else {
     console.log('[main:session] disconnect → all sessions', { wcId, count: wcSessions.size });
     for (const [, session] of wcSessions) {
@@ -327,56 +310,28 @@ export function disconnect(wcId: number, sessionId?: string, terminalName?: stri
     }
     wcSessions.clear();
     sessionsByWcId.delete(wcId);
-    activeByWcId.delete(wcId);
   }
 }
 
-export function setActive(wcId: number, sessionId: string, terminalName: string): void {
-  console.log('[main:session] setActive', { wcId, sessionId, terminalName });
-  activeByWcId.set(wcId, { sessionId, terminalName });
-}
-
-export function send(wcId: number, data: string): void {
-  const active = activeByWcId.get(wcId);
-  if (!active) {
-    console.log('[main:session] send → no active terminal, dropping', { wcId });
-    return;
-  }
-  const session = sessionsByWcId.get(wcId)?.get(active.sessionId);
-  const conn = session?.terminals.get(active.terminalName);
+export function send(wcId: number, sessionId: string, terminalName: string, data: string): void {
+  const session = sessionsByWcId.get(wcId)?.get(sessionId);
+  const conn = session?.terminals.get(terminalName);
   if (conn && conn.ws.readyState === WebSocket.OPEN) {
     conn.ws.send(data);
   }
 }
 
-export function resize(wcId: number, cols: number, rows: number): void {
-  const active = activeByWcId.get(wcId);
-  if (!active) {
-    console.log('[main:session] resize → no active terminal, dropping', { wcId, cols, rows });
-    return;
-  }
-  const session = sessionsByWcId.get(wcId)?.get(active.sessionId);
-  const conn = session?.terminals.get(active.terminalName);
-  if (!conn) {
-    console.log('[main:session] resize → terminal not found, dropping', {
-      wcId,
-      ...active,
-      cols,
-      rows,
-    });
-    return;
-  }
-  if (conn.ws.readyState !== WebSocket.OPEN) {
-    console.log('[main:session] resize → WS not open, dropping', {
-      wcId,
-      ...active,
-      cols,
-      rows,
-      readyState: conn.ws.readyState,
-    });
-    return;
-  }
-  console.log('[main:session] resize → sending', { wcId, ...active, cols, rows });
+export function resize(
+  wcId: number,
+  sessionId: string,
+  terminalName: string,
+  cols: number,
+  rows: number,
+): void {
+  if (cols <= 0 || rows <= 0) return;
+  const session = sessionsByWcId.get(wcId)?.get(sessionId);
+  const conn = session?.terminals.get(terminalName);
+  if (!conn || conn.ws.readyState !== WebSocket.OPEN) return;
   conn.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
 }
 

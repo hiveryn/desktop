@@ -1,12 +1,14 @@
+import type { AgentProfile } from '@hiveryn/components';
 import {
   ArchitectCard,
   BottomBar,
   Caption,
   Navigation,
+  ProfileSelector,
   Text,
   ThemeSwitcher,
 } from '@hiveryn/components';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './launcher.module.css';
 
 function errorMessage(error: unknown): string {
@@ -28,16 +30,34 @@ export default function Launcher() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set());
+  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
+
+  const [pendingArchitectKey, setPendingArchitectKey] = useState<string | null>(null);
+  const [showProfileSelector, setShowProfileSelector] = useState(false);
+  const [isSpawning, setIsSpawning] = useState(false);
+  const [spawnError, setSpawnError] = useState<string | null>(null);
+
+  const pendingArchitectKeyRef = useRef(pendingArchitectKey);
+  useEffect(() => {
+    pendingArchitectKeyRef.current = pendingArchitectKey;
+  }, [pendingArchitectKey]);
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadData() {
       setIsLoading(true);
       setError(null);
-      const [architectsResult, homeResult] = await Promise.allSettled([
-        window.hiveryn.architects.list(),
-        window.hiveryn.system.getHome(),
-      ]);
+      setProfilesError(null);
+      const [architectsResult, homeResult, sessionsResult, profilesResult] =
+        await Promise.allSettled([
+          window.hiveryn.architects.list(),
+          window.hiveryn.system.getHome(),
+          window.hiveryn.sessions.list(),
+          window.hiveryn.profiles.list(),
+        ]);
 
       if (cancelled) return;
 
@@ -49,6 +69,19 @@ export default function Launcher() {
 
       if (homeResult.status === 'fulfilled') {
         setHome(homeResult.value.home);
+      }
+
+      if (sessionsResult.status === 'fulfilled') {
+        const running = new Set(
+          sessionsResult.value.filter((s) => s.status === 'running').map((s) => s.architect_key),
+        );
+        setRunningSessions(running);
+      }
+
+      if (profilesResult.status === 'fulfilled') {
+        setProfiles(profilesResult.value);
+      } else {
+        setProfilesError(errorMessage(profilesResult.reason));
       }
 
       setIsLoading(false);
@@ -64,12 +97,44 @@ export default function Launcher() {
     return [...architects].sort((a, b) => a.key.localeCompare(b.key));
   }, [architects]);
 
-  const handleOpenArchitect = async (key: string) => {
+  const handleOpenArchitect = (key: string) => {
     setError(null);
+    setSpawnError(null);
+
+    if (runningSessions.has(key)) {
+      void window.hiveryn.launcher.openArchitect(key).catch((err) => {
+        setError(errorMessage(err));
+      });
+    } else {
+      if (profilesError) {
+        setError(`Cannot start session: ${profilesError}`);
+        return;
+      }
+      setPendingArchitectKey(key);
+      setShowProfileSelector(true);
+    }
+  };
+
+  const handleProfileSelect = async (profileName: string): Promise<void> => {
+    const key = pendingArchitectKeyRef.current;
+    if (!key) return;
+    setShowProfileSelector(false);
+    setIsSpawning(true);
+    setSpawnError(null);
+
     try {
+      await window.hiveryn.architects.spawn(key, profileName);
       await window.hiveryn.launcher.openArchitect(key);
     } catch (err) {
-      setError(errorMessage(err));
+      setSpawnError(errorMessage(err));
+      setIsSpawning(false);
+    }
+  };
+
+  const handleProfileSelectorClose = () => {
+    if (!isSpawning) {
+      setShowProfileSelector(false);
+      setPendingArchitectKey(null);
     }
   };
 
@@ -82,7 +147,7 @@ export default function Launcher() {
       </Navigation>
 
       <main className={styles.content}>
-        {error && <Text className={styles.error}>{error}</Text>}
+        {(error || spawnError) && <Text className={styles.error}>{error ?? spawnError}</Text>}
 
         {isLoading ? (
           <div className={styles.centerState}>
@@ -99,6 +164,8 @@ export default function Launcher() {
                 key={architect.key}
                 architect={{ ...architect, path: shortenPath(architect.path, home) }}
                 onOpen={handleOpenArchitect}
+                isLoading={isSpawning && pendingArchitectKey === architect.key}
+                status={runningSessions.has(architect.key) ? 'running' : undefined}
               />
             ))}
           </div>
@@ -106,6 +173,13 @@ export default function Launcher() {
       </main>
 
       <BottomBar right={<ThemeSwitcher />} />
+
+      <ProfileSelector
+        profiles={profiles}
+        open={showProfileSelector}
+        onSelect={(name) => void handleProfileSelect(name)}
+        onClose={handleProfileSelectorClose}
+      />
     </div>
   );
 }

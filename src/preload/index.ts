@@ -49,6 +49,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
+  'session:send': { method: 'WS', path: '/session/send' },
+  'session:resize': { method: 'WS', path: '/session/resize' },
   'sessions:delete': { method: 'DELETE', path: '/api/sessions/:id' },
   'terminals:list': { method: 'GET', path: '/api/sessions/:id/terminals' },
   'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
@@ -157,13 +159,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
       invoke('session:connectByTerminalName', sessionId, terminalName),
     disconnect: (sessionId?: string, terminalName?: string): Promise<void> =>
       invoke('session:disconnect', sessionId, terminalName),
-    setActive: (sessionId: string, terminalName?: string): Promise<void> =>
-      invoke('session:setActive', sessionId, terminalName),
-    send: (data: string): void => {
-      ipcRenderer.send('session:send', data);
+    send: (sessionId: string, terminalName: string, data: string): void => {
+      ipcRenderer.send('session:send', sessionId, terminalName, data);
     },
-    resize: (cols: number, rows: number): void => {
-      ipcRenderer.send('session:resize', cols, rows);
+    resize: (sessionId: string, terminalName: string, cols: number, rows: number): void => {
+      ipcRenderer.send('session:resize', sessionId, terminalName, cols, rows);
     },
     onData: (
       callback: (payload: {

@@ -253,9 +253,8 @@ interface HiverynAPI {
     connect: (sessionId: string, wsUrl: string, terminalName?: string) => Promise<void>;
     connectByTerminalName: (sessionId: string, terminalName: string) => Promise<void>;
     disconnect: (sessionId?: string, terminalName?: string) => Promise<void>;
-    setActive: (sessionId: string, terminalName?: string) => Promise<void>;
-    send: (data: string) => void;
-    resize: (cols: number, rows: number) => void;
+    send: (sessionId: string, terminalName: string, data: string) => void;
+    resize: (sessionId: string, terminalName: string, cols: number, rows: number) => void;
     onData: (callback: (payload: SessionDataEvent) => void) => () => void;
     onEvent: (callback: (event: SessionEvent) => void) => () => void;
     onTerminalClosed: (
