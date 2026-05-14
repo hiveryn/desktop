@@ -141,6 +141,7 @@ export default function ArchitectTerminal({
       <SessionTerminal
         sessionId={pendingSession.session_id}
         wsUrl={pendingSession.ws_url}
+        terminalName="main"
         className={styles.terminal}
         visible={visible}
         onConnected={(sessionId) => {

@@ -25,24 +25,46 @@ function sessionError(message: string): DaemonResult<null> {
 export function registerSessionIpc(): void {
   ipcMain.handle(
     'session:connect',
-    async (event, sessionId: string, wsUrl: string): Promise<DaemonResult<null>> => {
-      const result = await sessionManager.connect(event.sender, sessionId, wsUrl);
+    async (
+      event,
+      sessionId: string,
+      wsUrl: string,
+      terminalName: string,
+    ): Promise<DaemonResult<null>> => {
+      const result = await sessionManager.connect(
+        event.sender,
+        sessionId,
+        wsUrl,
+        terminalName ?? 'main',
+      );
+      return result.ok ? ok() : sessionError(result.message);
+    },
+  );
+
+  ipcMain.handle(
+    'session:connectByTerminalName',
+    async (event, sessionId: string, terminalName: string): Promise<DaemonResult<null>> => {
+      const result = await sessionManager.connectByTerminalName(
+        event.sender,
+        sessionId,
+        terminalName,
+      );
       return result.ok ? ok() : sessionError(result.message);
     },
   );
 
   ipcMain.handle(
     'session:disconnect',
-    async (_event, sessionId?: string): Promise<DaemonResult<null>> => {
-      sessionManager.disconnect(_event.sender.id, sessionId);
+    async (_event, sessionId?: string, terminalName?: string): Promise<DaemonResult<null>> => {
+      sessionManager.disconnect(_event.sender.id, sessionId, terminalName);
       return ok();
     },
   );
 
   ipcMain.handle(
     'session:setActive',
-    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
-      sessionManager.setActive(_event.sender.id, sessionId);
+    async (_event, sessionId: string, terminalName: string): Promise<DaemonResult<null>> => {
+      sessionManager.setActive(_event.sender.id, sessionId, terminalName ?? 'main');
       return ok();
     },
   );
@@ -54,4 +76,20 @@ export function registerSessionIpc(): void {
   ipcMain.on('session:resize', (event, cols: number, rows: number) => {
     sessionManager.resize(event.sender.id, cols, rows);
   });
+
+  ipcMain.handle(
+    'session:getWsUrl',
+    async (_event, sessionId: string, terminalName: string): Promise<DaemonResult<string>> => {
+      return {
+        httpStatus: 200,
+        envelope: {
+          data: sessionManager.getWsUrl(sessionId, terminalName),
+          error: null,
+          logs: [],
+          commands: [],
+          meta: { request_id: '' },
+        },
+      };
+    },
+  );
 }

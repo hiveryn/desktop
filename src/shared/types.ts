@@ -168,6 +168,17 @@ export interface SpawnResult {
   ws_url: string;
 }
 
+export interface TerminalInfo {
+  name: string;
+  ws_url: string;
+}
+
+export interface CreateTerminalBody {
+  name: string;
+  command?: string;
+  args?: string[];
+}
+
 export interface WorkspaceChangedEvent {
   type: string;
   architect_key: string;

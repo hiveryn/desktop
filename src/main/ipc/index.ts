@@ -6,6 +6,7 @@ import { registerProfilesIpc } from './profiles';
 import { registerSessionIpc } from './session';
 import { registerSessionsIpc } from './sessions';
 import { registerSystemIpc } from './system';
+import { registerTerminalsIpc } from './terminals';
 import { registerTicketsIpc } from './tickets';
 
 interface RegisterIpcOptions {
@@ -21,6 +22,7 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerLauncherIpc(options);
   registerSessionsIpc();
   registerSessionIpc();
+  registerTerminalsIpc();
   registerTicketsIpc();
   registerSystemIpc();
 }

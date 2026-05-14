@@ -20,7 +20,7 @@ export function registerSessionsIpc(): void {
     const wsBase = DAEMON_URL.replace(/^http/, 'ws');
     const sessions = rawSessions.map((s) => ({
       ...s,
-      ws_url: `${wsBase}/ws/session/${s.id}`,
+      ws_url: `${wsBase}/ws/session/${encodeURIComponent(String(s.id))}/terminal/main`,
     })) as unknown as Session[];
     return { httpStatus: result.httpStatus, envelope: { ...result.envelope, data: sessions } };
   });

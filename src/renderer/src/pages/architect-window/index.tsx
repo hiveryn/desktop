@@ -21,7 +21,7 @@ import {
   ThemeSwitcher,
   TicketDetail,
 } from '@hiveryn/components';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ArchitectTerminal from './ArchitectTerminal';
 import styles from './index.module.css';
 import SessionTerminal from './SessionTerminal';
@@ -39,20 +39,14 @@ const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
 const MOBILE_BREAKPOINT_PX = 960;
 
-const KANBAN_ACTIVITY_TABS: TabBarTab[] = [
-  { id: 'kanban', icon: Kanban },
-  { id: 'event-log', icon: Activity },
-];
+const ARCH_MAIN_TAB = 'arch:main';
 
-const ACTIVITY_TAB: TabBarTab[] = [{ id: 'event-log', icon: Activity }];
-
-const ARCHITECT_TAB_ID = '__architect__';
-
-interface ActiveSessionTab {
-  type: 'architect' | 'work';
+interface ActiveTerminal {
   sessionId: string;
-  label: string;
+  terminalName: string;
   wsUrl: string;
+  label: string;
+  sessionType: 'architect' | 'work';
   ticketId?: string;
 }
 
@@ -125,54 +119,80 @@ export default function ArchitectWindow() {
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const ticketRequestId = useRef(0);
 
-  // ── Bottom bar session tabs ──────────────────────────────────────────────
-  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionTab>>({});
-  const [activeBottomTab, setActiveBottomTab] = useState<string>(ARCHITECT_TAB_ID);
+  // ── Multi-terminal tabs ────────────────────────────────────────────────
+  const [activeTerminals, setActiveTerminals] = useState<Record<string, ActiveTerminal>>({});
+  const [activeBottomTab, setActiveBottomTab] = useState<string>(ARCH_MAIN_TAB);
 
-  // ── Session concluded dialog ──────────────────────────────────────────────
+  // ── Session concluded dialog ────────────────────────────────────────────
   const [concludedSession, setConcludedSession] = useState<ConcludedSession | null>(null);
 
-  // ── Refs for stable access from event listeners ───────────────────────────
-  const activeSessionsRef = useRef(activeSessions);
-  activeSessionsRef.current = activeSessions;
+  // ── Refs for stable access from event listeners ──────────────────────────
+  const activeTerminalsRef = useRef(activeTerminals);
+  activeTerminalsRef.current = activeTerminals;
   const concludedSessionRef = useRef(concludedSession);
   concludedSessionRef.current = concludedSession;
+  const archSessionIdRef = useRef<string | null>(null);
 
-  // ── Worker spawn ─────────────────────────────────────────────────────────
+  // ── Worker spawn ────────────────────────────────────────────────────────
   const [showWorkerProfileSelector, setShowWorkerProfileSelector] = useState(false);
   const [workerSpawnTicket, setWorkerSpawnTicket] = useState<Ticket | null>(null);
   const [workerSpawnError, setWorkerSpawnError] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
 
-  // ── Right-pane tabs (dynamic: worker sessions get only Activity) ─────────
+  // ── Right-pane tabs (kanban/activity + user terminals for active session)
+
   const rightPaneTabs = useMemo((): TabBarTab[] => {
-    const sessionTab = activeBottomTab ? activeSessions[activeBottomTab] : null;
-    if (sessionTab?.type === 'work') return ACTIVITY_TAB;
-    return KANBAN_ACTIVITY_TABS;
-  }, [activeBottomTab, activeSessions]);
+    const sessionTab = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+    const sessionId = sessionTab?.sessionId;
+
+    const tabs: TabBarTab[] =
+      sessionTab?.sessionType === 'work'
+        ? [{ id: 'event-log', icon: Activity }]
+        : [
+            { id: 'kanban', icon: Kanban },
+            { id: 'event-log', icon: Activity },
+          ];
+
+    for (const [key, t] of Object.entries(activeTerminals)) {
+      if (t.sessionId === sessionId && t.terminalName !== 'main') {
+        tabs.push({
+          id: key,
+          icon: Terminal,
+          closable: true,
+        });
+      }
+    }
+
+    return tabs;
+  }, [activeBottomTab, activeTerminals]);
 
   const availableTabs = useMemo((): TabBarTab[] => {
     if (isCompact) return [{ id: 'terminal', icon: Terminal }, ...rightPaneTabs];
     return rightPaneTabs;
   }, [isCompact, rightPaneTabs]);
 
-  // ── Bottom bar tabs (Architect always present; worker tabs dynamic) ──────
+  // ── Bottom bar (session-only tabs, no user terminals) ──────────────────
   const bottomTabs = useMemo((): TabBarTab[] => {
-    const tabs: TabBarTab[] = [{ id: ARCHITECT_TAB_ID, icon: Terminal, label: 'Architect' }];
-    for (const s of Object.values(activeSessions)) {
-      if (s.type === 'work') {
-        tabs.push({ id: s.sessionId, icon: Terminal, label: s.label });
-      }
+    const tabs: TabBarTab[] = [];
+
+    tabs.push({ id: ARCH_MAIN_TAB, icon: Terminal, label: 'Architect' });
+
+    for (const [key, t] of Object.entries(activeTerminals)) {
+      if (key === ARCH_MAIN_TAB) continue;
+      if (t.sessionType !== 'work') continue;
+      if (t.terminalName !== 'main') continue;
+      tabs.push({ id: key, icon: Terminal, label: t.label, closable: false });
     }
+
     return tabs;
-  }, [activeSessions]);
+  }, [activeTerminals]);
 
   // ── Filtered events for the active session ───────────────────────────────
   const filteredEvents = useMemo(() => {
-    const sessionTab = activeBottomTab ? activeSessions[activeBottomTab] : null;
-    if (!sessionTab) return [];
-    return events.filter((e) => e.session_id === sessionTab.sessionId);
-  }, [events, activeBottomTab, activeSessions]);
+    const tab = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+    if (!tab) return [];
+    return events.filter((e) => e.session_id === tab.sessionId);
+  }, [events, activeBottomTab, activeTerminals]);
 
   const eventLogEvents = useMemo(
     () =>
@@ -184,11 +204,11 @@ export default function ArchitectWindow() {
 
   // ── Auto-switch right-pane tab when switching to a worker session ────────
   useEffect(() => {
-    const sessionTab = activeBottomTab ? activeSessions[activeBottomTab] : null;
-    if (sessionTab?.type === 'work') {
+    const tab = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+    if (tab?.sessionType === 'work') {
       setActiveTab('event-log');
     }
-  }, [activeBottomTab, activeSessions]);
+  }, [activeBottomTab, activeTerminals]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
@@ -290,22 +310,16 @@ export default function ArchitectWindow() {
   }, [architectKey]);
 
   // Always-on session event listener — accumulates events from all sessions
-  // and detects session-ended events to show the conclusion dialog.
   useEffect(() => {
     return window.hiveryn.session.onEvent((event) => {
       setEvents((current) => [...current, event]);
 
       if (event.type === 'status' && event.status === 'ended') {
-        const sessions = activeSessionsRef.current;
-
-        // Don't show another dialog if one is already displayed.
         if (concludedSessionRef.current) return;
 
-        const sessionTab = sessions[event.session_id];
-        const archSession = sessions[ARCHITECT_TAB_ID];
-        const isArchitect = archSession?.sessionId === event.session_id;
-
-        if (!sessionTab && !isArchitect) return;
+        const terminals = activeTerminalsRef.current;
+        const archMain = terminals[ARCH_MAIN_TAB];
+        const isArchitect = archMain?.sessionId === event.session_id;
 
         const sessionType = isArchitect ? ('architect' as const) : ('work' as const);
         const raw = event.raw as
@@ -331,8 +345,8 @@ export default function ArchitectWindow() {
       .catch(() => {});
   }, []);
 
-  // Restore running sessions on mount — handles app relaunch / window refresh
-  // while the daemon is still running.
+  // Restore running sessions on mount — handles app relaunch / window refresh.
+  // For each active session, fetches its terminals and populates tabs.
   useEffect(() => {
     if (!architectKey) return;
     let cancelled = false;
@@ -342,30 +356,46 @@ export default function ArchitectWindow() {
         const sessions = await window.hiveryn.sessions.list();
         if (cancelled) return;
 
-        const next: Record<string, ActiveSessionTab> = {};
+        const next: Record<string, ActiveTerminal> = {};
 
         for (const s of sessions) {
           if (s.status !== 'running' || s.architect_key !== architectKey) continue;
 
-          if (s.kind === 'architect') {
-            next[ARCHITECT_TAB_ID] = {
-              type: 'architect',
-              sessionId: s.id,
-              label: 'Architect',
-              wsUrl: s.ws_url,
-            };
-          } else {
-            next[s.id] = {
-              type: 'work',
-              sessionId: s.id,
-              label: s.label,
-              wsUrl: s.ws_url,
-              ticketId: s.ticket_id,
-            };
+          try {
+            const terminals = await window.hiveryn.terminals.list(s.id);
+
+            if (s.kind === 'architect') {
+              archSessionIdRef.current = s.id;
+              for (const term of terminals) {
+                const tabId = term.name === 'main' ? ARCH_MAIN_TAB : `arch:${term.name}`;
+                next[tabId] = {
+                  sessionId: s.id,
+                  terminalName: term.name,
+                  wsUrl: term.ws_url,
+                  label: term.name === 'main' ? 'Architect' : term.name,
+                  sessionType: 'architect',
+                };
+              }
+            } else {
+              for (const term of terminals) {
+                next[s.id] = {
+                  sessionId: s.id,
+                  terminalName: term.name,
+                  wsUrl: term.ws_url,
+                  label: s.label,
+                  sessionType: 'work',
+                  ticketId: s.ticket_id,
+                };
+              }
+            }
+          } catch {
+            // Skip sessions whose terminals can't be fetched.
           }
         }
 
-        if (!cancelled) setActiveSessions(next);
+        if (!cancelled && Object.keys(next).length > 0) {
+          setActiveTerminals(next);
+        }
       } catch {
         // Non-fatal — user can start sessions manually.
       }
@@ -377,39 +407,132 @@ export default function ArchitectWindow() {
     };
   }, [architectKey]);
 
-  // ── Bottom bar session management ────────────────────────────────────────
+  // ── Right pane tab changes: route input back to main terminal ──────────
 
-  function handleSessionConnected(sessionId: string, wsUrl: string): void {
-    setActiveSessions((prev) => ({
-      ...prev,
-      [ARCHITECT_TAB_ID]: { type: 'architect', sessionId, label: 'Architect', wsUrl },
-    }));
-  }
+  function handleRightTabChange(id: string): void {
+    setActiveTab(id);
 
-  function handleSessionDisconnected(): void {
-    setActiveSessions((prev) => {
-      const next = { ...prev };
-      delete next[ARCHITECT_TAB_ID];
-      return next;
-    });
-  }
-
-  function handleBottomTabChange(id: string): void {
-    setActiveBottomTab(id);
-    const sessionTab = activeSessions[id];
-    if (sessionTab) {
-      window.hiveryn.session.setActive(sessionTab.sessionId);
-    }
-    // Architect tab: when the session is connected, setActive so input routes there.
-    if (id === ARCHITECT_TAB_ID) {
-      const archSession = activeSessions[ARCHITECT_TAB_ID];
-      if (archSession) {
-        window.hiveryn.session.setActive(archSession.sessionId);
+    if (id === 'kanban' || id === 'event-log' || id === 'terminal') {
+      const sessionTab = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+      if (sessionTab) {
+        window.hiveryn.session.setActive(sessionTab.sessionId, 'main');
+      }
+    } else {
+      const term = activeTerminals[id];
+      if (term) {
+        window.hiveryn.session.setActive(term.sessionId, term.terminalName);
       }
     }
   }
 
-  // ── Worker spawn ─────────────────────────────────────────────────────────
+  function handleArchSessionConnected(sessionId: string, wsUrl: string): void {
+    archSessionIdRef.current = sessionId;
+    setActiveTerminals((prev) => ({
+      ...prev,
+      [ARCH_MAIN_TAB]: {
+        sessionId,
+        terminalName: 'main',
+        wsUrl,
+        label: 'Architect',
+        sessionType: 'architect',
+      },
+    }));
+  }
+
+  function handleArchSessionDisconnected(): void {
+    archSessionIdRef.current = null;
+    setActiveTerminals((prev) => {
+      const next = { ...prev };
+      delete next[ARCH_MAIN_TAB];
+      // Also remove any user-created architect terminals.
+      for (const key of Object.keys(next)) {
+        if (key.startsWith('arch:') && next[key]?.sessionType === 'architect') {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+  }
+
+  // ── Bottom bar session management ────────────────────────────────────────
+
+  function handleBottomTabChange(id: string): void {
+    setActiveBottomTab(id);
+    const term = activeTerminals[id];
+    if (term) {
+      window.hiveryn.session.setActive(term.sessionId, 'main');
+    }
+  }
+
+  function handleLeftPaneClick(): void {
+    const sessionTab = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+    if (sessionTab) {
+      window.hiveryn.session.setActive(sessionTab.sessionId, 'main');
+    }
+  }
+
+  async function handleTabClose(tabId: string): Promise<void> {
+    const term = activeTerminals[tabId];
+    if (!term) return;
+
+    try {
+      await window.hiveryn.terminals.kill(term.sessionId, term.terminalName);
+    } catch {
+      // best-effort — remove from UI even if delete fails
+    }
+
+    window.hiveryn.session.disconnect(term.sessionId, term.terminalName);
+
+    setActiveTerminals((prev) => {
+      const next = { ...prev };
+      delete next[tabId];
+      return next;
+    });
+
+    if (activeTab === tabId) {
+      setActiveTab('kanban');
+    }
+  }
+
+  // ── User terminal creation ──────────────────────────────────────────────
+
+  const terminalCountRef = useRef(0);
+
+  async function handleOpenNewTerminal(): Promise<void> {
+    const active = activeBottomTab ? activeTerminals[activeBottomTab] : null;
+    const sessionId = active?.sessionId;
+    if (!sessionId) return;
+
+    terminalCountRef.current += 1;
+    const name = terminalCountRef.current === 1 ? 'bash' : `bash-${terminalCountRef.current}`;
+
+    try {
+      const result = await window.hiveryn.terminals.create(sessionId, {
+        name,
+        command: 'bash',
+      });
+
+      const tabId =
+        active.sessionType === 'architect' ? `arch:${result.name}` : `${sessionId}:${result.name}`;
+      setActiveTerminals((prev) => ({
+        ...prev,
+        [tabId]: {
+          sessionId,
+          terminalName: result.name,
+          wsUrl: result.ws_url,
+          label: result.name,
+          sessionType: active.sessionType,
+        },
+      }));
+
+      setActiveTab(tabId);
+      window.hiveryn.session.setActive(sessionId, result.name);
+    } catch {
+      // silently fail — daemon may reject duplicate name
+    }
+  }
+
+  // ── Worker spawn ────────────────────────────────────────────────────────
 
   function handleTicketSpawn(): void {
     setWorkerSpawnTicket(selectedTicket);
@@ -433,13 +556,14 @@ export default function ArchitectWindow() {
       );
 
       const sessionId = result.session_id;
-      setActiveSessions((prev) => ({
+      setActiveTerminals((prev) => ({
         ...prev,
         [sessionId]: {
-          type: 'work',
           sessionId,
-          label: truncate(workerSpawnTicket.title, 30),
+          terminalName: 'main',
           wsUrl: result.ws_url,
+          label: truncate(workerSpawnTicket.title, 30),
+          sessionType: 'work',
           ticketId: workerSpawnTicket.id,
         },
       }));
@@ -462,7 +586,7 @@ export default function ArchitectWindow() {
     }
   }
 
-  // ── Ticket selection ─────────────────────────────────────────────────────
+  // ── Ticket selection ────────────────────────────────────────────────────
 
   async function handleTicketSelect(ticket: TicketSummary): Promise<void> {
     if (!architectKey) return;
@@ -486,79 +610,141 @@ export default function ArchitectWindow() {
     setSelectedTicket(null);
   }
 
-  // ── Terminal rendering ───────────────────────────────────────────────────
+  // ── Terminal rendering ──────────────────────────────────────────────────
 
-  function renderArchitectPane() {
-    return (
-      <ArchitectTerminal
-        architectKey={architectKey}
-        visible={activeBottomTab === ARCHITECT_TAB_ID}
-        onSessionConnected={handleSessionConnected}
-        onSessionDisconnected={handleSessionDisconnected}
-      />
-    );
-  }
-
-  function renderWorkerPane(session: ActiveSessionTab) {
-    return (
-      <SessionTerminal
-        sessionId={session.sessionId}
-        wsUrl={session.wsUrl}
-        className={styles.terminal}
-        visible={activeBottomTab === session.sessionId}
-        onDisconnected={() => {
-          setActiveSessions((prev) => {
-            const next = { ...prev };
-            delete next[session.sessionId];
-            return next;
-          });
-          if (activeBottomTab === session.sessionId) {
-            setActiveBottomTab(ARCHITECT_TAB_ID);
-          }
-        }}
-      />
-    );
-  }
-
-  // ── Right-pane content (desktop: Kanban/EventLog; compact: also Terminal) ─
-
-  function renderTerminalPane() {
-    return (
-      <>
-        {renderArchitectPane()}
-        {Object.values(activeSessions)
-          .filter((s) => s.type === 'work')
-          .map((session) => (
-            <React.Fragment key={session.sessionId}>{renderWorkerPane(session)}</React.Fragment>
-          ))}
-      </>
-    );
-  }
-
-  function renderRightPaneContent() {
-    if (activeTab === 'terminal') {
-      return renderTerminalPane();
-    }
-
-    if (activeTab === 'kanban') {
+  function renderLeftPane() {
+    // Architect session: use ArchitectTerminal (handles idle/spawn/running states)
+    if (activeBottomTab === ARCH_MAIN_TAB) {
       return (
-        <div className={styles.kanbanPane}>
-          {boardError ? <Text className={styles.error}>{boardError}</Text> : null}
-          {ticketError ? <Text className={styles.error}>{ticketError}</Text> : null}
-          {!boardError || boardLoading ? (
-            <KanbanBoard
-              className={styles.kanbanBoard}
-              board={board}
-              loading={boardLoading}
-              emptyMessage="No tickets yet"
-              onTicketSelect={handleTicketSelect}
-            />
-          ) : null}
-        </div>
+        <ArchitectTerminal
+          architectKey={architectKey}
+          visible
+          onSessionConnected={handleArchSessionConnected}
+          onSessionDisconnected={handleArchSessionDisconnected}
+        />
       );
     }
 
-    return <EventLog className={styles.eventLog} events={eventLogEvents} />;
+    // Worker session: render the main SessionTerminal
+    const term = activeTerminals[activeBottomTab];
+    if (term?.terminalName === 'main') {
+      return (
+        <SessionTerminal
+          sessionId={term.sessionId}
+          wsUrl={term.wsUrl}
+          terminalName="main"
+          className={styles.terminal}
+          visible
+          onDisconnected={() => {
+            setActiveTerminals((prev) => {
+              const next = { ...prev };
+              delete next[activeBottomTab];
+              // Also remove any user terminals for this session.
+              for (const key of Object.keys(next)) {
+                if (next[key]?.sessionId === term.sessionId) {
+                  delete next[key];
+                }
+              }
+              return next;
+            });
+            setActiveBottomTab(ARCH_MAIN_TAB);
+          }}
+        />
+      );
+    }
+
+    return null;
+  }
+
+  function renderRightPaneContent() {
+    const sessionId = activeTerminals[activeBottomTab]?.sessionId;
+
+    return (
+      <>
+        <div
+          style={{
+            display: activeTab === 'kanban' ? 'flex' : 'none',
+            flex: 1,
+            minHeight: 0,
+            flexDirection: 'column',
+          }}
+        >
+          <div className={styles.kanbanPane}>
+            {boardError ? <Text className={styles.error}>{boardError}</Text> : null}
+            {ticketError ? <Text className={styles.error}>{ticketError}</Text> : null}
+            {!boardError || boardLoading ? (
+              <KanbanBoard
+                className={styles.kanbanBoard}
+                board={board}
+                loading={boardLoading}
+                emptyMessage="No tickets yet"
+                onTicketSelect={handleTicketSelect}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: activeTab === 'event-log' ? 'flex' : 'none',
+            flex: 1,
+            minHeight: 0,
+            flexDirection: 'column',
+          }}
+        >
+          <EventLog className={styles.eventLog} events={eventLogEvents} />
+        </div>
+
+        {Object.entries(activeTerminals)
+          .filter(([_key, t]) => t.sessionId === sessionId && t.terminalName !== 'main')
+          .map(([key, t]) => (
+            // biome-ignore lint/a11y: terminal pane — xterm handles keyboard natively
+            <div
+              key={key}
+              onClick={() => {
+                window.hiveryn.session.setActive(t.sessionId, t.terminalName);
+              }}
+              style={{
+                display: activeTab === key ? 'flex' : 'none',
+                flex: 1,
+                minHeight: 0,
+                flexDirection: 'column',
+              }}
+            >
+              <SessionTerminal
+                sessionId={t.sessionId}
+                wsUrl={t.wsUrl}
+                terminalName={t.terminalName}
+                className={styles.terminal}
+                visible
+                onDisconnected={() => {
+                  setActiveTerminals((prev) => {
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                  });
+                  setActiveTab('kanban');
+                }}
+              />
+            </div>
+          ))}
+
+        {isCompact ? (
+          // biome-ignore lint/a11y: terminal pane — xterm handles keyboard natively
+          <div
+            onClick={handleLeftPaneClick}
+            style={{
+              display: activeTab === 'terminal' ? 'flex' : 'none',
+              flex: 1,
+              minHeight: 0,
+              flexDirection: 'column',
+            }}
+          >
+            {renderLeftPane()}
+          </div>
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -589,15 +775,9 @@ export default function ArchitectWindow() {
         ) : (
           <div className={styles.splitPane}>
             {!isCompact ? (
-              <div className={styles.leftPane}>
-                {renderArchitectPane()}
-                {Object.values(activeSessions)
-                  .filter((s) => s.type === 'work')
-                  .map((session) => (
-                    <React.Fragment key={session.sessionId}>
-                      {renderWorkerPane(session)}
-                    </React.Fragment>
-                  ))}
+              // biome-ignore lint/a11y: terminal pane — xterm handles keyboard natively
+              <div className={styles.leftPane} onClick={handleLeftPaneClick}>
+                {renderLeftPane()}
               </div>
             ) : null}
             <div className={styles.rightPane}>
@@ -606,7 +786,9 @@ export default function ArchitectWindow() {
                 className={styles.rightPaneTabs}
                 tabs={availableTabs}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={handleRightTabChange}
+                onAdd={handleOpenNewTerminal}
+                addLabel="New terminal"
                 side="right"
               />
             </div>
@@ -621,6 +803,7 @@ export default function ArchitectWindow() {
             tabs={bottomTabs}
             activeTab={activeBottomTab}
             onTabChange={handleBottomTabChange}
+            onTabClose={(id) => void handleTabClose(id)}
             side="bottom"
           />
         }
@@ -666,25 +849,21 @@ export default function ArchitectWindow() {
             const sessionId = concludedSession.sessionId;
             const isArchitect = concludedSession.sessionType === 'architect';
 
-            // Delete session on the daemon — full cleanup (kill PTY, bridges, subscribers).
             window.hiveryn.sessions.delete(sessionId).catch(() => {});
-            // Clean up client-side WebSocket/SSE subscription.
             window.hiveryn.session.disconnect(sessionId).catch(() => {});
 
             if (isArchitect) {
-              // Close the entire architect window.
               window.hiveryn.architect.closeWindow().catch(() => {});
             } else {
-              // Remove the worker tab and switch back to architect.
-              setActiveSessions((prev) => {
+              setActiveTerminals((prev) => {
                 const next = { ...prev };
                 delete next[sessionId];
                 return next;
               });
-              setActiveBottomTab(ARCHITECT_TAB_ID);
-              const archSession = activeSessionsRef.current[ARCHITECT_TAB_ID];
-              if (archSession) {
-                window.hiveryn.session.setActive(archSession.sessionId);
+              setActiveBottomTab(ARCH_MAIN_TAB);
+              const archMain = activeTerminalsRef.current[ARCH_MAIN_TAB];
+              if (archMain) {
+                window.hiveryn.session.setActive(archMain.sessionId, archMain.terminalName);
               }
             }
 

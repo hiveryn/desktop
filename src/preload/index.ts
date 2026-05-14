@@ -3,12 +3,14 @@ import type {
   AgentProfile,
   Architect,
   ArchitectInfo,
+  CreateTerminalBody,
   DaemonResult,
   RequestLogEntry,
   Session,
   SessionEvent,
   SpawnResult,
   SystemHome,
+  TerminalInfo,
   Ticket,
   TicketBoard,
   TicketCreateInput,
@@ -48,6 +50,9 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
   'sessions:delete': { method: 'DELETE', path: '/api/sessions/:id' },
+  'terminals:list': { method: 'GET', path: '/api/sessions/:id/terminals' },
+  'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
+  'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:name' },
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
 };
 
@@ -146,10 +151,14 @@ contextBridge.exposeInMainWorld('hiveryn', {
     },
   },
   session: {
-    connect: (sessionId: string, wsUrl: string): Promise<void> =>
-      invoke('session:connect', sessionId, wsUrl),
-    disconnect: (sessionId?: string): Promise<void> => invoke('session:disconnect', sessionId),
-    setActive: (sessionId: string): Promise<void> => invoke('session:setActive', sessionId),
+    connect: (sessionId: string, wsUrl: string, terminalName?: string): Promise<void> =>
+      invoke('session:connect', sessionId, wsUrl, terminalName),
+    connectByTerminalName: (sessionId: string, terminalName: string): Promise<void> =>
+      invoke('session:connectByTerminalName', sessionId, terminalName),
+    disconnect: (sessionId?: string, terminalName?: string): Promise<void> =>
+      invoke('session:disconnect', sessionId, terminalName),
+    setActive: (sessionId: string, terminalName?: string): Promise<void> =>
+      invoke('session:setActive', sessionId, terminalName),
     send: (data: string): void => {
       ipcRenderer.send('session:send', data);
     },
@@ -157,11 +166,15 @@ contextBridge.exposeInMainWorld('hiveryn', {
       ipcRenderer.send('session:resize', cols, rows);
     },
     onData: (
-      callback: (payload: { sessionId: string; data: Uint8Array | string }) => void,
+      callback: (payload: {
+        sessionId: string;
+        terminalName: string;
+        data: Uint8Array | string;
+      }) => void,
     ): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
-        payload: { sessionId: string; data: Uint8Array | string },
+        payload: { sessionId: string; terminalName: string; data: Uint8Array | string },
       ): void => callback(payload);
       ipcRenderer.on('session:data', listener);
       return () => ipcRenderer.removeListener('session:data', listener);
@@ -172,6 +185,18 @@ contextBridge.exposeInMainWorld('hiveryn', {
       ipcRenderer.on('session:event', listener);
       return () => ipcRenderer.removeListener('session:event', listener);
     },
+    onTerminalClosed: (
+      callback: (payload: { sessionId: string; terminalName: string }) => void,
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: { sessionId: string; terminalName: string },
+      ): void => callback(payload);
+      ipcRenderer.on('session:terminal-closed', listener);
+      return () => ipcRenderer.removeListener('session:terminal-closed', listener);
+    },
+    getWsUrl: (sessionId: string, terminalName: string): Promise<string> =>
+      invoke('session:getWsUrl', sessionId, terminalName),
   },
   launcher: {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
@@ -202,6 +227,13 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   system: {
     getHome: (): Promise<SystemHome> => invoke('system:getHome'),
+  },
+  terminals: {
+    list: (sessionId: string): Promise<TerminalInfo[]> => invoke('terminals:list', sessionId),
+    create: (sessionId: string, body: CreateTerminalBody): Promise<TerminalInfo> =>
+      invoke('terminals:create', sessionId, body),
+    kill: (sessionId: string, terminalName: string): Promise<void> =>
+      invoke('terminals:kill', sessionId, terminalName),
   },
   daemon: {
     onRequest: (callback: RequestCallback): (() => void) => {

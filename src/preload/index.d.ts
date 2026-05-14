@@ -166,7 +166,21 @@ interface SpawnResult {
 
 interface SessionDataEvent {
   sessionId: string;
+  terminalName: string;
   data: Uint8Array | string;
+}
+
+// ── Multi-terminal ──────────────────────────────────────────────────────────
+
+interface TerminalInfo {
+  name: string;
+  ws_url: string;
+}
+
+interface CreateTerminalBody {
+  name: string;
+  command?: string;
+  args?: string[];
 }
 
 // ── Architects ─────────────────────────────────────────────────────────────
@@ -236,13 +250,18 @@ interface HiverynAPI {
     subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
-    connect: (sessionId: string, wsUrl: string) => Promise<void>;
-    disconnect: (sessionId?: string) => Promise<void>;
-    setActive: (sessionId: string) => Promise<void>;
+    connect: (sessionId: string, wsUrl: string, terminalName?: string) => Promise<void>;
+    connectByTerminalName: (sessionId: string, terminalName: string) => Promise<void>;
+    disconnect: (sessionId?: string, terminalName?: string) => Promise<void>;
+    setActive: (sessionId: string, terminalName?: string) => Promise<void>;
     send: (data: string) => void;
     resize: (cols: number, rows: number) => void;
     onData: (callback: (payload: SessionDataEvent) => void) => () => void;
     onEvent: (callback: (event: SessionEvent) => void) => () => void;
+    onTerminalClosed: (
+      callback: (payload: { sessionId: string; terminalName: string }) => void,
+    ) => () => void;
+    getWsUrl: (sessionId: string, terminalName: string) => Promise<string>;
   };
   launcher: {
     openArchitect: (key: string) => Promise<void>;
@@ -267,6 +286,11 @@ interface HiverynAPI {
   };
   system: {
     getHome: () => Promise<SystemHome>;
+  };
+  terminals: {
+    list: (sessionId: string) => Promise<TerminalInfo[]>;
+    create: (sessionId: string, body: CreateTerminalBody) => Promise<TerminalInfo>;
+    kill: (sessionId: string, terminalName: string) => Promise<void>;
   };
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;

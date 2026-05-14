@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 interface Props {
   sessionId: string;
   wsUrl: string;
+  terminalName?: string;
   className?: string;
   visible?: boolean;
   onConnected?: (sessionId: string) => void;
@@ -13,6 +14,7 @@ interface Props {
 export default function SessionTerminal({
   sessionId,
   wsUrl,
+  terminalName = 'main',
   className,
   visible = true,
   onConnected,
@@ -30,19 +32,19 @@ export default function SessionTerminal({
   });
 
   useEffect(() => {
-    return window.hiveryn.session.onData(({ sessionId: sid, data }) => {
-      if (sid !== sessionId) return;
+    return window.hiveryn.session.onData(({ sessionId: sid, terminalName: tname, data }) => {
+      if (sid !== sessionId || tname !== terminalName) return;
       writeRef.current?.(data);
     });
-  }, [sessionId]);
+  }, [sessionId, terminalName]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function connect() {
       try {
-        await window.hiveryn.session.setActive(sessionId);
-        await window.hiveryn.session.connect(sessionId, wsUrl);
+        await window.hiveryn.session.setActive(sessionId, terminalName);
+        await window.hiveryn.session.connect(sessionId, wsUrl, terminalName);
         if (cancelled) return;
         if (lastSizeRef.current) {
           window.hiveryn.session.resize(lastSizeRef.current.cols, lastSizeRef.current.rows);
@@ -66,7 +68,15 @@ export default function SessionTerminal({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, wsUrl]);
+  }, [sessionId, wsUrl, terminalName]);
+
+  // Listen for server-side terminal close (e.g. user ran `exit` in a bash terminal).
+  useEffect(() => {
+    return window.hiveryn.session.onTerminalClosed(({ sessionId: sid, terminalName: tname }) => {
+      if (sid !== sessionId || tname !== terminalName) return;
+      onDisconnectedRef.current?.();
+    });
+  }, [sessionId, terminalName]);
 
   if (error) {
     return (
