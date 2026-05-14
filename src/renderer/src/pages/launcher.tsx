@@ -177,7 +177,7 @@ export default function Launcher() {
       <ProfileSelector
         profiles={profiles}
         open={showProfileSelector}
-        onSelect={(name) => void handleProfileSelect(name)}
+        onSelect={(name: string) => void handleProfileSelect(name)}
         onClose={handleProfileSelectorClose}
       />
     </div>

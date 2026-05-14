@@ -47,8 +47,11 @@ src/
     App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
     main.tsx              React entry, QueryClient, theme init
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, active selection
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
+    hooks/
+      useShortcutConfig.ts        Fetches keybindings from daemon; exports matchesShortcut() helper
+      useNavigationShortcuts.ts   Capture-phase global keydown — focus moves, session cycling, Cmd+T/W
     pages/
       launcher.tsx        Launcher page — architect list, variant selection on click
       architect-window/
@@ -170,6 +173,29 @@ On complete (timer or click):
 2. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
 4. **Worker session**: calls `store.unregisterSession(sessionId)`, which removes the worker from the store; `BottomTabs` / `MainTerminalStack` re-render automatically and the active session falls back to the architect
+
+## Keyboard shortcuts and focus model
+
+Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and an error is logged.
+
+- **`useShortcutConfig`** fetches the config on mount and on every window `focus` event, so daemon-side edits to `~/.hiveryn/shortcuts.yaml` flow in without a desktop reload. It exports `matchesShortcut(event, binding)` which understands modifier strings (`Cmd+Shift+x`), shift-character mapping (`Shift+[` → `{`), and falls back to `event.code` for layout-independent matching of punctuation/digits.
+- **`useNavigationShortcuts`** mounts a single capture-phase `keydown` listener on `document`, calls `e.preventDefault() + stopImmediatePropagation()` on match so xterm never sees the keystroke. It dispatches:
+  - **focus-left/right** — toggle between `main-terminal` and the right pane (cycling within the right pane is `j/k`'s job, not `h/l`'s).
+  - **focus-down/up** — cycle through the vertically-stacked right pane tabs (kanban → event-log → terminals), with wrap.
+  - **focus-main** (`Cmd+1`) and direct tab jumps **`Cmd+2..9`** (position-based, not configurable).
+  - **first-session** (`Cmd+Shift+0`), **prev/next-session** (`Cmd+Shift+[/]`).
+  - **close-tab** (`Cmd+W`) — closes the current terminal tab or worker session.
+  - **new-terminal** (`Cmd+T`) — adds an ad-hoc terminal to the active session.
+- **Pane-local shortcuts** (kanban `h/l/j/k/o/s/r`, event-log `j/k/o/c`) are handled inside `RightPane` with a capture-phase listener gated on `focusedPane`. The cursor state for both lives in `RightPane`.
+- **`quit`** (`q`) is owned by `TicketWorkflow` — listens only while a dialog is open and dismisses the profile selector first, then the ticket detail.
+
+### Focus model
+
+`sessionStore.focusedPane` is a single string field: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. Clicks on a pane wrapper set it; navigation shortcuts set it; the bottom session bar has no focus state — sessions are switched by `Cmd+Shift+[/]/0`, not by focusing the bar.
+
+`TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`, so xterm's DOM textarea is actively blurred when the user navigates elsewhere — keystrokes don't leak to the PTY. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane`.
+
+The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: 10`, `pointer-events: none`), so it sits **above** xterm's canvas. The color is `--color-focus-ring` (defined in `index.module.css`).
 
 ## Architect workspace events
 

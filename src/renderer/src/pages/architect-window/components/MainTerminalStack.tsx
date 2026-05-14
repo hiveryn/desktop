@@ -17,6 +17,7 @@ interface Props {
 export default function MainTerminalStack({ paneVisible, className }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const focusedPane = useSessionStore((s) => s.focusedPane);
   const unregisterSession = useSessionStore((s) => s.unregisterSession);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
 
@@ -32,12 +33,14 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
     <div className={[styles.stack, className].filter(Boolean).join(' ')}>
       {mains.map(({ session, terminalId }) => {
         const isVisible = paneVisible && session.id === activeSessionId;
+        const isFocused = isVisible && focusedPane === 'main-terminal';
         return (
           <SessionTerminal
             key={`${session.id}:${terminalId}`}
             sessionId={session.id}
             terminalId={terminalId}
             visible={isVisible}
+            focused={isFocused}
             onDisconnected={() => {
               unregisterSession(session.id);
               // If the user was viewing this session, fall back to architect or null.

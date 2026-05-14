@@ -10,6 +10,8 @@ import {
 } from '@hiveryn/components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../shared/types';
+import { useNavigationShortcuts } from '../../hooks/useNavigationShortcuts';
+import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
 import ConcludedSessionFlow from './components/ConcludedSessionFlow';
@@ -43,8 +45,15 @@ export default function ArchitectWindow() {
   const { concludedSession, dismissConcludedSession } = useSessionEvents();
   useSessionRestore(architectKey);
 
+  const shortcutConfig = useShortcutConfig();
+  useNavigationShortcuts(shortcutConfig);
+
+  const focusedPane = useSessionStore((s) => s.focusedPane);
+  const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
+
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [spawnRequest, setSpawnRequest] = useState<TicketSummary | null>(null);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const ticketRequestId = useRef(0);
 
@@ -52,7 +61,6 @@ export default function ArchitectWindow() {
   useEffect(() => {
     const { activeRightTab, setActiveRightTab } = useSessionStore.getState();
     if (isCompact && activeRightTab === 'kanban') {
-      // Compact mode adds 'terminal' tab; default to it.
       setActiveRightTab('terminal');
     } else if (!isCompact && activeRightTab === 'terminal') {
       setActiveRightTab('kanban');
@@ -78,6 +86,19 @@ export default function ArchitectWindow() {
     ticketRequestId.current += 1;
     setSelectedTicket(null);
   }
+
+  function handleSpawnTicket(ticket: TicketSummary): void {
+    // Spawning only makes sense for backlog tickets — `s` on others is a no-op.
+    if (ticket.status !== 'backlog') return;
+    setSpawnRequest(ticket);
+  }
+
+  function handleSpawnRequestClear(): void {
+    setSpawnRequest(null);
+  }
+
+  const isLeftFocused = focusedPane === 'main-terminal';
+  const isRightFocused = focusedPane.startsWith('right-');
 
   return (
     <div className={styles.window}>
@@ -106,15 +127,30 @@ export default function ArchitectWindow() {
           <Text className={styles.error}>{loadError}</Text>
         ) : (
           <div className={styles.splitPane}>
-            {!isCompact ? <LeftPane /> : null}
-            <RightPane
-              isCompact={isCompact}
-              board={board}
-              boardLoading={boardLoading}
-              boardError={boardError}
-              ticketError={ticketError}
-              onTicketSelect={handleTicketSelect}
-            />
+            {!isCompact ? (
+              // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
+              // biome-ignore lint/a11y/useKeyWithClickEvents: see above
+              <div
+                className={styles.leftPane}
+                data-focused={isLeftFocused || undefined}
+                onClick={() => setFocusedPane('main-terminal')}
+              >
+                <LeftPane />
+              </div>
+            ) : null}
+            <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
+              <RightPane
+                isCompact={isCompact}
+                board={board}
+                boardLoading={boardLoading}
+                boardError={boardError}
+                ticketError={ticketError}
+                shortcutConfig={shortcutConfig}
+                onTicketSelect={handleTicketSelect}
+                onSpawnTicket={handleSpawnTicket}
+                onRefreshBoard={() => void refreshBoard()}
+              />
+            </div>
           </div>
         )}
       </main>
@@ -124,7 +160,10 @@ export default function ArchitectWindow() {
       <TicketWorkflow
         architectKey={architectKey}
         selectedTicket={selectedTicket}
+        spawnRequest={spawnRequest}
+        shortcutConfig={shortcutConfig}
         onCloseTicket={handleTicketClose}
+        onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
       />
 

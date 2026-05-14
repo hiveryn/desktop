@@ -58,6 +58,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
+  'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -241,5 +242,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
       requestListeners.add(callback);
       return () => requestListeners.delete(callback);
     },
+  },
+  config: {
+    getShortcuts: (): Promise<Record<string, Record<string, string>>> => invoke('config:shortcuts'),
   },
 });

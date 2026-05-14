@@ -20,6 +20,9 @@ interface SessionState {
   // Which right-pane tab is shown. 'kanban' | 'event-log' | 'terminal' | <terminal-uuid>.
   // 'terminal' is only used in compact mode (shows main terminal in the single pane).
   activeRightTab: string;
+  // Which pane has keyboard focus. Values:
+  // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
+  focusedPane: string;
 }
 
 interface SessionActions {
@@ -27,6 +30,7 @@ interface SessionActions {
   unregisterSession(id: string): void;
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
+  setFocusedPane(pane: string): void;
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
@@ -40,6 +44,7 @@ const initialState: SessionState = {
   events: {},
   activeSessionId: null,
   activeRightTab: 'kanban',
+  focusedPane: 'main-terminal',
 };
 
 export const useSessionStore = create<SessionStore>((set) => ({
@@ -67,6 +72,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   setActiveRightTab(tab) {
     set({ activeRightTab: tab });
+  },
+
+  setFocusedPane(pane) {
+    set({ focusedPane: pane });
   },
 
   setSessionTabs(sessionId, tabs) {

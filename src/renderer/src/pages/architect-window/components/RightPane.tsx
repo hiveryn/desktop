@@ -10,13 +10,15 @@ import {
   Terminal,
   Text,
 } from '@hiveryn/components';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   SessionEvent,
   SessionTab,
   TicketBoard,
   TicketSummary,
 } from '../../../../../shared/types';
+import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
+import { matchesShortcut } from '../../../hooks/useShortcutConfig';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -54,13 +56,24 @@ function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
   };
 }
 
+// Maps a right-pane tab ID to a focusedPane value.
+function tabIdToFocusId(tabId: string): string {
+  if (tabId === 'kanban') return 'right-kanban';
+  if (tabId === 'event-log') return 'right-event-log';
+  if (tabId === 'terminal') return 'main-terminal';
+  return `right-terminal:${tabId}`;
+}
+
 interface Props {
   isCompact: boolean;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: string | null;
   ticketError: string | null;
+  shortcutConfig: ShortcutConfig | null;
   onTicketSelect(ticket: TicketSummary): void;
+  onSpawnTicket(ticket: TicketSummary): void;
+  onRefreshBoard(): void;
 }
 
 export default function RightPane({
@@ -69,12 +82,17 @@ export default function RightPane({
   boardLoading,
   boardError,
   ticketError,
+  shortcutConfig,
   onTicketSelect,
+  onSpawnTicket,
+  onRefreshBoard,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const activeRightTab = useSessionStore((s) => s.activeRightTab);
+  const focusedPane = useSessionStore((s) => s.focusedPane);
   const setActiveRightTab = useSessionStore((s) => s.setActiveRightTab);
+  const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
 
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
   const events = useEventsForActiveSession();
@@ -98,11 +116,166 @@ export default function RightPane({
     return result;
   }, [activeSession, isCompact]);
 
-  // If the current right tab is no longer valid (e.g., switched session and the
-  // extra terminal vanished), fall back gracefully.
   const tabIsValid = tabs.some((t) => t.id === activeRightTab);
   const effectiveTab = tabIsValid ? activeRightTab : (tabs[0]?.id ?? 'event-log');
 
+  // ── Kanban cursor ────────────────────────────────────────────────────────
+  const cols = useMemo(() => [board.backlog, board.progress, board.done], [board]);
+  const [kanbanCursor, setKanbanCursor] = useState({ col: 0, ticketIdx: 0 });
+
+  // Reset cursor when board reloads
+  // biome-ignore lint/correctness/useExhaustiveDependencies: board is a trigger dep, not read inside the effect
+  useEffect(() => {
+    setKanbanCursor({ col: 0, ticketIdx: 0 });
+  }, [board]);
+
+  const selectedTicketId = cols[kanbanCursor.col]?.[kanbanCursor.ticketIdx]?.id ?? null;
+
+  // ── Event log cursor ─────────────────────────────────────────────────────
+  // cursorDisplayIdx is a position in the reversed display list (0 = newest)
+  const [cursorDisplayIdx, setCursorDisplayIdx] = useState(0);
+  const [eventLogToggle, setEventLogToggle] = useState<{ id: string; seq: number } | null>(null);
+
+  // Reset cursor on new events list
+  // biome-ignore lint/correctness/useExhaustiveDependencies: length is a trigger dep, not read inside the effect
+  useEffect(() => {
+    setCursorDisplayIdx(0);
+  }, [eventLogEvents.length]);
+
+  // displayedEvents mirrors EventLog's internal reversed order
+  const displayedEvents = useMemo(() => [...eventLogEvents].reverse(), [eventLogEvents]);
+  const selectedEventId = displayedEvents[cursorDisplayIdx]?.id ?? null;
+
+  // ── Pane-local keyboard shortcuts ────────────────────────────────────────
+  const shortcutConfigRef = useRef(shortcutConfig);
+  shortcutConfigRef.current = shortcutConfig;
+
+  const kanbanCursorRef = useRef(kanbanCursor);
+  kanbanCursorRef.current = kanbanCursor;
+
+  const cursorDisplayIdxRef = useRef(cursorDisplayIdx);
+  cursorDisplayIdxRef.current = cursorDisplayIdx;
+
+  const colsRef = useRef(cols);
+  colsRef.current = cols;
+
+  const displayedEventsRef = useRef(displayedEvents);
+  displayedEventsRef.current = displayedEvents;
+
+  const onTicketSelectRef = useRef(onTicketSelect);
+  onTicketSelectRef.current = onTicketSelect;
+
+  const onSpawnTicketRef = useRef(onSpawnTicket);
+  onSpawnTicketRef.current = onSpawnTicket;
+
+  const onRefreshBoardRef = useRef(onRefreshBoard);
+  onRefreshBoardRef.current = onRefreshBoard;
+
+  const isKanbanFocused = focusedPane === 'right-kanban';
+  const isEventLogFocused = focusedPane === 'right-event-log';
+
+  useEffect(() => {
+    if (!isKanbanFocused && !isEventLogFocused) return;
+
+    function consume(e: KeyboardEvent): void {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }
+
+    function handler(e: KeyboardEvent): void {
+      const cfg = shortcutConfigRef.current;
+      if (!cfg) return;
+
+      // Skip if any navigation modifier is held — those belong to the nav hook
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (isKanbanFocused) {
+        const kanban = cfg.kanban ?? {};
+        const cursor = kanbanCursorRef.current;
+        const columns = colsRef.current;
+        const colLen = columns[cursor.col]?.length ?? 0;
+
+        if (matchesShortcut(e, kanban.left ?? '')) {
+          consume(e);
+          setKanbanCursor({ col: (cursor.col - 1 + 3) % 3, ticketIdx: 0 });
+          return;
+        }
+        if (matchesShortcut(e, kanban.right ?? '')) {
+          consume(e);
+          setKanbanCursor({ col: (cursor.col + 1) % 3, ticketIdx: 0 });
+          return;
+        }
+        if (matchesShortcut(e, kanban.down ?? '')) {
+          consume(e);
+          if (colLen > 0)
+            setKanbanCursor({ ...cursor, ticketIdx: (cursor.ticketIdx + 1) % colLen });
+          return;
+        }
+        if (matchesShortcut(e, kanban.up ?? '')) {
+          consume(e);
+          if (colLen > 0)
+            setKanbanCursor({ ...cursor, ticketIdx: (cursor.ticketIdx - 1 + colLen) % colLen });
+          return;
+        }
+        if (matchesShortcut(e, kanban.open ?? '')) {
+          consume(e);
+          const ticket = columns[cursor.col]?.[cursor.ticketIdx];
+          if (ticket) onTicketSelectRef.current(ticket);
+          return;
+        }
+        if (matchesShortcut(e, kanban.spawn ?? '')) {
+          consume(e);
+          const ticket = columns[cursor.col]?.[cursor.ticketIdx];
+          if (ticket) onSpawnTicketRef.current(ticket);
+          return;
+        }
+        if (matchesShortcut(e, kanban.refresh ?? '')) {
+          consume(e);
+          onRefreshBoardRef.current();
+          return;
+        }
+      }
+
+      if (isEventLogFocused) {
+        const log = cfg['event-log'] ?? {};
+        const idx = cursorDisplayIdxRef.current;
+        const displayed = displayedEventsRef.current;
+
+        if (matchesShortcut(e, log.down ?? '')) {
+          consume(e);
+          setCursorDisplayIdx(Math.min(idx + 1, displayed.length - 1));
+          return;
+        }
+        if (matchesShortcut(e, log.up ?? '')) {
+          consume(e);
+          setCursorDisplayIdx(Math.max(idx - 1, 0));
+          return;
+        }
+        if (matchesShortcut(e, log.open ?? '')) {
+          consume(e);
+          const ev = displayed[idx];
+          if (ev) {
+            setEventLogToggle((prev) => ({ id: ev.id, seq: (prev?.seq ?? 0) + 1 }));
+          }
+          return;
+        }
+        if (matchesShortcut(e, log.copy ?? '')) {
+          consume(e);
+          const ev = displayed[idx];
+          if (ev) {
+            void navigator.clipboard.writeText(JSON.stringify(ev, null, 2));
+          }
+          return;
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [isKanbanFocused, isEventLogFocused]);
+
+  // ── Tab close ────────────────────────────────────────────────────────────
   async function handleTabClose(id: string): Promise<void> {
     if (!activeSession) return;
     const terminalTab = activeSession.tabs.find((tab) => tab.type === 'terminal' && tab.id === id);
@@ -119,8 +292,15 @@ export default function RightPane({
     }
   }
 
+  // Click anywhere in the right pane sets focus to the current effective tab
+  const handlePaneClick = useCallback(() => {
+    setFocusedPane(tabIdToFocusId(effectiveTab));
+  }, [effectiveTab, setFocusedPane]);
+
   return (
-    <div className={styles.rightPane}>
+    // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
+    // biome-ignore lint/a11y/useKeyWithClickEvents: see above
+    <div className={styles.rightPaneInner} onClick={handlePaneClick}>
       <div className={styles.rightPaneContent}>
         {isCompact && (
           <div
@@ -152,6 +332,8 @@ export default function RightPane({
                 board={board}
                 loading={boardLoading}
                 emptyMessage="No tickets yet"
+                selectedTicketId={selectedTicketId}
+                focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
                 onTicketSelect={onTicketSelect}
               />
             ) : null}
@@ -166,7 +348,12 @@ export default function RightPane({
             flexDirection: 'column',
           }}
         >
-          <EventLog className={styles.eventLog} events={eventLogEvents} />
+          <EventLog
+            className={styles.eventLog}
+            events={eventLogEvents}
+            selectedEventId={selectedEventId}
+            externalToggle={eventLogToggle}
+          />
         </div>
 
         <ExtraTerminalStack />
@@ -176,8 +363,11 @@ export default function RightPane({
         className={styles.rightPaneTabs}
         tabs={tabs}
         activeTab={effectiveTab}
-        onTabChange={setActiveRightTab}
-        onTabClose={(id) => void handleTabClose(id)}
+        onTabChange={(id: string) => {
+          setActiveRightTab(id);
+          setFocusedPane(tabIdToFocusId(id));
+        }}
+        onTabClose={(id: string) => void handleTabClose(id)}
         onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
         addLabel="New terminal"
         side="right"
@@ -196,6 +386,7 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
     const tabs = await window.hiveryn.tabs.list(sessionId);
     useSessionStore.getState().setSessionTabs(sessionId, tabs);
     useSessionStore.getState().setActiveRightTab(created.terminal_id);
+    useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
   } catch {
     // Non-fatal — keep current layout.
   }

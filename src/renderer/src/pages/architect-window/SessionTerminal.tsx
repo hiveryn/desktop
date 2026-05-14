@@ -6,6 +6,7 @@ interface Props {
   terminalId: string;
   className?: string;
   visible?: boolean;
+  focused?: boolean;
   onConnected?: (sessionId: string) => void;
   onDisconnected?: () => void;
 }
@@ -15,6 +16,7 @@ export default function SessionTerminal({
   terminalId,
   className,
   visible = true,
+  focused = true,
   onConnected,
   onDisconnected,
 }: Props) {
@@ -115,6 +117,7 @@ export default function SessionTerminal({
       <TerminalPane
         className={className}
         visible={visible}
+        focused={focused}
         style={{ flex: 1, minHeight: 0, height: 'auto' }}
         onWrite={(fn: (data: string | Uint8Array) => void) => {
           writeRef.current = fn;

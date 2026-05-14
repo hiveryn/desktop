@@ -9,6 +9,7 @@ export default function ExtraTerminalStack() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const activeRightTab = useSessionStore((s) => s.activeRightTab);
+  const focusedPane = useSessionStore((s) => s.focusedPane);
 
   const extras = useMemo(
     () =>
@@ -26,6 +27,7 @@ export default function ExtraTerminalStack() {
         const terminalId = tab.id;
         if (!terminalId) return null;
         const isVisible = session.id === activeSessionId && activeRightTab === terminalId;
+        const isFocused = isVisible && focusedPane === `right-terminal:${terminalId}`;
         return (
           <div
             key={`${session.id}:${terminalId}`}
@@ -36,6 +38,7 @@ export default function ExtraTerminalStack() {
               sessionId={session.id}
               terminalId={terminalId}
               visible={isVisible}
+              focused={isFocused}
               onDisconnected={() => {
                 void window.hiveryn.tabs
                   .list(session.id)

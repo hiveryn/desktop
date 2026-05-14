@@ -307,6 +307,9 @@ interface HiverynAPI {
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;
   };
+  config: {
+    getShortcuts: () => Promise<Record<string, Record<string, string>>>;
+  };
 }
 
 interface Window {

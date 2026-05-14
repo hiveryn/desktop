@@ -35,7 +35,7 @@ export default function BottomTabs() {
       tabs={tabs}
       activeTab={activeId}
       side="bottom"
-      onTabChange={(id) => {
+      onTabChange={(id: string) => {
         const session = useSessionStore.getState().sessions[id];
         if (!session) return;
         setActiveSession(id);
@@ -47,7 +47,7 @@ export default function BottomTabs() {
           }
         }
       }}
-      onTabClose={(id) => {
+      onTabClose={(id: string) => {
         void window.hiveryn.sessions.delete(id).catch(() => {});
         void window.hiveryn.session.disconnect(id).catch(() => {});
         unregisterSession(id);
