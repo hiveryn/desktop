@@ -14,7 +14,6 @@ import { useNavigationShortcuts } from '../../hooks/useNavigationShortcuts';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
-import ConcludedSessionFlow from './components/ConcludedSessionFlow';
 import LeftPane from './components/LeftPane';
 import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
@@ -42,7 +41,7 @@ export default function ArchitectWindow() {
   const isCompact = useViewportMode();
   const { architect, home, board, boardLoading, boardError, loadError, refreshBoard } =
     useArchitectData(architectKey);
-  const { concludedSession, dismissConcludedSession } = useSessionEvents();
+  useSessionEvents();
   useSessionRestore(architectKey);
 
   const shortcutConfig = useShortcutConfig();
@@ -165,11 +164,6 @@ export default function ArchitectWindow() {
         onCloseTicket={handleTicketClose}
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
-      />
-
-      <ConcludedSessionFlow
-        concludedSession={concludedSession}
-        onDismiss={dismissConcludedSession}
       />
     </div>
   );
