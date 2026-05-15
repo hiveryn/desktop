@@ -1,7 +1,7 @@
-import { ThemeProvider } from '@hiveryn/components';
+import { ThemeProvider } from '@components';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@hiveryn/components/styles/global.css';
+import '@styles/global.css';
 import App from './App';
 
 const root = document.getElementById('root');

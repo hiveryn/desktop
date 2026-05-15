@@ -1,4 +1,4 @@
-import { TabBar, type TabBarTab, Terminal } from '@hiveryn/components';
+import { TabBar, type TabBarTab, Terminal } from '@components';
 import { useMemo } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
 

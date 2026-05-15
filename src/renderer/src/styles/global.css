@@ -1,0 +1,207 @@
+@import './reset.css';
+@import '@fontsource-variable/geist-mono';
+
+/* ── Palette & tokens ─────────────────────────────────────────
+   All color primitives must be ANSI/256-color or 24-bit true
+   color values. Do not add colors outside this spec.
+   ──────────────────────────────────────────────────────────── */
+:root {
+  /* Standard 16 ANSI */
+  --ansi-0-black: #000000;
+  --ansi-1-maroon: #800000;
+  --ansi-2-green: #008000;
+  --ansi-3-olive: #808000;
+  --ansi-4-navy: #000080;
+  --ansi-5-purple: #800080;
+  --ansi-6-teal: #008080;
+  --ansi-7-silver: #c0c0c0;
+  --ansi-8-gray: #808080;
+  --ansi-9-red: #ff0000;
+  --ansi-10-lime: #00ff00;
+  --ansi-11-yellow: #ffff00;
+  --ansi-12-blue: #0000ff;
+  --ansi-13-fuchsia: #ff00ff;
+  --ansi-14-aqua: #00ffff;
+  --ansi-15-white: #ffffff;
+
+  /* 256-color vivid set — better contrast on light backgrounds */
+  --ansi-31-cyan-blue: #0087af;
+  --ansi-34-green: #00af00;
+  --ansi-136-amber: #af8700;
+  --ansi-160-red: #d70000;
+
+  /* 256-color grayscale ramp (selected stops) */
+  --ansi-232-gray-3: #080808;
+  --ansi-235-gray-15: #262626;
+  --ansi-237-gray-23: #3a3a3a;
+  --ansi-240-gray-35: #585858;
+  --ansi-242-gray-42: #6c6c6c;
+  --ansi-245-gray-54: #8a8a8a;
+  --ansi-248-gray-66: #a8a8a8;
+  --ansi-251-gray-78: #c6c6c6;
+  --ansi-254-gray-89: #e4e4e4;
+  --ansi-255-gray-93: #eeeeee;
+
+  /* Brand */
+  --ansi-bright-green: #55ff55;
+  --ansi-true-brand: #e4f221;
+
+  /* Bright ANSI variants (standard 16-color terminal bright set) */
+  --ansi-bright-red: #ff5555;
+  --ansi-bright-yellow: #ffff55;
+  --ansi-bright-blue: #5555ff;
+  --ansi-bright-magenta: #ff55ff;
+  --ansi-bright-cyan: #55ffff;
+
+  /* Semantic color aliases */
+  --color-black: var(--ansi-0-black);
+  --color-white: var(--ansi-15-white);
+  --color-brand: var(--ansi-true-brand);
+  --color-gray-93: var(--ansi-255-gray-93);
+  --color-gray-89: var(--ansi-254-gray-89);
+  --color-gray-78: var(--ansi-251-gray-78);
+  --color-gray-66: var(--ansi-248-gray-66);
+  --color-gray-54: var(--ansi-245-gray-54);
+  --color-gray-42: var(--ansi-242-gray-42);
+  --color-gray-35: var(--ansi-240-gray-35);
+  --color-gray-23: var(--ansi-237-gray-23);
+  --color-gray-15: var(--ansi-235-gray-15);
+  --color-gray-3: var(--ansi-232-gray-3);
+  --color-black-alpha-40: rgba(0, 0, 0, 0.4);
+  --color-white-alpha-40: rgba(255, 255, 255, 0.4);
+  --color-gray-89-border-alpha: rgba(228, 228, 228, 0.6);
+  --color-gray-23-border-alpha: rgba(58, 58, 58, 0.3);
+  --color-brand-alpha-50: rgba(228, 242, 33, 0.5);
+  --color-bright-red: var(--ansi-bright-red);
+  --color-bright-yellow: var(--ansi-bright-yellow);
+  --color-bright-cyan: var(--ansi-bright-cyan);
+
+  /* Typography */
+  --font-family-mono: 'Geist Mono Variable', 'JetBrains Mono Variable', Consolas, monaco, monospace;
+  --font-size: 13px;
+  --font-size-sm: 11px;
+  --theme-line-height-base: 1.4;
+
+  /* Z-index stack */
+  --z-index-page-select: 3;
+  --z-index-page-tooltips: 4;
+  --z-index-page-popover: 5;
+  --z-index-page-dropdown-menus: 6;
+  --z-index-page-modals: 10;
+
+  /* ── Light theme (default) ───────────────────────────────── */
+  --theme-background: var(--color-white);
+  --theme-text: var(--color-black);
+  --theme-text-muted: var(--color-gray-42);
+  --theme-border: var(--color-gray-89);
+  --theme-button-background: var(--color-black);
+  --theme-button-foreground: var(--color-white);
+  --theme-button-text: var(--color-gray-78);
+  --theme-focused-foreground: var(--ansi-34-green);
+  --theme-focused-foreground-subdued: color-mix(in srgb, var(--ansi-34-green) 25%, transparent);
+  --theme-window-background: var(--color-gray-89);
+  --theme-window-shadow: var(--color-gray-66);
+  --theme-overlay: var(--color-black-alpha-40);
+  --theme-background-input: var(--color-gray-89);
+  --theme-background-modal-footer: var(--color-gray-66);
+
+  /* Status tokens — 256-color vivid set, strong contrast on white */
+  --theme-status-success: var(--ansi-34-green);
+  --theme-status-warning: var(--ansi-136-amber);
+  --theme-status-error: var(--ansi-160-red);
+  --theme-status-info: var(--ansi-31-cyan-blue);
+
+  /* Surface elevation */
+  --theme-surface-raised: var(--color-gray-93);
+  --theme-surface-overlay: var(--color-gray-89);
+
+  /* Terminal ANSI palette — light: 256-color set for contrast on white bg */
+  --theme-ansi-black:          var(--ansi-0-black);
+  --theme-ansi-red:            var(--ansi-9-red);
+  --theme-ansi-green:          var(--ansi-34-green);
+  --theme-ansi-yellow:         var(--ansi-136-amber);
+  --theme-ansi-blue:           var(--ansi-12-blue);
+  --theme-ansi-magenta:        var(--ansi-5-purple);
+  --theme-ansi-cyan:           var(--ansi-31-cyan-blue);
+  --theme-ansi-white:          var(--ansi-240-gray-35);
+  --theme-ansi-bright-black:   var(--ansi-245-gray-54);
+  --theme-ansi-bright-red:     var(--ansi-160-red);
+  --theme-ansi-bright-green:   var(--ansi-34-green);
+  --theme-ansi-bright-yellow:  var(--ansi-136-amber);
+  --theme-ansi-bright-blue:    var(--ansi-4-navy);
+  --theme-ansi-bright-magenta: var(--ansi-5-purple);
+  --theme-ansi-bright-cyan:    var(--ansi-31-cyan-blue);
+  --theme-ansi-bright-white:   var(--ansi-248-gray-66);
+}
+
+/* ── Dark theme ────────────────────────────────────────────── */
+.dark {
+  --theme-background: var(--color-black);
+  --theme-text: var(--color-white);
+  --theme-text-muted: var(--color-gray-66);
+  --theme-border: var(--color-gray-23);
+  --theme-button-background: var(--color-white);
+  --theme-button-foreground: var(--color-black);
+  --theme-button-text: var(--color-gray-15);
+  --theme-focused-foreground: oklch(from var(--ansi-13-fuchsia) 0.55 c h);
+  --theme-focused-foreground-subdued: oklch(from var(--ansi-13-fuchsia) 0.55 c h / 0.5);
+  --theme-window-background: var(--color-gray-23);
+  --theme-window-shadow: var(--color-gray-15);
+  --theme-overlay: var(--color-black-alpha-40);
+  --theme-background-input: var(--color-gray-23);
+  --theme-background-modal-footer: var(--color-gray-35);
+
+  /* Status tokens — bright ANSI colors pop on dark bg */
+  --theme-status-success: var(--ansi-bright-green);
+  --theme-status-warning: var(--ansi-bright-yellow);
+  --theme-status-error: var(--ansi-bright-red);
+  --theme-status-info: var(--ansi-bright-cyan);
+
+  /* Surface elevation */
+  --theme-surface-raised: var(--color-gray-15);
+  --theme-surface-overlay: var(--color-gray-23);
+
+  /* Terminal ANSI palette — dark: standard ANSI-16 + bright set */
+  --theme-ansi-black:          var(--ansi-0-black);
+  --theme-ansi-red:            var(--ansi-9-red);
+  --theme-ansi-green:          var(--ansi-10-lime);
+  --theme-ansi-yellow:         var(--ansi-11-yellow);
+  --theme-ansi-blue:           var(--ansi-12-blue);
+  --theme-ansi-magenta:        var(--ansi-13-fuchsia);
+  --theme-ansi-cyan:           var(--ansi-14-aqua);
+  --theme-ansi-white:          var(--ansi-15-white);
+  --theme-ansi-bright-black:   var(--ansi-240-gray-35);
+  --theme-ansi-bright-red:     var(--ansi-bright-red);
+  --theme-ansi-bright-green:   var(--ansi-bright-green);
+  --theme-ansi-bright-yellow:  var(--ansi-bright-yellow);
+  --theme-ansi-bright-blue:    var(--ansi-bright-blue);
+  --theme-ansi-bright-magenta: var(--ansi-bright-magenta);
+  --theme-ansi-bright-cyan:    var(--ansi-bright-cyan);
+  --theme-ansi-bright-white:   var(--ansi-255-gray-93);
+}
+
+/* ── OKLCH tint derivation (stub — extend per tint ticket) ─── */
+/* :root.tint-green  { --tint: #39ff44; } */
+/* :root.tint-blue   { --tint: #0047ff; } */
+
+/* ── Base styles ───────────────────────────────────────────── */
+body {
+  background: var(--theme-background);
+  color: var(--theme-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  background: transparent;
+  height: calc(var(--theme-line-height-base) * 1rem);
+  width: 1ch;
+}
+::-webkit-scrollbar-track { background: var(--theme-background); }
+::-webkit-scrollbar-thumb { background: var(--theme-border); }

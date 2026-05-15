@@ -1,0 +1,55 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--theme-overlay);
+  z-index: var(--z-index-page-modals);
+}
+
+.panel {
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+  min-width: 40ch;
+  max-width: 80ch;
+}
+
+.titleBar {
+  padding: 0.5em 1ch;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-text-muted);
+  border-bottom: 1px solid var(--theme-border);
+  line-height: calc(var(--theme-line-height-base) * 1em);
+}
+
+.body {
+  padding: 1em 1ch;
+}
+
+.footer {
+  display: flex;
+  gap: 1ch;
+  padding: 0.75em 1ch;
+  border-top: 1px solid var(--theme-border);
+  justify-content: flex-end;
+}
+
+/* Intent variants — status-colored title bar */
+.intent-warning .titleBar {
+  background: var(--theme-status-warning);
+  color: var(--theme-button-foreground);
+  border-bottom-color: var(--theme-status-warning);
+}
+
+.intent-destructive .titleBar {
+  background: var(--theme-status-error);
+  color: var(--theme-button-foreground);
+  border-bottom-color: var(--theme-status-error);
+}

@@ -1,4 +1,4 @@
-import { Button, Caption } from '@hiveryn/components';
+import { Button, Caption } from '@components';
 import { useMemo } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
 import SessionTerminal from '../SessionTerminal';

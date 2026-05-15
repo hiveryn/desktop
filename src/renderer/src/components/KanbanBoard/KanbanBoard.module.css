@@ -1,0 +1,24 @@
+.root {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--theme-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  overflow: hidden;
+}
+
+.state {
+  border: 1px solid var(--theme-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3em 2ch;
+  font-family: var(--font-family-mono);
+}
+
+.stateText {
+  font-size: var(--font-size-sm);
+  color: var(--theme-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}

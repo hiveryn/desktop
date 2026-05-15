@@ -28,7 +28,7 @@ export default defineConfig({
     plugins: [react()],
     server: {
       fs: {
-        allow: [resolve(__dirname), resolve(__dirname, '../components')],
+        allow: [resolve(__dirname)],
       },
     },
     define: {
@@ -37,12 +37,12 @@ export default defineConfig({
     resolve: {
       alias: [
         {
-          find: '@hiveryn/components/styles/global.css',
-          replacement: resolve(__dirname, '../components/src/styles/global.css'),
+          find: '@components',
+          replacement: resolve(__dirname, 'src/renderer/src/components/index.ts'),
         },
         {
-          find: /^@hiveryn\/components$/,
-          replacement: resolve(__dirname, '../components/src/components/index.ts'),
+          find: '@styles',
+          replacement: resolve(__dirname, 'src/renderer/src/styles'),
         },
         {
           find: '@renderer',

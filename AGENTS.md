@@ -63,9 +63,12 @@ src/
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
-      ui/                 shadcn components (button, dialog, form, toggle-group…)
-      request-log/        Daemon activity log panel
-      page-error.tsx      Per-page error boundary fallback
+      index.ts            Renderer component barrel exported through @components
+      */                  Co-located React components and CSS Modules
+      icons/              Component icon exports
+    styles/
+      global.css          Renderer global styles imported through @styles/global.css
+      reset.css           Shared reset imported by global.css
   shared/
     types.ts              Types shared across main and preload (Envelope, AgentProfile, Session…)
 ```
@@ -100,13 +103,13 @@ All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, 
 - `src/shared/types.ts` is the only cross-boundary module. Main and preload import from it; renderer uses the global types from `index.d.ts`.
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
-- shadcn components live in `src/renderer/src/components/ui/` and are excluded from Biome formatting. Page-specific components live next to their page's `index.tsx`.
+- Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
 
-## CSS/UI handoff policy
+## CSS/UI policy
 
-CSS and UI component work must be done in the `@hiveryn/components` library, NOT in the desktop app. The desktop app should consume components and their styles from the library. If a new design need arises (layout, styling, visual component), create a follow-up ticket for the component library. **Always flag CSS/UI changes in your plan/implementation notes** so they can be handed off.
+CSS and shared UI component work lives in `src/renderer/src/components/` and `src/renderer/src/styles/`. Keep component behavior and CSS Modules co-located, and route shared component imports through `@components`.
 
 ## Multi-session & multi-terminal architecture
 

@@ -9,7 +9,7 @@ import {
   type TabBarTab,
   Terminal,
   Text,
-} from '@hiveryn/components';
+} from '@components';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   SessionEvent,

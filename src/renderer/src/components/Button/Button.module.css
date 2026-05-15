@@ -1,0 +1,87 @@
+.root {
+  display: inline-block;
+  vertical-align: top;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 0 2ch;
+  line-height: calc(var(--theme-line-height-base) * 2em);
+  border: none;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  transition: background 200ms ease, color 200ms ease, box-shadow 200ms ease;
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: 2px;
+  }
+}
+
+.primary {
+  background: var(--theme-button-background);
+  color: var(--theme-button-foreground);
+
+  &:hover:not(:disabled) { background: var(--theme-focused-foreground); color: var(--theme-text); }
+  &:active:not(:disabled) { background: var(--theme-focused-foreground); color: var(--theme-text); }
+}
+
+.secondary {
+  background: transparent;
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+
+  &:hover:not(:disabled) {
+    background: var(--theme-focused-foreground);
+    border-color: transparent;
+  }
+  &:active:not(:disabled) {
+    background: var(--theme-focused-foreground);
+    border-color: transparent;
+  }
+}
+
+.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Intent variants — filled, status-colored */
+.intent-success,
+.intent-destructive,
+.intent-warning {
+  color: var(--theme-button-foreground);
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: 2px;
+  }
+}
+
+.intent-success {
+  background: var(--theme-status-success);
+  &:hover:not(:disabled), &:active:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--theme-status-success);
+    background: var(--theme-status-success);
+  }
+}
+
+.intent-destructive {
+  background: var(--theme-status-error);
+  &:hover:not(:disabled), &:active:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--theme-status-error);
+    background: var(--theme-status-error);
+  }
+}
+
+.intent-warning {
+  background: var(--theme-status-warning);
+  &:hover:not(:disabled), &:active:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--theme-status-warning);
+    background: var(--theme-status-warning);
+  }
+}

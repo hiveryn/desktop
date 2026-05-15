@@ -1,0 +1,27 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75ch;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: transparent;
+  border: none;
+  color: var(--theme-text-muted);
+  cursor: pointer;
+  padding: 0.25em 1ch;
+  line-height: calc(var(--theme-line-height-base) * 1em);
+  transition: color 200ms ease, background 200ms ease;
+
+  &:hover {
+    color: var(--theme-text);
+    background: var(--theme-border);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+}

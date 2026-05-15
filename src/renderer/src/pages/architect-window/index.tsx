@@ -7,7 +7,7 @@ import {
   Plus,
   Text,
   ThemeSwitcher,
-} from '@hiveryn/components';
+} from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../shared/types';
 import { useNavigationShortcuts } from '../../hooks/useNavigationShortcuts';

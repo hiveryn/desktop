@@ -1,0 +1,137 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--theme-overlay);
+  z-index: var(--z-index-page-modals);
+}
+
+.panel {
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+  min-width: 48ch;
+  max-width: 72ch;
+  width: 60ch;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.titleBar {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.5em 1ch;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.statusDot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--theme-status-success);
+  flex-shrink: 0;
+}
+
+.rejected .statusDot {
+  background: var(--theme-status-error);
+}
+
+.titleText {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-text-muted);
+  flex: 1;
+}
+
+.body {
+  padding: 1em 1ch;
+  overflow-y: auto;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.rejectionNotice {
+  display: flex;
+  gap: 1ch;
+  align-items: baseline;
+  padding: 0.4em 0.75ch;
+  border: 1px solid var(--theme-status-error);
+  background: color-mix(in srgb, var(--theme-status-error) 8%, transparent);
+}
+
+.rejectionLabel {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-status-error);
+  flex-shrink: 0;
+}
+
+.rejectionReason {
+  font-size: var(--font-size-sm);
+  color: var(--theme-text);
+}
+
+.conclusionBody {
+  font-size: var(--font-size-sm);
+  color: var(--theme-text);
+  white-space: pre-wrap;
+  line-height: calc(var(--theme-line-height-base) * 1.1rem);
+}
+
+.commits {
+  border-top: 1px solid var(--theme-border);
+  padding-top: 0.65em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+}
+
+.commitsLabel {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-text-muted);
+}
+
+.commitList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5ch;
+}
+
+.commitSha {
+  font-size: var(--font-size-sm);
+  color: var(--theme-focused-foreground);
+  background: var(--theme-surface-raised);
+  border: 1px solid var(--theme-border);
+  padding: 0.1em 0.5ch;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1ch;
+  padding: 0.75em 1ch;
+  border-top: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.countdown {
+  font-size: var(--font-size-sm);
+  color: var(--theme-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

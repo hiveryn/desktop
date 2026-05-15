@@ -1,0 +1,20 @@
+.root {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+  border-bottom: 1px solid var(--theme-border);
+  padding: 0 2ch;
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+  height: calc(var(--theme-line-height-base) * 2rem + 0.5em);
+  -webkit-app-region: drag;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}

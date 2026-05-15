@@ -1,5 +1,5 @@
-import type { AgentProfile } from '@hiveryn/components';
-import { ProfileSelector, Text, TicketDetail } from '@hiveryn/components';
+import type { AgentProfile } from '@components';
+import { ProfileSelector, Text, TicketDetail } from '@components';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../../shared/types';
 import { matchesShortcut, type ShortcutConfig } from '../../../hooks/useShortcutConfig';

@@ -1,4 +1,4 @@
-import { TerminalPane } from '@hiveryn/components';
+import { TerminalPane } from '@components';
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {

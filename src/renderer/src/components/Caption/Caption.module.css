@@ -1,0 +1,9 @@
+.root {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: var(--theme-text-muted);
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+  margin: 0;
+  padding: 0;
+}

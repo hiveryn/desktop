@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@hiveryn/components';
+import type { AgentProfile } from '@components';
 import {
   ArchitectCard,
   BottomBar,
@@ -7,7 +7,7 @@ import {
   ProfileSelector,
   Text,
   ThemeSwitcher,
-} from '@hiveryn/components';
+} from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './launcher.module.css';
 

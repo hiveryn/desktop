@@ -16,6 +16,9 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
+      "@components": ["src/renderer/src/components/index.ts"],
+      "@components/*": ["src/renderer/src/components/*"],
+      "@styles/*": ["src/renderer/src/styles/*"],
       "@renderer/*": ["src/renderer/src/*"],
       "@/*": ["src/renderer/src/*"]
     }

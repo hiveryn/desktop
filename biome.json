@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
   "files": {
-    "includes": ["**", "!**/dist", "!**/out", "!**/node_modules", "!.claude", "!**/components/ui"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/out",
+      "!**/node_modules",
+      "!.claude",
+      "!src/renderer/src/components",
+      "!src/renderer/src/styles"
+    ]
   },
   "assist": {
     "actions": {

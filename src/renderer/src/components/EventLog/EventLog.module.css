@@ -1,0 +1,178 @@
+.root {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  background: var(--theme-background);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  overflow-y: auto;
+}
+
+.empty {
+  padding: 1em 2ch;
+  color: var(--theme-text-muted);
+  opacity: 0.6;
+}
+
+/* ── Row ──────────────────────────────────────────────────── */
+
+.row {
+  border-bottom: 1px solid var(--theme-border);
+  cursor: pointer;
+  transition: background 100ms ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover .rowMain {
+    background: var(--theme-surface-raised);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+
+  &.open .rowMain {
+    background: var(--theme-surface-raised);
+  }
+}
+
+/* Error rows get a left-edge accent */
+.status-error {
+  border-left: 2px solid var(--theme-status-error);
+}
+
+.selected .rowMain {
+  background: color-mix(in srgb, var(--color-focus-ring, rgba(99, 102, 241, 0.5)) 12%, transparent);
+}
+
+.selected {
+  box-shadow: inset 2px 0 0 var(--color-focus-ring, rgba(99, 102, 241, 0.7));
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.35em 1ch;
+}
+
+/* ── Columns ──────────────────────────────────────────────── */
+
+.dot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dot-starting  { color: var(--theme-status-info); }
+.dot-working   { color: var(--theme-focused-foreground); animation: pulse-dot 1.2s ease-in-out infinite; }
+.dot-idle      { color: var(--theme-text-muted); opacity: 0.45; }
+.dot-awaiting_input { color: var(--theme-status-warning); }
+.dot-error     { color: var(--theme-status-error); }
+.dot-ended     { color: var(--theme-text-muted); opacity: 0.3; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.badge {
+  flex-shrink: 0;
+  min-width: 8ch;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Brighten badge for active states */
+.status-working .badge,
+.status-starting .badge {
+  color: var(--theme-text);
+}
+
+.status-error .badge {
+  color: var(--theme-status-error);
+}
+
+.msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--theme-text);
+  font-size: var(--font-size-sm);
+}
+
+.status-error .msg {
+  color: var(--theme-status-error);
+}
+
+.status-ended .msg,
+.status-idle .msg {
+  color: var(--theme-text-muted);
+}
+
+.time {
+  flex-shrink: 0;
+  width: 8ch;
+  text-align: right;
+  color: var(--theme-text-muted);
+  opacity: 0.6;
+  font-size: var(--font-size-sm);
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: 1.5ch;
+  text-align: center;
+  color: var(--theme-text-muted);
+  opacity: 0.5;
+  font-size: 10px;
+}
+
+/* ── Expanded detail panel ────────────────────────────────── */
+
+.detail {
+  background: var(--theme-surface-raised);
+  border-top: 1px solid var(--theme-border);
+  padding: 0.6em 1ch 0.75em calc(1ch + 6px + 1ch + 1ch);
+  /* indent past dot column: 1ch padding + 6px dot + 1ch gap + badge + 1ch gap */
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: 8ch 1fr;
+  gap: 0.25em 1ch;
+  align-items: baseline;
+}
+
+.dk {
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: right;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.dv {
+  color: var(--theme-text);
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+.pre {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--theme-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  grid-column: 2;
+}

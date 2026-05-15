@@ -1,0 +1,53 @@
+.root {
+  border: 1px solid var(--theme-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  background: transparent;
+  color: var(--theme-text);
+  line-height: calc(var(--theme-line-height-base) * 1rem);
+
+  &:focus-visible,
+  &:focus-within {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+}
+
+.titleBar {
+  padding: 0.5em 1ch;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--theme-text-muted);
+  border-bottom: 1px solid var(--theme-border);
+  line-height: calc(var(--theme-line-height-base) * 1em);
+}
+
+.body {
+  padding: 1em 1ch;
+}
+
+/* Accent variants — colored left border + colored title text */
+.accent-success .titleBar {
+  color: var(--theme-status-success);
+  border-left: 2px solid var(--theme-status-success);
+  padding-left: calc(1ch - 2px);
+}
+
+.accent-warning .titleBar {
+  color: var(--theme-status-warning);
+  border-left: 2px solid var(--theme-status-warning);
+  padding-left: calc(1ch - 2px);
+}
+
+.accent-error .titleBar {
+  color: var(--theme-status-error);
+  border-left: 2px solid var(--theme-status-error);
+  padding-left: calc(1ch - 2px);
+}
+
+.accent-info .titleBar {
+  color: var(--theme-status-info);
+  border-left: 2px solid var(--theme-status-info);
+  padding-left: calc(1ch - 2px);
+}
