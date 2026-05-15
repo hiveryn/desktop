@@ -21,7 +21,6 @@ export default function ConcludedSessionFlow({ concludedSession, onDismiss }: Pr
       onComplete={() => {
         const { sessionId, sessionType } = concludedSession;
 
-        void window.hiveryn.sessions.delete(sessionId).catch(() => {});
         void window.hiveryn.session.disconnect(sessionId).catch(() => {});
 
         if (sessionType === 'architect') {

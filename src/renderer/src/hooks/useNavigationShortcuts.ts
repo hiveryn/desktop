@@ -222,7 +222,6 @@ async function closeCurrentTab(): Promise<void> {
   if (!activeSessionId) return;
   const session = sessions[activeSessionId];
   if (session?.type === 'work') {
-    void window.hiveryn.sessions.delete(activeSessionId).catch(() => {});
     void window.hiveryn.session.disconnect(activeSessionId).catch(() => {});
     const s = useSessionStore.getState();
     s.unregisterSession(activeSessionId);

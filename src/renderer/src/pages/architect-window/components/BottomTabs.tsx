@@ -48,7 +48,6 @@ export default function BottomTabs() {
         }
       }}
       onTabClose={(id: string) => {
-        void window.hiveryn.sessions.delete(id).catch(() => {});
         void window.hiveryn.session.disconnect(id).catch(() => {});
         unregisterSession(id);
       }}

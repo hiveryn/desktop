@@ -52,7 +52,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
   'session:send': { method: 'WS', path: '/session/send' },
   'session:resize': { method: 'WS', path: '/session/resize' },
-  'sessions:delete': { method: 'DELETE', path: '/api/sessions/:id' },
   'terminals:list': { method: 'GET', path: '/api/sessions/:id/terminals' },
   'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
@@ -204,7 +203,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (): Promise<Session[]> => invoke('sessions:list'),
     create: (profileId: string, workdir: string): Promise<Session> =>
       invoke('sessions:create', profileId, workdir),
-    delete: (sessionId: string): Promise<void> => invoke('sessions:delete', sessionId),
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),

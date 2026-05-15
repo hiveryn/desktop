@@ -35,7 +35,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/delete → daemon HTTP
+      sessions.ts         sessions:list/create → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
@@ -167,12 +167,11 @@ Architect sessions run in the daemon and survive component mount/unmount cycles 
 
 When a session ends (architect or worker), the daemon sends a `status: ended` SSE event with conclusion data in `event.raw` (`{body, commits, rejected, rejection_reason}`). `useSessionEvents` detects this and surfaces it via `ConcludedSessionFlow`, which renders `SessionConcludedDialog` (from `@hiveryn/components`) — a non-dismissable modal with a countdown timer (5s) and "Terminate Now" button.
 
-On complete (timer or click):
+On complete (timer or click), the daemon has already killed the PTY and deleted the SQLite session row as part of conclusion. The desktop only cleans up client-side state:
 
-1. `sessions.delete(sessionId)` — kills the daemon session (PTY, bridges, subscribers, DB record)
-2. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
-3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
-4. **Worker session**: calls `store.unregisterSession(sessionId)`, which removes the worker from the store; `BottomTabs` / `MainTerminalStack` re-render automatically and the active session falls back to the architect
+1. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
+2. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
+3. **Worker session**: calls `store.unregisterSession(sessionId)`, which removes the worker from the store; `BottomTabs` / `MainTerminalStack` re-render automatically and the active session falls back to the architect
 
 ## Keyboard shortcuts and focus model
 
