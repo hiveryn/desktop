@@ -5,6 +5,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: var(--theme-background);
 }
 
 .terminal {
@@ -21,9 +22,13 @@
 }
 
 .root :global(.xterm-viewport)::-webkit-scrollbar-track {
-  background: #000000;
+  background: var(--theme-background);
 }
 
 .root :global(.xterm-viewport)::-webkit-scrollbar-thumb {
   background: var(--theme-border);
+}
+
+.root :global(.xterm-viewport)::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-border-strong);
 }

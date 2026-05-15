@@ -141,9 +141,14 @@ export default function Launcher() {
   return (
     <div className={styles.window}>
       <Navigation>
-        <Text as="span" className={styles.navTitle}>
-          Hiveryn
-        </Text>
+        <span className={styles.navTitle}>
+          <span className={styles.brandMark} aria-hidden="true">
+            ▣
+          </span>
+          <Text as="span" className={styles.brandText}>
+            HIVERYN
+          </Text>
+        </span>
       </Navigation>
 
       <main className={styles.content}>

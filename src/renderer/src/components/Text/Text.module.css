@@ -1,8 +1,8 @@
 .root {
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
-  font-weight: 400;
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-base);
   color: var(--theme-text);
   margin: 0;
   padding: 0;

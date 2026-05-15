@@ -196,7 +196,7 @@ Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop h
 
 `TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`, so xterm's DOM textarea is actively blurred when the user navigates elsewhere — keystrokes don't leak to the PTY. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane`.
 
-The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: 10`, `pointer-events: none`), so it sits **above** xterm's canvas. The color is `--color-focus-ring` (defined in `index.module.css`).
+The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focus-ring` (defined in `styles/global.css`), which tracks the active light/dark theme.
 
 ## Architect workspace events
 

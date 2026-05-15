@@ -28,7 +28,7 @@
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   background: none;
   border: none;
   color: var(--theme-text);

@@ -15,8 +15,8 @@
 }
 
 .selected {
-  box-shadow: inset 2px 0 0 var(--color-focus-ring, rgba(99, 102, 241, 0.7));
-  background: var(--theme-surface-raised);
+  box-shadow: inset 2px 0 0 var(--theme-focus-ring);
+  background: var(--theme-selection);
 }
 
 .title {

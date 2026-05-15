@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import styles from './TerminalPane.module.css';
 
@@ -30,28 +31,33 @@ export interface TerminalPaneProps extends React.HTMLAttributes<HTMLDivElement> 
   focused?: boolean;
 }
 
-function buildTerminalTheme() {
+// Read theme tokens from CSS variables so xterm's palette tracks the global
+// design system. Re-reads on every theme change.
+function readTerminalTheme(): ITheme {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name: string) => cs.getPropertyValue(name).trim();
   return {
-    foreground:          '#ffffff',
-    background:          '#000000',
-    cursor:              '#ff55ff',
-    selectionBackground: 'rgba(255, 0, 255, 0.3)',
-    black:               '#000000',
-    red:                 '#ff0000',
-    green:               '#00ff00',
-    yellow:              '#ffff00',
-    blue:                '#0000ff',
-    magenta:             '#ff00ff',
-    cyan:                '#00ffff',
-    white:               '#ffffff',
-    brightBlack:         '#585858',
-    brightRed:           '#ff5555',
-    brightGreen:         '#55ff55',
-    brightYellow:        '#ffff55',
-    brightBlue:          '#5555ff',
-    brightMagenta:       '#ff55ff',
-    brightCyan:          '#55ffff',
-    brightWhite:         '#eeeeee',
+    foreground:          v('--theme-text'),
+    background:          v('--theme-background'),
+    cursor:              v('--theme-cursor'),
+    cursorAccent:        v('--theme-cursor-accent'),
+    selectionBackground: v('--theme-terminal-selection'),
+    black:               v('--theme-ansi-black'),
+    red:                 v('--theme-ansi-red'),
+    green:               v('--theme-ansi-green'),
+    yellow:              v('--theme-ansi-yellow'),
+    blue:                v('--theme-ansi-blue'),
+    magenta:             v('--theme-ansi-magenta'),
+    cyan:                v('--theme-ansi-cyan'),
+    white:               v('--theme-ansi-white'),
+    brightBlack:         v('--theme-ansi-bright-black'),
+    brightRed:           v('--theme-ansi-bright-red'),
+    brightGreen:         v('--theme-ansi-bright-green'),
+    brightYellow:        v('--theme-ansi-bright-yellow'),
+    brightBlue:          v('--theme-ansi-bright-blue'),
+    brightMagenta:       v('--theme-ansi-bright-magenta'),
+    brightCyan:          v('--theme-ansi-bright-cyan'),
+    brightWhite:         v('--theme-ansi-bright-white'),
   };
 }
 
@@ -114,10 +120,10 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     const term = new Terminal({
       fontSize,
       fontFamily,
-      theme: buildTerminalTheme(),
+      theme: readTerminalTheme(),
       cursorBlink,
       disableStdin: readonly,
-      scrollback: 1000,
+      scrollback: 5000,
       allowTransparency: false,
     });
 
@@ -125,6 +131,16 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
     term.loadAddon(new SearchAddon());
+
+    // Unicode 11 width tables — without this, emoji and CJK characters
+    // mis-align the cursor by 1 cell.
+    try {
+      const u11 = new Unicode11Addon();
+      term.loadAddon(u11);
+      term.unicode.activeVersion = '11';
+    } catch {
+      // Unicode addon optional; fall through to xterm default tables
+    }
 
     term.open(containerRef.current);
 
@@ -143,10 +159,6 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
 
     fitAddon.fit();
-    console.log('[TP] mount → fit',
-      'container', containerRef.current.offsetWidth, 'x', containerRef.current.offsetHeight,
-      '→ cells', term.cols, 'x', term.rows,
-    );
     // Fire initial resize immediately so callers can size the PTY before connecting
     onResizeRef.current?.(term.cols, term.rows);
     // Focus so keystrokes are captured without requiring a manual click
@@ -173,17 +185,30 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
         resizeTimer = null;
         if (disposedRef.current) return;
         fitAddon.fit();
-        console.log('[TP] resize → fit', term.cols, 'x', term.rows);
         onResizeRef.current?.(term.cols, term.rows);
       }, 100);
     });
     observer.observe(containerRef.current);
+
+    // Theme reactivity: when the .dark class flips on <html>, re-read tokens
+    // and push a new theme into the live terminal. xterm picks it up
+    // synchronously, no remount needed.
+    const themeObserver = new MutationObserver(() => {
+      if (disposedRef.current) return;
+      term.options.theme = readTerminalTheme();
+      term.refresh(0, term.rows - 1);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
 
     return () => {
       disposedRef.current = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       dataDispose?.dispose();
       observer.disconnect();
+      themeObserver.disconnect();
       // Detach xterm's DOM element before React tears down the container.
       // Without this, removing the container node fires a scroll event that hits
       // xterm's still-live scroll listener → crash.

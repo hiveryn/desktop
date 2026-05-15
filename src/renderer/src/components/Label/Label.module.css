@@ -2,11 +2,11 @@
   display: inline-block;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--theme-text);
   margin: 0;
   padding: 0;
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  line-height: var(--line-height-base);
 }

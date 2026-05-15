@@ -62,7 +62,7 @@
 .tabLabel {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   line-height: 1;
 }
 

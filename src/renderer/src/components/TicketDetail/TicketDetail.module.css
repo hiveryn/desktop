@@ -41,7 +41,7 @@
 .titleText {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--theme-text-muted);
   flex: 1;
   overflow: hidden;
@@ -58,7 +58,7 @@
   font-size: var(--font-size-sm);
   padding: 0.2em 0.75ch;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
 
   &:hover {
     background: var(--theme-focused-foreground-subdued);
@@ -107,7 +107,7 @@
   font-size: var(--font-size-sm);
   padding: 0.5em 1.5ch;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
 
   &:hover {
     color: var(--theme-text);
@@ -149,7 +149,7 @@
   font-size: var(--font-size-sm);
   color: var(--theme-text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   line-height: calc(var(--theme-line-height-base) * 1em);
 }
 
@@ -168,7 +168,7 @@
   font-size: var(--font-size-sm);
   color: var(--theme-text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   margin-bottom: 0.4em;
 }
 
@@ -234,7 +234,7 @@
     font-size: var(--font-size-sm);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: var(--letter-spacing-caps);
     color: var(--theme-text-muted);
     margin: 0.8em 0 0.3em;
 
@@ -307,7 +307,7 @@
   & th {
     color: var(--theme-text-muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: var(--letter-spacing-caps);
     background: var(--theme-surface-raised);
   }
 

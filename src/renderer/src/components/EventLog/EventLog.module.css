@@ -44,11 +44,11 @@
 }
 
 .selected .rowMain {
-  background: color-mix(in srgb, var(--color-focus-ring, rgba(99, 102, 241, 0.5)) 12%, transparent);
+  background: var(--theme-selection);
 }
 
 .selected {
-  box-shadow: inset 2px 0 0 var(--color-focus-ring, rgba(99, 102, 241, 0.7));
+  box-shadow: inset 2px 0 0 var(--theme-focus-ring);
 }
 
 .rowMain {
@@ -84,7 +84,7 @@
   min-width: 8ch;
   color: var(--theme-text-muted);
   font-size: var(--font-size-sm);
-  letter-spacing: 0.5px;
+  letter-spacing: var(--letter-spacing-caps);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

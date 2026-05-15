@@ -35,10 +35,10 @@
 
 .title {
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--theme-text);
-  font-weight: 500;
 }
 
 .titleActions {
@@ -50,9 +50,10 @@
 
 .statusTag {
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--theme-status-success, #22c55e);
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-status-success);
 }
 
 .removeButton {

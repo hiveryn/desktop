@@ -26,19 +26,24 @@
 
   /* 256-color vivid set — better contrast on light backgrounds */
   --ansi-31-cyan-blue: #0087af;
+  --ansi-33-blue: #0087ff;
   --ansi-34-green: #00af00;
   --ansi-136-amber: #af8700;
   --ansi-160-red: #d70000;
 
   /* 256-color grayscale ramp (selected stops) */
   --ansi-232-gray-3: #080808;
+  --ansi-234-gray-11: #1c1c1c;
   --ansi-235-gray-15: #262626;
   --ansi-237-gray-23: #3a3a3a;
+  --ansi-239-gray-31: #4e4e4e;
   --ansi-240-gray-35: #585858;
   --ansi-242-gray-42: #6c6c6c;
   --ansi-245-gray-54: #8a8a8a;
   --ansi-248-gray-66: #a8a8a8;
+  --ansi-250-gray-74: #bcbcbc;
   --ansi-251-gray-78: #c6c6c6;
+  --ansi-253-gray-85: #dadada;
   --ansi-254-gray-89: #e4e4e4;
   --ansi-255-gray-93: #eeeeee;
 
@@ -49,7 +54,7 @@
   /* Bright ANSI variants (standard 16-color terminal bright set) */
   --ansi-bright-red: #ff5555;
   --ansi-bright-yellow: #ffff55;
-  --ansi-bright-blue: #5555ff;
+  --ansi-bright-blue: #5c7cff;
   --ansi-bright-magenta: #ff55ff;
   --ansi-bright-cyan: #55ffff;
 
@@ -59,30 +64,67 @@
   --color-brand: var(--ansi-true-brand);
   --color-gray-93: var(--ansi-255-gray-93);
   --color-gray-89: var(--ansi-254-gray-89);
+  --color-gray-85: var(--ansi-253-gray-85);
   --color-gray-78: var(--ansi-251-gray-78);
+  --color-gray-74: var(--ansi-250-gray-74);
   --color-gray-66: var(--ansi-248-gray-66);
   --color-gray-54: var(--ansi-245-gray-54);
   --color-gray-42: var(--ansi-242-gray-42);
   --color-gray-35: var(--ansi-240-gray-35);
+  --color-gray-31: var(--ansi-239-gray-31);
   --color-gray-23: var(--ansi-237-gray-23);
   --color-gray-15: var(--ansi-235-gray-15);
+  --color-gray-11: var(--ansi-234-gray-11);
   --color-gray-3: var(--ansi-232-gray-3);
   --color-black-alpha-40: rgba(0, 0, 0, 0.4);
   --color-white-alpha-40: rgba(255, 255, 255, 0.4);
-  --color-gray-89-border-alpha: rgba(228, 228, 228, 0.6);
-  --color-gray-23-border-alpha: rgba(58, 58, 58, 0.3);
   --color-brand-alpha-50: rgba(228, 242, 33, 0.5);
+  --color-brand-alpha-25: rgba(228, 242, 33, 0.25);
   --color-bright-red: var(--ansi-bright-red);
   --color-bright-yellow: var(--ansi-bright-yellow);
   --color-bright-cyan: var(--ansi-bright-cyan);
 
-  /* Typography */
+  /* ── Typography scale ──────────────────────────────────────── */
   --font-family-mono: 'Geist Mono Variable', 'JetBrains Mono Variable', Consolas, monaco, monospace;
-  --font-size: 13px;
+
+  --font-size-xs: 10px;
   --font-size-sm: 11px;
+  --font-size: 13px;
+  --font-size-lg: 15px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 22px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --letter-spacing-normal: 0;
+  --letter-spacing-caps: 0.08em;
+  --letter-spacing-tight: -0.01em;
+
+  --line-height-tight: 1.2;
+  --line-height-base: 1.4;
+  --line-height-loose: 1.6;
+  /* Legacy alias — keep until callers migrate */
   --theme-line-height-base: 1.4;
 
+  /* ── Spacing scale ─────────────────────────────────────────── */
+  /* Vertical: em-based so spacing tracks text size */
+  --space-1: 0.25em;
+  --space-2: 0.5em;
+  --space-3: 0.75em;
+  --space-4: 1em;
+  --space-5: 1.5em;
+  --space-6: 2em;
+  /* Horizontal: ch-based so columns align to terminal grid */
+  --space-h-1: 0.5ch;
+  --space-h-2: 1ch;
+  --space-h-3: 1.5ch;
+  --space-h-4: 2ch;
+
   /* Z-index stack */
+  --z-index-pane-focus: 2;
   --z-index-page-select: 3;
   --z-index-page-tooltips: 4;
   --z-index-page-popover: 5;
@@ -93,17 +135,30 @@
   --theme-background: var(--color-white);
   --theme-text: var(--color-black);
   --theme-text-muted: var(--color-gray-42);
-  --theme-border: var(--color-gray-89);
+  --theme-text-subtle: var(--color-gray-54);
+  --theme-border: var(--color-gray-85);
+  --theme-border-strong: var(--color-gray-66);
   --theme-button-background: var(--color-black);
   --theme-button-foreground: var(--color-white);
   --theme-button-text: var(--color-gray-78);
+
+  /* Accent — used as keyboard-focus outline AND interactive hover fill */
   --theme-focused-foreground: var(--ansi-34-green);
   --theme-focused-foreground-subdued: color-mix(in srgb, var(--ansi-34-green) 25%, transparent);
-  --theme-window-background: var(--color-gray-89);
+  --theme-focus-ring: var(--ansi-34-green);
+  --theme-focus-ring-subdued: color-mix(in srgb, var(--ansi-34-green) 18%, transparent);
+  --theme-selection: color-mix(in srgb, var(--ansi-34-green) 14%, transparent);
+
+  /* Brand accent — used sparingly (launcher mark, cursor) */
+  --theme-brand: var(--ansi-true-brand);
+  --theme-cursor: var(--ansi-34-green);
+  --theme-cursor-accent: var(--color-white);
+
+  --theme-window-background: var(--color-gray-93);
   --theme-window-shadow: var(--color-gray-66);
   --theme-overlay: var(--color-black-alpha-40);
-  --theme-background-input: var(--color-gray-89);
-  --theme-background-modal-footer: var(--color-gray-66);
+  --theme-background-input: var(--color-gray-93);
+  --theme-background-modal-footer: var(--color-gray-93);
 
   /* Status tokens — 256-color vivid set, strong contrast on white */
   --theme-status-success: var(--ansi-34-green);
@@ -111,27 +166,40 @@
   --theme-status-error: var(--ansi-160-red);
   --theme-status-info: var(--ansi-31-cyan-blue);
 
-  /* Surface elevation */
-  --theme-surface-raised: var(--color-gray-93);
-  --theme-surface-overlay: var(--color-gray-89);
+  /* Status foreground — text color when placed ON a status fill. Light
+     mode amber/cyan need a dark foreground for legibility; others are
+     bright enough that white works. */
+  --theme-status-success-on: var(--color-white);
+  --theme-status-warning-on: var(--color-black);
+  --theme-status-error-on: var(--color-white);
+  --theme-status-info-on: var(--color-white);
+
+  /* Surface elevation ramp — each step gets a clearly distinct fill */
+  --theme-surface-1: var(--color-gray-93);
+  --theme-surface-2: var(--color-gray-89);
+  --theme-surface-3: var(--color-gray-85);
+  /* Legacy aliases */
+  --theme-surface-raised: var(--theme-surface-1);
+  --theme-surface-overlay: var(--theme-surface-2);
 
   /* Terminal ANSI palette — light: 256-color set for contrast on white bg */
   --theme-ansi-black:          var(--ansi-0-black);
-  --theme-ansi-red:            var(--ansi-9-red);
+  --theme-ansi-red:            var(--ansi-160-red);
   --theme-ansi-green:          var(--ansi-34-green);
   --theme-ansi-yellow:         var(--ansi-136-amber);
-  --theme-ansi-blue:           var(--ansi-12-blue);
+  --theme-ansi-blue:           var(--ansi-31-cyan-blue);
   --theme-ansi-magenta:        var(--ansi-5-purple);
   --theme-ansi-cyan:           var(--ansi-31-cyan-blue);
   --theme-ansi-white:          var(--ansi-240-gray-35);
   --theme-ansi-bright-black:   var(--ansi-245-gray-54);
-  --theme-ansi-bright-red:     var(--ansi-160-red);
-  --theme-ansi-bright-green:   var(--ansi-34-green);
+  --theme-ansi-bright-red:     var(--ansi-9-red);
+  --theme-ansi-bright-green:   var(--ansi-2-green);
   --theme-ansi-bright-yellow:  var(--ansi-136-amber);
-  --theme-ansi-bright-blue:    var(--ansi-4-navy);
-  --theme-ansi-bright-magenta: var(--ansi-5-purple);
-  --theme-ansi-bright-cyan:    var(--ansi-31-cyan-blue);
+  --theme-ansi-bright-blue:    var(--ansi-33-blue);
+  --theme-ansi-bright-magenta: var(--ansi-13-fuchsia);
+  --theme-ansi-bright-cyan:    var(--ansi-6-teal);
   --theme-ansi-bright-white:   var(--ansi-248-gray-66);
+  --theme-terminal-selection:  color-mix(in srgb, var(--ansi-34-green) 30%, transparent);
 }
 
 /* ── Dark theme ────────────────────────────────────────────── */
@@ -139,17 +207,28 @@
   --theme-background: var(--color-black);
   --theme-text: var(--color-white);
   --theme-text-muted: var(--color-gray-66);
+  --theme-text-subtle: var(--color-gray-54);
   --theme-border: var(--color-gray-23);
+  --theme-border-strong: var(--color-gray-35);
   --theme-button-background: var(--color-white);
   --theme-button-foreground: var(--color-black);
   --theme-button-text: var(--color-gray-15);
-  --theme-focused-foreground: oklch(from var(--ansi-13-fuchsia) 0.55 c h);
-  --theme-focused-foreground-subdued: oklch(from var(--ansi-13-fuchsia) 0.55 c h / 0.5);
-  --theme-window-background: var(--color-gray-23);
-  --theme-window-shadow: var(--color-gray-15);
+
+  --theme-focused-foreground: oklch(from var(--ansi-13-fuchsia) 0.65 c h);
+  --theme-focused-foreground-subdued: oklch(from var(--ansi-13-fuchsia) 0.65 c h / 0.35);
+  --theme-focus-ring: oklch(from var(--ansi-13-fuchsia) 0.7 c h);
+  --theme-focus-ring-subdued: oklch(from var(--ansi-13-fuchsia) 0.65 c h / 0.18);
+  --theme-selection: oklch(from var(--ansi-13-fuchsia) 0.7 c h / 0.14);
+
+  --theme-brand: var(--ansi-true-brand);
+  --theme-cursor: var(--ansi-true-brand);
+  --theme-cursor-accent: var(--color-black);
+
+  --theme-window-background: var(--color-gray-15);
+  --theme-window-shadow: var(--color-gray-3);
   --theme-overlay: var(--color-black-alpha-40);
-  --theme-background-input: var(--color-gray-23);
-  --theme-background-modal-footer: var(--color-gray-35);
+  --theme-background-input: var(--color-gray-15);
+  --theme-background-modal-footer: var(--color-gray-15);
 
   /* Status tokens — bright ANSI colors pop on dark bg */
   --theme-status-success: var(--ansi-bright-green);
@@ -157,16 +236,25 @@
   --theme-status-error: var(--ansi-bright-red);
   --theme-status-info: var(--ansi-bright-cyan);
 
-  /* Surface elevation */
-  --theme-surface-raised: var(--color-gray-15);
-  --theme-surface-overlay: var(--color-gray-23);
+  --theme-status-success-on: var(--color-black);
+  --theme-status-warning-on: var(--color-black);
+  --theme-status-error-on: var(--color-black);
+  --theme-status-info-on: var(--color-black);
 
-  /* Terminal ANSI palette — dark: standard ANSI-16 + bright set */
+  /* Surface elevation ramp */
+  --theme-surface-1: var(--color-gray-11);
+  --theme-surface-2: var(--color-gray-15);
+  --theme-surface-3: var(--color-gray-23);
+  --theme-surface-raised: var(--theme-surface-1);
+  --theme-surface-overlay: var(--theme-surface-2);
+
+  /* Terminal ANSI palette — dark: standard ANSI-16 with raised blue/cyan
+     for legibility on black */
   --theme-ansi-black:          var(--ansi-0-black);
   --theme-ansi-red:            var(--ansi-9-red);
   --theme-ansi-green:          var(--ansi-10-lime);
   --theme-ansi-yellow:         var(--ansi-11-yellow);
-  --theme-ansi-blue:           var(--ansi-12-blue);
+  --theme-ansi-blue:           var(--ansi-bright-blue);
   --theme-ansi-magenta:        var(--ansi-13-fuchsia);
   --theme-ansi-cyan:           var(--ansi-14-aqua);
   --theme-ansi-white:          var(--ansi-15-white);
@@ -178,11 +266,8 @@
   --theme-ansi-bright-magenta: var(--ansi-bright-magenta);
   --theme-ansi-bright-cyan:    var(--ansi-bright-cyan);
   --theme-ansi-bright-white:   var(--ansi-255-gray-93);
+  --theme-terminal-selection:  oklch(from var(--ansi-13-fuchsia) 0.7 c h / 0.3);
 }
-
-/* ── OKLCH tint derivation (stub — extend per tint ticket) ─── */
-/* :root.tint-green  { --tint: #39ff44; } */
-/* :root.tint-blue   { --tint: #0047ff; } */
 
 /* ── Base styles ───────────────────────────────────────────── */
 body {
@@ -190,18 +275,19 @@ body {
   color: var(--theme-text);
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  line-height: var(--line-height-base);
   font-optical-sizing: auto;
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   font-variant-numeric: tabular-nums lining-nums;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {
   background: transparent;
-  height: calc(var(--theme-line-height-base) * 1rem);
+  height: 1ch;
   width: 1ch;
 }
 ::-webkit-scrollbar-track { background: var(--theme-background); }
 ::-webkit-scrollbar-thumb { background: var(--theme-border); }
+::-webkit-scrollbar-thumb:hover { background: var(--theme-border-strong); }

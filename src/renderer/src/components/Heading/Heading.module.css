@@ -1,31 +1,32 @@
 .root {
   font-family: var(--font-family-mono);
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   color: var(--theme-text);
   margin: 0;
   padding: 0;
-  line-height: 1.2;
-  text-rendering: geometricPrecision;
+  line-height: var(--line-height-tight);
   -webkit-font-smoothing: antialiased;
 }
 
 .xl {
-  font-size: 2em;
-  font-weight: 600;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 .lg {
-  font-size: 1.5em;
-  font-weight: 500;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .md {
-  font-size: 1.15em;
-  font-weight: 500;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .sm {
-  font-size: 1em;
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  font-size: var(--font-size);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
 }

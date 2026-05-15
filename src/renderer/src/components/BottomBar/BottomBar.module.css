@@ -6,7 +6,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--theme-background);
+  background: var(--theme-surface-1);
   border-top: 1px solid var(--theme-border);
   font-family: var(--font-family-mono);
   font-size: var(--font-size);

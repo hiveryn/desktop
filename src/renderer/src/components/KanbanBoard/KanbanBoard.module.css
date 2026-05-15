@@ -20,5 +20,5 @@
   font-size: var(--font-size-sm);
   color: var(--theme-text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
 }

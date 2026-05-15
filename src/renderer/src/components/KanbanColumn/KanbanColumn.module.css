@@ -18,15 +18,15 @@
   border-bottom: 1px solid var(--theme-border);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   flex-shrink: 0;
   line-height: calc(var(--theme-line-height-base) * 1em);
   transition: background 80ms ease, box-shadow 80ms ease;
 }
 
 .headerFocused {
-  background: color-mix(in srgb, var(--color-focus-ring, rgba(99, 102, 241, 0.85)) 18%, transparent);
-  box-shadow: inset 0 -2px 0 var(--color-focus-ring, rgba(99, 102, 241, 0.85));
+  background: var(--theme-focus-ring-subdued);
+  box-shadow: inset 0 -2px 0 var(--theme-focus-ring);
 }
 
 .headerFocused .title,

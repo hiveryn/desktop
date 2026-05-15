@@ -9,7 +9,7 @@
   font-size: var(--font-size-sm);
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--theme-text-muted);
   line-height: calc(var(--theme-line-height-base) * 1em);
 }
