@@ -179,10 +179,7 @@ export interface TerminalInfo {
   status: string;
 }
 
-export interface CreateTerminalBody {
-  command?: string;
-  args?: string[];
-}
+export type CreateTerminalBody = Record<string, never>;
 
 export interface SessionTab {
   type: 'kanban' | 'event-log' | 'terminal';

@@ -142,7 +142,7 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 ### Adding a new terminal
 
-1. Call `window.hiveryn.terminals.create(sessionId, { command, args })` → POST to daemon
+1. Call `window.hiveryn.terminals.create(sessionId, {})` and let the daemon choose the default shell → POST to daemon
 2. The daemon returns `{ terminal_id, session_id, command, status }`
 3. Re-fetch `window.hiveryn.tabs.list(sessionId)` and store that layout via `setSessionTabs()`
 4. Set `activeRightTab` to the returned `terminal_id`; `ExtraTerminalStack` will pick it up from the refreshed daemon tabs and render a `SessionTerminal`

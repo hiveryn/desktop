@@ -183,10 +183,7 @@ interface TerminalInfo {
   status: string;
 }
 
-interface CreateTerminalBody {
-  command?: string;
-  args?: string[];
-}
+type CreateTerminalBody = Record<string, never>;
 
 interface SessionTab {
   type: 'kanban' | 'event-log' | 'terminal';

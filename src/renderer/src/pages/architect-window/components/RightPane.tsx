@@ -380,9 +380,7 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
   if (!sessionId) return;
 
   try {
-    const created = await window.hiveryn.terminals.create(sessionId, {
-      command: 'bash',
-    });
+    const created = await window.hiveryn.terminals.create(sessionId, {});
     const tabs = await window.hiveryn.tabs.list(sessionId);
     useSessionStore.getState().setSessionTabs(sessionId, tabs);
     useSessionStore.getState().setActiveRightTab(created.terminal_id);
