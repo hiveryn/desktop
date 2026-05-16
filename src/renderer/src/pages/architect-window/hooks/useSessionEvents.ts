@@ -1,6 +1,33 @@
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
 
+interface MainTerminalResumeEvent {
+  mainTerminalId: string;
+  previousTerminalId: string;
+}
+
+function mainTerminalResumeEvent(event: {
+  raw?: Record<string, unknown>;
+}): MainTerminalResumeEvent {
+  const mainTerminalID = event.raw?.main_terminal_id;
+  if (typeof mainTerminalID !== 'string' || mainTerminalID.trim() === '') {
+    throw new Error(`main_terminal_resumed missing main_terminal_id: ${JSON.stringify(event.raw)}`);
+  }
+
+  const previousTerminalID = event.raw?.previous_terminal_id;
+  if (typeof previousTerminalID !== 'string' || previousTerminalID.trim() === '') {
+    throw new Error(
+      `main_terminal_resumed missing previous_terminal_id: ${JSON.stringify(event.raw)}`,
+    );
+  }
+
+  return { mainTerminalId: mainTerminalID, previousTerminalId: previousTerminalID };
+}
+
+function isConcludedSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
+  return event.raw?.lifecycle === 'concluded';
+}
+
 async function cleanupEndedSession(
   sessionId: string,
   sessionType: 'architect' | 'work',
@@ -33,7 +60,21 @@ export function useSessionEvents(): void {
       const store = useSessionStore.getState();
       store.appendEvent(event);
 
-      if (event.type !== 'status' || event.status !== 'ended') return;
+      if (event.type === 'main_terminal_resumed') {
+        const session = store.sessions[event.session_id];
+        if (!session) {
+          throw new Error(`main_terminal_resumed received for missing session ${event.session_id}`);
+        }
+        const resume = mainTerminalResumeEvent(event);
+        if (session.mainTerminalId === resume.mainTerminalId) return;
+        if (session.mainTerminalId !== resume.previousTerminalId) return;
+        store.updateSessionMainTerminal(event.session_id, resume.mainTerminalId);
+        return;
+      }
+
+      if (event.type !== 'status' || event.status !== 'ended' || !isConcludedSessionEnd(event)) {
+        return;
+      }
       if (endingSessionIdsRef.current.has(event.session_id)) return;
 
       const session = store.sessions[event.session_id];

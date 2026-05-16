@@ -20,9 +20,7 @@ interface ActiveSession {
 }
 
 function parseSessionEvent(data: string, sendEventToRenderer: (event: SessionEvent) => void): void {
-  try {
-    sendEventToRenderer(JSON.parse(data) as SessionEvent);
-  } catch {}
+  sendEventToRenderer(JSON.parse(data) as SessionEvent);
 }
 
 async function consumeSse(
@@ -32,27 +30,33 @@ async function consumeSse(
 ): Promise<void> {
   const onData = (data: string): void => parseSessionEvent(data, sendEventToRenderer);
 
-  try {
-    const response = await fetch(
-      `${DAEMON_URL}/api/sessions/${encodeURIComponent(sessionId)}/events`,
-      { signal, headers: { Accept: 'text/event-stream' } },
-    );
-    const reader = response.body?.getReader();
-    if (!reader) return;
-    const decoder = new TextDecoder();
-    let buffer = '';
+  const response = await fetch(
+    `${DAEMON_URL}/api/sessions/${encodeURIComponent(sessionId)}/events`,
+    {
+      signal,
+      headers: { Accept: 'text/event-stream' },
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`session event stream failed: ${response.status} ${response.statusText}`);
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error(`session event stream missing body for ${sessionId}`);
+  }
+  const decoder = new TextDecoder();
+  let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer = consumeSseBuffer(buffer + decoder.decode(value, { stream: true }), onData);
-    }
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer = consumeSseBuffer(buffer + decoder.decode(value, { stream: true }), onData);
+  }
 
-    buffer = consumeSseBuffer(buffer + decoder.decode(), onData);
-    if (buffer.trim()) {
-      dispatchSseBlock(buffer, onData);
-    }
-  } catch {}
+  buffer = consumeSseBuffer(buffer + decoder.decode(), onData);
+  if (buffer.trim()) {
+    dispatchSseBlock(buffer, onData);
+  }
 }
 
 // Keyed by webContents.id → sessionId → ActiveSession.
@@ -83,29 +87,38 @@ export interface ConnectError {
 function startSse(session: ActiveSession, sessionId: string): void {
   if (session.sseRunning) return;
   session.sseRunning = true;
-  void consumeSse(sessionId, session.sseAbort.signal, session.sendEventToRenderer);
+  void consumeSse(sessionId, session.sseAbort.signal, session.sendEventToRenderer).catch((err) => {
+    if (session.sseAbort.signal.aborted) {
+      return;
+    }
+    throw err;
+  });
 }
 
-function cleanupTerminal(
+function detachTerminal(session: ActiveSession, terminalId: string, closeSocket: boolean): void {
+  const conn = session.terminals.get(terminalId);
+  if (!conn) {
+    return;
+  }
+
+  session.terminals.delete(terminalId);
+  if (closeSocket) {
+    conn.ws.close();
+  }
+}
+
+function teardownSession(
   wcId: number,
   sessionId: string,
   session: ActiveSession,
-  terminalId: string,
+  message: string,
 ): void {
-  const conn = session.terminals.get(terminalId);
-  if (conn) {
-    conn.ws.close();
-    session.terminals.delete(terminalId);
-  }
-
-  if (session.terminals.size === 0) {
-    session.sseAbort.abort();
-    session.finish({ ok: false, message: 'All terminals disconnected' });
-    const wcSessions = sessionsByWcId.get(wcId);
-    if (wcSessions) {
-      wcSessions.delete(sessionId);
-      if (wcSessions.size === 0) sessionsByWcId.delete(wcId);
-    }
+  session.sseAbort.abort();
+  session.finish({ ok: false, message });
+  const wcSessions = sessionsByWcId.get(wcId);
+  if (wcSessions) {
+    wcSessions.delete(sessionId);
+    if (wcSessions.size === 0) sessionsByWcId.delete(wcId);
   }
 }
 
@@ -189,6 +202,7 @@ export function connect(
       };
       wcSessions.set(sessionId, session);
     }
+    startSse(session, sessionId);
 
     // Replace any existing terminal connection with the same UUID.
     const oldConn = session.terminals.get(terminalId);
@@ -215,7 +229,6 @@ export function connect(
         return;
       }
       console.log('[main:session] open ✓', { wcId, sessionId, terminalId });
-      startSse(session, sessionId);
       finish({ ok: true });
       resolve({ ok: true });
     });
@@ -224,7 +237,6 @@ export function connect(
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
       if (!stillActive || stillActive.terminals.get(terminalId) !== conn) return;
       console.warn('[main:session] error', { wcId, sessionId, terminalId, ev });
-      cleanupTerminal(wcId, sessionId, stillActive, terminalId);
       finish({ ok: false, message: 'WebSocket connection failed' });
       resolve({ ok: false, message: 'WebSocket connection failed' });
     });
@@ -252,7 +264,7 @@ export function connect(
       });
       if (stillActive && wasActive) {
         stillActive.sendTerminalClosedToRenderer(sessionId, terminalId);
-        cleanupTerminal(wcId, sessionId, stillActive, terminalId);
+        detachTerminal(stillActive, terminalId, false);
       }
       finish({ ok: false, message: 'WebSocket connection closed' });
     });
@@ -273,7 +285,7 @@ export function disconnect(wcId: number, sessionId?: string, terminalId?: string
     const session = wcSessions.get(sessionId);
     if (!session) return;
     console.log('[main:session] disconnect terminal', { wcId, sessionId, terminalId });
-    cleanupTerminal(wcId, sessionId, session, terminalId);
+    detachTerminal(session, terminalId, true);
   } else if (sessionId) {
     const session = wcSessions.get(sessionId);
     if (!session) {
@@ -286,22 +298,16 @@ export function disconnect(wcId: number, sessionId?: string, terminalId?: string
       if (conn) conn.ws.close();
     }
     session.terminals.clear();
-    session.sseAbort.abort();
-    session.finish({ ok: false, message: 'Session disconnected' });
-    wcSessions.delete(sessionId);
-    if (wcSessions.size === 0) sessionsByWcId.delete(wcId);
+    teardownSession(wcId, sessionId, session, 'Session disconnected');
   } else {
     console.log('[main:session] disconnect → all sessions', { wcId, count: wcSessions.size });
-    for (const [, session] of wcSessions) {
+    for (const [activeSessionId, session] of wcSessions) {
       for (const [, conn] of session.terminals) {
         conn.ws.close();
       }
       session.terminals.clear();
-      session.sseAbort.abort();
-      session.finish({ ok: false, message: 'All sessions disconnected' });
+      teardownSession(wcId, activeSessionId, session, 'All sessions disconnected');
     }
-    wcSessions.clear();
-    sessionsByWcId.delete(wcId);
   }
 }
 

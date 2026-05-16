@@ -28,6 +28,7 @@ interface SessionState {
 interface SessionActions {
   registerSession(record: SessionRecord): void;
   unregisterSession(id: string): void;
+  updateSessionMainTerminal(id: string, mainTerminalId: string): void;
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
   setFocusedPane(pane: string): void;
@@ -63,6 +64,24 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const { [id]: _removedEvents, ...events } = state.events;
       const activeSessionId = state.activeSessionId === id ? null : state.activeSessionId;
       return { sessions, events, activeSessionId };
+    });
+  },
+
+  updateSessionMainTerminal(id, mainTerminalId) {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) {
+        throw new Error(`Cannot update main terminal for missing session ${id}`);
+      }
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            mainTerminalId,
+          },
+        },
+      };
     });
   },
 

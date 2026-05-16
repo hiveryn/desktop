@@ -11,6 +11,21 @@ interface Props {
   className?: string;
 }
 
+async function refreshMainTerminalID(sessionId: string, terminalId: string): Promise<void> {
+  const sessions = await window.hiveryn.sessions.list();
+  const session = sessions.find((candidate) => candidate.id === sessionId);
+  if (!session) {
+    throw new Error(`Cannot refresh missing session ${sessionId}`);
+  }
+  if (!session.main_terminal_id) {
+    throw new Error(`Session ${sessionId} is missing main_terminal_id`);
+  }
+  if (session.main_terminal_id === terminalId) {
+    return;
+  }
+  useSessionStore.getState().updateSessionMainTerminal(sessionId, session.main_terminal_id);
+}
+
 // Renders every session's main terminal as a persistent sibling. Exactly one is
 // visible at a time, picked by activeSessionId. Inactive ones stay mounted to
 // preserve scrollback and avoid black-screen-on-tab-switch.
@@ -18,8 +33,6 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const focusedPane = useSessionStore((s) => s.focusedPane);
-  const unregisterSession = useSessionStore((s) => s.unregisterSession);
-  const setActiveSession = useSessionStore((s) => s.setActiveSession);
 
   const mains = useMemo(
     () =>
@@ -42,15 +55,7 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
             visible={isVisible}
             focused={isFocused}
             onDisconnected={() => {
-              unregisterSession(session.id);
-              // If the user was viewing this session, fall back to architect or null.
-              const store = useSessionStore.getState();
-              if (store.activeSessionId === session.id) {
-                const architectId = Object.values(store.sessions).find(
-                  (s) => s.type === 'architect',
-                )?.id;
-                setActiveSession(architectId ?? null);
-              }
+              void refreshMainTerminalID(session.id, terminalId);
             }}
           />
         );

@@ -126,6 +126,8 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 
 Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` connects on mount and starts the SSE stream (session-level, shared across terminals). The WebSocket stays alive in the main process across renders.
 
+Main terminal disconnect is not session lifecycle. If the main terminal WebSocket closes because the daemon respawned the agent, keep the session registered, keep session SSE active, update `mainTerminalId` from the daemon's `main_terminal_resumed` event or refreshed session list, and let `MainTerminalStack` reconnect by remounting the terminal keyed by the new UUID.
+
 Duplicate `connect()` calls for the same terminal (e.g. from React StrictMode) are deduplicated via `pendingConnects` map keyed by `wcId:sessionId:terminalId`.
 
 Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists in the store. Visibility is toggled via `display:none` + the `visible` prop, which triggers an immediate `fit()` + `refresh()` in `useLayoutEffect` — no black-screen-on-tab-switch and full scrollback preservation across switches.
@@ -168,7 +170,7 @@ Architect sessions run in the daemon and survive component mount/unmount cycles 
 
 ## Session conclusion cleanup
 
-When a session ends (architect or worker), the daemon sends a `status: ended` SSE event. `useSessionEvents` immediately performs client-side cleanup with no dialog or countdown:
+When a session ends (architect or worker), the daemon sends a daemon-authored `status: ended` SSE event with `raw.lifecycle === 'concluded'`. Raw agent `ended` events are not session lifecycle. `useSessionEvents` immediately performs client-side cleanup with no dialog or countdown:
 
 1. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 2. `store.unregisterSession(sessionId)` — removes the session from the Zustand store

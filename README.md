@@ -6,7 +6,7 @@ Built with Electron, React, and Tailwind CSS. Talks to the local Hiveryn daemon 
 
 ## Requirements
 
-- [Hiveryn daemon](../daemon) running on `http://127.0.0.1:4300`
+- [Hiveryn daemon](../daemon) running on `http://127.0.0.1:4201`
 
 ## Running locally
 
