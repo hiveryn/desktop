@@ -24,6 +24,7 @@ The renderer has **no Node.js access**. It can only call functions exposed on `w
 src/
   main/
     index.ts              Electron app setup — window creation, registerIpc()
+    logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
       sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
@@ -31,6 +32,7 @@ src/
       architect-events.ts Architect SSE subscription manager — live kanban refresh
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
+      logs.ts             logs:renderer handler — writes forwarded renderer console logs
       preferences.ts      preferences:*, user:* handlers (local, no daemon call)
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
@@ -45,7 +47,8 @@ src/
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
   renderer/src/
     App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
-    main.tsx              React entry, QueryClient, theme init
+    main.tsx              React entry, theme init, renderer console logging install
+    logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
       sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
@@ -82,6 +85,14 @@ Every daemon-backed IPC call follows this chain:
 3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; other errors are toasted.
 
 All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, `meta.request_id`). The desktop surfaces this in the `RequestLog` panel at the bottom of every page.
+
+## Structured desktop logging
+
+The desktop app writes append-only structured JSONL logs under `~/.hiveryn/logs/`.
+
+- **Main process** — `desktop.jsonl`: `src/main/logging.ts` patches `console.debug/info/log/warn/error`, captures source location from stack traces, and writes one JSON object per line with `src: "desktop"`.
+- **Renderer** — `renderer.jsonl`: `src/renderer/src/logging.ts` patches `console.*`, captures browser-side source location, and forwards a structured payload through `window.hiveryn.logs.writeRenderer(...)` to `logs:renderer` IPC, where the main process appends it with `src: "renderer"`.
+- **Schema** — entries use `ts`, `lvl`, `src`, `msg`, `file`, `line`, `fn`, with optional `err`, `ctx`, and `body` fields so they can be consumed alongside daemon JSONL logs.
 
 ## Adding a new IPC namespace
 

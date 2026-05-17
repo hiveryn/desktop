@@ -38,6 +38,27 @@ interface RequestLogEntry {
   envelope: Envelope;
 }
 
+// ── Structured logging ──────────────────────────────────────────────────────
+
+type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+interface StructuredLogError {
+  message: string;
+  stack: string;
+}
+
+interface RendererLogPayload {
+  ts: string;
+  lvl: StructuredLogLevel;
+  msg: string;
+  file: string;
+  line: number;
+  fn: string;
+  err?: StructuredLogError;
+  ctx?: string;
+  body?: unknown;
+}
+
 // ── IPC error ──────────────────────────────────────────────────────────────
 
 interface IpcError extends Error {
@@ -302,6 +323,9 @@ interface HiverynAPI {
   };
   daemon: {
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;
+  };
+  logs: {
+    writeRenderer: (entry: RendererLogPayload) => void;
   };
   config: {
     getShortcuts: () => Promise<Record<string, Record<string, string>>>;

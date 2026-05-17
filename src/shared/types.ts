@@ -49,6 +49,40 @@ export interface DaemonResult<T = unknown> {
   httpStatus: number;
 }
 
+// ── Structured logging ──────────────────────────────────────────────────────
+
+export type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface StructuredLogError {
+  message: string;
+  stack: string;
+}
+
+export interface StructuredLogEntry {
+  ts: string;
+  lvl: StructuredLogLevel;
+  src: 'desktop' | 'renderer';
+  msg: string;
+  file: string;
+  line: number;
+  fn: string;
+  err?: StructuredLogError;
+  ctx?: string;
+  body?: unknown;
+}
+
+export interface RendererLogPayload {
+  ts: string;
+  lvl: StructuredLogLevel;
+  msg: string;
+  file: string;
+  line: number;
+  fn: string;
+  err?: StructuredLogError;
+  ctx?: string;
+  body?: unknown;
+}
+
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
 export type SessionKind = 'architect' | 'work';

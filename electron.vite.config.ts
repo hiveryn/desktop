@@ -6,6 +6,7 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      sourcemap: true,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
@@ -16,6 +17,7 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      sourcemap: true,
       rollupOptions: {
         output: {
           format: 'cjs',
@@ -26,6 +28,9 @@ export default defineConfig({
   },
   renderer: {
     plugins: [react()],
+    build: {
+      sourcemap: true,
+    },
     server: {
       fs: {
         allow: [resolve(__dirname)],

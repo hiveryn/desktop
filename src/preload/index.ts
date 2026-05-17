@@ -5,6 +5,7 @@ import type {
   ArchitectInfo,
   CreateTerminalBody,
   DaemonResult,
+  RendererLogPayload,
   RequestLogEntry,
   Session,
   SessionEvent,
@@ -239,6 +240,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
     onRequest: (callback: RequestCallback): (() => void) => {
       requestListeners.add(callback);
       return () => requestListeners.delete(callback);
+    },
+  },
+  logs: {
+    writeRenderer: (entry: RendererLogPayload): void => {
+      ipcRenderer.send('logs:renderer', entry);
     },
   },
   config: {

@@ -2,10 +2,13 @@ import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import { registerIpc } from './ipc';
+import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 
 const rendererEntry = join(__dirname, '../renderer/index.html');
 let launcherWindow: BrowserWindow | null = null;
 const architectWindows = new Map<string, BrowserWindow>();
+
+initializeDesktopLogging();
 
 function configureWindow(window: BrowserWindow): void {
   window.on('ready-to-show', () => {
@@ -116,6 +119,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createLauncherWindow();
   });
+});
+
+app.on('will-quit', () => {
+  shutdownDesktopLogging();
 });
 
 app.on('window-all-closed', () => {
