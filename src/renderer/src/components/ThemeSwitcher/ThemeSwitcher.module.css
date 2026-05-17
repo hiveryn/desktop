@@ -38,7 +38,7 @@
   width: 100%;
   white-space: nowrap;
   transition: background 200ms ease;
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  line-height: calc(var(--line-height-base) * 1em);
 
   &:hover {
     background: var(--theme-focused-foreground);

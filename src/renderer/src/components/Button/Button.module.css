@@ -27,14 +27,14 @@
   border: 1px solid var(--theme-button-background);
 
   &:hover:not(:disabled) {
-    background: var(--theme-focused-foreground);
+    background: color-mix(in srgb, var(--theme-button-background) 85%, var(--theme-background));
     border-color: var(--theme-focused-foreground);
-    color: var(--theme-status-success-on);
+    color: var(--theme-button-foreground);
   }
   &:active:not(:disabled) {
-    background: var(--theme-focused-foreground);
+    background: color-mix(in srgb, var(--theme-button-background) 80%, var(--theme-background));
     border-color: var(--theme-focused-foreground);
-    color: var(--theme-status-success-on);
+    color: var(--theme-button-foreground);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
   }
 }

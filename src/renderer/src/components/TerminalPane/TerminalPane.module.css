@@ -15,9 +15,9 @@
   z-index: 1;
 }
 
-/* Match global 1ch thin scrollbar inside xterm's viewport */
+/* Match global 8px scrollbar inside xterm's viewport */
 .root :global(.xterm-viewport)::-webkit-scrollbar {
-  width: 1ch;
+  width: 8px;
   background: transparent;
 }
 

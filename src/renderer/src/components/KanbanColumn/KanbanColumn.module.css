@@ -14,13 +14,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5em 1ch;
+  padding: var(--space-2) var(--space-h-2);
   border-bottom: 1px solid var(--theme-border);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-caps);
   flex-shrink: 0;
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  line-height: calc(var(--line-height-base) * 1em);
   transition: background 80ms ease, box-shadow 80ms ease;
 }
 

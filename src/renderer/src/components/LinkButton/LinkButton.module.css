@@ -10,8 +10,8 @@
   border: none;
   color: var(--theme-text-muted);
   cursor: pointer;
-  padding: 0.25em 1ch;
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  padding: var(--space-1) var(--space-h-2);
+  line-height: calc(var(--line-height-base) * 1em);
   transition: color 200ms ease, background 200ms ease;
 
   &:hover {

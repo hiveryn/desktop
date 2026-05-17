@@ -1,7 +1,7 @@
 .root {
   display: inline-flex;
   align-items: center;
-  gap: 0.75ch;
+  gap: var(--space-h-1);
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
   font-weight: 500;
@@ -11,8 +11,8 @@
   border: none;
   color: var(--theme-text-muted);
   cursor: pointer;
-  padding: 0.25em 1ch;
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  padding: var(--space-1) var(--space-h-2);
+  line-height: calc(var(--line-height-base) * 1em);
   transition: color 200ms ease, background 200ms ease;
 
   &:hover {

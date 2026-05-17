@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3em 2ch;
+  padding: 3em var(--space-h-4);
   font-family: var(--font-family-mono);
 }
 

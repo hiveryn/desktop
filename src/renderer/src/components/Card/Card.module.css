@@ -4,7 +4,7 @@
   font-size: var(--font-size);
   background: transparent;
   color: var(--theme-text);
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  line-height: calc(var(--line-height-base) * 1rem);
 
   &:focus-visible,
   &:focus-within {
@@ -14,17 +14,17 @@
 }
 
 .titleBar {
-  padding: 0.5em 1ch;
+  padding: var(--space-2) var(--space-h-2);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-caps);
   color: var(--theme-text-muted);
   border-bottom: 1px solid var(--theme-border);
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  line-height: calc(var(--line-height-base) * 1em);
 }
 
 .body {
-  padding: 1em 1ch;
+  padding: var(--space-4) var(--space-h-2);
 }
 
 /* Accent variants — colored left border + colored title text */

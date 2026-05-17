@@ -1,5 +1,5 @@
 .root {
-  padding: 0.65em 1ch;
+  padding: var(--space-2) var(--space-h-2);
   border-bottom: 1px solid var(--theme-border);
   cursor: pointer;
   font-family: var(--font-family-mono);
@@ -21,14 +21,14 @@
 
 .title {
   color: var(--theme-text);
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  line-height: calc(var(--line-height-base) * 1rem);
   word-break: break-word;
   margin-bottom: 0.2em;
 }
 
 .meta {
   display: flex;
-  gap: 1ch;
+  gap: var(--space-h-2);
   align-items: baseline;
   min-width: 0;
 }

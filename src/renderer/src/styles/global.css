@@ -73,6 +73,7 @@
   --color-gray-35: var(--ansi-240-gray-35);
   --color-gray-31: var(--ansi-239-gray-31);
   --color-gray-23: var(--ansi-237-gray-23);
+
   --color-gray-15: var(--ansi-235-gray-15);
   --color-gray-11: var(--ansi-234-gray-11);
   --color-gray-3: var(--ansi-232-gray-3);
@@ -88,11 +89,12 @@
   --font-family-mono: 'Geist Mono Variable', 'JetBrains Mono Variable', Consolas, monaco, monospace;
 
   --font-size-xs: 10px;
-  --font-size-sm: 11px;
-  --font-size: 13px;
-  --font-size-lg: 15px;
+  --font-size-sm: 12px;
+  --font-size: 14px;
+  --font-size-lg: 16px;
   --font-size-xl: 18px;
   --font-size-2xl: 22px;
+  --font-size-icon: 24px;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -106,8 +108,6 @@
   --line-height-tight: 1.2;
   --line-height-base: 1.4;
   --line-height-loose: 1.6;
-  /* Legacy alias — keep until callers migrate */
-  --theme-line-height-base: 1.4;
 
   /* ── Spacing scale ─────────────────────────────────────────── */
   /* Vertical: em-based so spacing tracks text size */
@@ -243,8 +243,8 @@
 
   /* Surface elevation ramp */
   --theme-surface-1: var(--color-gray-11);
-  --theme-surface-2: var(--color-gray-15);
-  --theme-surface-3: var(--color-gray-23);
+  --theme-surface-2: var(--color-gray-23);
+  --theme-surface-3: var(--color-gray-31);
   --theme-surface-raised: var(--theme-surface-1);
   --theme-surface-overlay: var(--theme-surface-2);
 
@@ -285,8 +285,8 @@ body {
 
 ::-webkit-scrollbar {
   background: transparent;
-  height: 1ch;
-  width: 1ch;
+  height: 8px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track { background: var(--theme-background); }
 ::-webkit-scrollbar-thumb { background: var(--theme-border); }

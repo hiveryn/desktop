@@ -14,7 +14,7 @@
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
   color: var(--theme-text);
-  line-height: calc(var(--theme-line-height-base) * 1rem);
+  line-height: calc(var(--line-height-base) * 1rem);
   width: 75vw;
   height: 75vh;
   display: flex;
@@ -150,13 +150,13 @@
   color: var(--theme-text-muted);
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-caps);
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  line-height: calc(var(--line-height-base) * 1em);
 }
 
 .fieldValue {
   font-size: var(--font-size-sm);
   color: var(--theme-text);
-  line-height: calc(var(--theme-line-height-base) * 1em);
+  line-height: calc(var(--line-height-base) * 1em);
 }
 
 .section {
@@ -222,7 +222,7 @@
 .markdown {
   font-size: var(--font-size-sm);
   color: var(--theme-text);
-  line-height: calc(var(--theme-line-height-base) * 1.1rem);
+  line-height: calc(var(--line-height-base) * 1.1rem);
 
   & p {
     margin: 0 0 0.6em;
