@@ -127,6 +127,15 @@
   min-height: 0;
 }
 
+.concludeBtn {
+  color: var(--theme-status-error);
+
+  &:hover {
+    color: var(--theme-status-error);
+    background: color-mix(in srgb, var(--theme-status-error) 12%, transparent);
+  }
+}
+
 .bottomBar {
   position: static;
   flex-shrink: 0;

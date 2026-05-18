@@ -1,6 +1,7 @@
 import {
   BottomBar,
   Caption,
+  Close,
   Glyph,
   IconButton,
   Navigation,
@@ -14,6 +15,7 @@ import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
+import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import LeftPane from './components/LeftPane';
 import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
@@ -49,6 +51,12 @@ export default function ArchitectWindow() {
 
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
+  const architectSessionId = useSessionStore((s) => {
+    const found = Object.values(s.sessions).find((r) => r.type === 'architect');
+    return found?.id ?? null;
+  });
+
+  const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -103,14 +111,27 @@ export default function ArchitectWindow() {
     <div className={styles.window}>
       <Navigation
         right={
-          <IconButton
-            onClick={() => window.hiveryn.architect.openLauncher()}
-            aria-label="Open launcher"
-          >
-            <Glyph>
-              <Plus />
-            </Glyph>
-          </IconButton>
+          <>
+            <IconButton
+              onClick={() => window.hiveryn.architect.openLauncher()}
+              aria-label="Open launcher"
+            >
+              <Glyph>
+                <Plus />
+              </Glyph>
+            </IconButton>
+            {architectSessionId && (
+              <IconButton
+                className={styles.concludeBtn}
+                onClick={() => setConcludeDialogOpen(true)}
+                aria-label="Conclude session"
+              >
+                <Glyph>
+                  <Close />
+                </Glyph>
+              </IconButton>
+            )}
+          </>
         }
       >
         <div className={styles.navTitle}>
@@ -165,6 +186,13 @@ export default function ArchitectWindow() {
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
       />
+
+      {concludeDialogOpen && architectSessionId && (
+        <ConcludeSessionDialog
+          sessionId={architectSessionId}
+          onClose={() => setConcludeDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }

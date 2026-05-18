@@ -37,7 +37,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create → daemon HTTP
+      sessions.ts         sessions:list/create/conclude → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
@@ -65,7 +65,7 @@ src/
         SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalId)
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents, useViewportMode
         components/              LeftPane, RightPane, BottomTabs, MainTerminalStack,
-                                 ExtraTerminalStack, TicketWorkflow
+                                 ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/

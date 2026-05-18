@@ -32,6 +32,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'profiles:list': { method: 'GET', path: '/api/agent-profiles' },
   'sessions:list': { method: 'GET', path: '/api/sessions' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
+  'sessions:conclude': { method: 'POST', path: '/api/sessions/:id/conclude' },
   'system:getHome': { method: 'GET', path: '/api/system/home' },
   'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
   'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
@@ -204,6 +205,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (): Promise<Session[]> => invoke('sessions:list'),
     create: (profileId: string, workdir: string): Promise<Session> =>
       invoke('sessions:create', profileId, workdir),
+    conclude: (sessionId: string, body: string): Promise<void> =>
+      invoke('sessions:conclude', sessionId, body),
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),

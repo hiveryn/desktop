@@ -296,6 +296,7 @@ interface HiverynAPI {
   sessions: {
     list: () => Promise<Session[]>;
     create: (profileId: string, workdir: string) => Promise<Session>;
+    conclude: (sessionId: string, body: string) => Promise<void>;
   };
   tickets: {
     list: (architectKey: string) => Promise<TicketBoard>;

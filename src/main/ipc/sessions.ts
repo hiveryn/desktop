@@ -30,4 +30,14 @@ export function registerSessionsIpc(): void {
       });
     },
   );
+
+  ipcMain.handle(
+    'sessions:conclude',
+    async (_event, sessionId: string, body: string): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/conclude`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+      });
+    },
+  );
 }
