@@ -207,6 +207,7 @@ function firstSession(): void {
   if (first.type === 'work' && state.activeRightTab === 'kanban') {
     state.setActiveRightTab('event-log');
   }
+  state.setFocusedPane('main-terminal');
 }
 
 function cycleSession(delta: number): void {
@@ -220,6 +221,7 @@ function cycleSession(delta: number): void {
   if (next.type === 'work' && state.activeRightTab === 'kanban') {
     state.setActiveRightTab('event-log');
   }
+  state.setFocusedPane('main-terminal');
 }
 
 // ── Tab/terminal actions ─────────────────────────────────────────────────────
