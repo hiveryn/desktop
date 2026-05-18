@@ -142,8 +142,6 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       // Unicode addon optional; fall through to xterm default tables
     }
 
-    term.open(containerRef.current);
-
     // WebGL renderer eliminates per-row canvas gaps that the default canvas
     // renderer produces at non-integer devicePixelRatios.
     let webglAddon: WebglAddon | null = null;
@@ -152,11 +150,14 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       webglAddon.onContextLoss(() => {
         try { webglAddon?.dispose(); } catch { /* context-loss disposal race, safe to ignore */ }
         webglAddon = null;
+        term.refresh(0, term.rows - 1);
       });
       term.loadAddon(webglAddon);
     } catch {
       // WebGL unavailable — fall back to built-in canvas renderer silently
     }
+
+    term.open(containerRef.current);
 
     fitAddon.fit();
     // Fire initial resize immediately so callers can size the PTY before connecting
