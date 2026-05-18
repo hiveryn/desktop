@@ -59,9 +59,14 @@ const CODE_MAP: Record<string, string> = {
 
 /** Returns true when a text-input element currently owns focus. Use this to
  *  bail out of capture-phase shortcut handlers so they don't swallow keystrokes
- *  that belong to an active input (e.g. the profile-selector filter). */
+ *  that belong to an active input (e.g. the profile-selector filter).
+ *  Excludes xterm.js's hidden helper textarea so terminal focus does not block
+ *  navigation shortcuts. */
 export function isInputFocused(): boolean {
   const active = document.activeElement;
+  if (active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea')) {
+    return false;
+  }
   return (
     active instanceof HTMLInputElement ||
     active instanceof HTMLTextAreaElement ||
