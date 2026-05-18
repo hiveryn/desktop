@@ -85,7 +85,9 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
       <span className={styles.fieldValue}>{fmt(conclusion.concluded_at)}</span>
       {conclusion.commits.length > 0 && <>
         <span className={styles.fieldLabel}>commits</span>
-        <span className={styles.fieldValue}>{conclusion.commits.join(', ')}</span>
+        <span className={styles.fieldValue}>
+          {conclusion.commits.map((commit) => `${commit.repo}: ${commit.sha}`).join(', ')}
+        </span>
       </>}
       {conclusion.rejected && <>
         <span className={styles.fieldLabel}>rejected</span>

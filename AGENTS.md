@@ -76,7 +76,7 @@ src/
       global.css          Renderer global styles imported through @styles/global.css
       reset.css           Shared reset imported by global.css
   shared/
-    types.ts              Types shared across main and preload (Envelope, AgentProfile, Session…)
+    types.ts              Types shared across main, preload, and renderer modules (Envelope, AgentProfile, Session…)
 ```
 
 ## IPC and envelope pattern
@@ -114,7 +114,7 @@ The desktop app writes append-only structured JSONL logs under `~/.hiveryn/logs/
 ## Design rules
 
 - Renderer code never imports from `electron`, `node:*`, or `src/main`. Only `window.hiveryn.*`.
-- `src/shared/types.ts` is the only cross-boundary module. Main and preload import from it; renderer uses the global types from `index.d.ts`.
+- `src/shared/types.ts` is the only cross-boundary module. Main and preload import from it, and renderer may import from it when a module export is needed; ambient renderer globals still come from `index.d.ts`.
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.

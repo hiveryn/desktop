@@ -126,6 +126,11 @@ export interface TicketWarning {
   message: string;
 }
 
+export interface TicketCommit {
+  sha: string;
+  repo: string;
+}
+
 export interface TicketConclusion {
   started_at: string;
   concluded_at: string;
@@ -133,7 +138,7 @@ export interface TicketConclusion {
   profile: string;
   rejected: boolean;
   rejection_reason: string;
-  commits: string[];
+  commits: TicketCommit[];
   body: string;
 }
 

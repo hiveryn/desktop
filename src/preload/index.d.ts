@@ -122,6 +122,11 @@ interface TicketWarning {
   message: string;
 }
 
+interface TicketCommit {
+  sha: string;
+  repo: string;
+}
+
 interface TicketConclusion {
   started_at: string;
   concluded_at: string;
@@ -129,7 +134,7 @@ interface TicketConclusion {
   profile: string;
   rejected: boolean;
   rejection_reason: string;
-  commits: string[];
+  commits: TicketCommit[];
   body: string;
 }
 
