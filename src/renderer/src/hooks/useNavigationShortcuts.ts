@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../state/sessionStore';
-import { matchesShortcut, type ShortcutConfig } from './useShortcutConfig';
+import { isInputFocused, matchesShortcut, type ShortcutConfig } from './useShortcutConfig';
 
 // Maps a tab bar tab ID to a focusedPane value for the right pane.
 function tabIdToFocusId(tabId: string): string {
@@ -29,6 +29,9 @@ export function useNavigationShortcuts(config: ShortcutConfig | null): void {
     function handler(e: KeyboardEvent): void {
       const cfg = configRef.current;
       if (!cfg?.global) return;
+
+      if (isInputFocused()) return;
+
       const global = cfg.global;
 
       const state = useSessionStore.getState();

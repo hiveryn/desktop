@@ -57,6 +57,19 @@ const CODE_MAP: Record<string, string> = {
   '9': 'Digit9',
 };
 
+/** Returns true when a text-input element currently owns focus. Use this to
+ *  bail out of capture-phase shortcut handlers so they don't swallow keystrokes
+ *  that belong to an active input (e.g. the profile-selector filter). */
+export function isInputFocused(): boolean {
+  const active = document.activeElement;
+  return (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+  );
+}
+
 export function matchesShortcut(event: KeyboardEvent, binding: string): boolean {
   if (!binding) return false;
   const parts = binding.toLowerCase().split('+');

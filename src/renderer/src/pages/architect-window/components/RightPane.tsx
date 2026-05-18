@@ -18,7 +18,7 @@ import type {
   TicketSummary,
 } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
-import { matchesShortcut } from '../../../hooks/useShortcutConfig';
+import { isInputFocused, matchesShortcut } from '../../../hooks/useShortcutConfig';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -186,6 +186,8 @@ export default function RightPane({
     function handler(e: KeyboardEvent): void {
       const cfg = shortcutConfigRef.current;
       if (!cfg) return;
+
+      if (isInputFocused()) return;
 
       // Skip if any navigation modifier is held — those belong to the nav hook
       if (e.metaKey || e.ctrlKey || e.altKey) return;
