@@ -37,6 +37,20 @@
   color: var(--theme-status-error);
 }
 
+.contentStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shortcutError {
+  flex-shrink: 0;
+  max-height: 12rem;
+}
+
 /* ── Split pane ────────────────────────────────────────────────────────────── */
 
 .splitPane {

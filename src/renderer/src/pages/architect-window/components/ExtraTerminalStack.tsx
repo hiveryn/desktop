@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
+import { refreshSessionFromDaemon } from '../hooks/sessionSnapshot';
 import SessionTerminal from '../SessionTerminal';
 import styles from './terminal-stack.module.css';
 
@@ -41,9 +42,7 @@ export default function ExtraTerminalStack() {
               visible={isVisible}
               focused={isFocused}
               onDisconnected={() => {
-                void window.hiveryn.tabs
-                  .list(session.id)
-                  .then((tabs) => useSessionStore.getState().setSessionTabs(session.id, tabs));
+                void refreshSessionFromDaemon(session.id);
               }}
             />
           </div>

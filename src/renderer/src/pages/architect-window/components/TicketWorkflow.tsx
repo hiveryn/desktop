@@ -1,20 +1,16 @@
 import type { AgentProfile } from '@components';
-import { ProfileSelector, Text, TicketDetail } from '@components';
+import { ApiEnvelopeError, ProfileSelector, TicketDetail } from '@components';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { matchesShortcut } from '../../../keys/matchers';
-import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
+import { useSessionStore } from '../../../state/sessionStore';
+import { loadSessionRecord } from '../hooks/sessionSnapshot';
 import styles from '../index.module.css';
 
 // The spawn flow only needs id + title from a ticket.
 type SpawnableTicket = Pick<TicketSummary, 'id' | 'title'>;
-
-function truncate(str: string, max: number): string {
-  if (str.length <= max) return str;
-  return `${str.slice(0, max)}…`;
-}
 
 interface Props {
   architectKey: string;
@@ -40,7 +36,7 @@ export default function TicketWorkflow({
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
   const [pendingTicket, setPendingTicket] = useState<SpawnableTicket | null>(null);
-  const [spawnError, setSpawnError] = useState<string | null>(null);
+  const [spawnError, setSpawnError] = useState<unknown | null>(null);
   const pendingTicketRef = useRef(pendingTicket);
   pendingTicketRef.current = pendingTicket;
 
@@ -76,16 +72,10 @@ export default function TicketWorkflow({
           30,
         );
 
-        const record: SessionRecord = {
-          id: result.session_id,
-          type: 'work',
-          label: truncate(ticket.title, 30),
-          ticketId: ticket.id,
-          mainTerminalId: result.main_terminal_id,
-          tabs: [],
-        };
-
-        record.tabs = await window.hiveryn.tabs.list(result.session_id);
+        const record = await loadSessionRecord(result.session_id);
+        if (!record) {
+          throw new Error(`Spawned session ${result.session_id} is missing from sessions.list()`);
+        }
 
         const store = useSessionStore.getState();
         store.registerSession(record);
@@ -97,7 +87,7 @@ export default function TicketWorkflow({
         onSpawnRequestClear();
         onBoardChanged();
       } catch (err: unknown) {
-        setSpawnError(err instanceof Error ? err.message : 'Worker spawn failed');
+        setSpawnError(err);
       }
     },
     [architectKey, onBoardChanged, onCloseTicket, onSpawnRequestClear],
@@ -162,12 +152,12 @@ export default function TicketWorkflow({
       />
 
       {spawnError ? (
-        <Text
+        <ApiEnvelopeError
+          error={spawnError}
+          title="Worker Spawn API Error"
           className={styles.error}
           style={{ position: 'fixed', bottom: 48, left: 16, zIndex: 100 }}
-        >
-          {spawnError}
-        </Text>
+        />
       ) : null}
     </>
   );

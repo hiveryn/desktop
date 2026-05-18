@@ -1,4 +1,5 @@
 import {
+  ApiEnvelopeError,
   BottomBar,
   Caption,
   Close,
@@ -20,6 +21,7 @@ import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
 import { useArchitectData } from './hooks/useArchitectData';
+import { useDaemonRecovery } from './hooks/useDaemonRecovery';
 import { useSessionEvents } from './hooks/useSessionEvents';
 import { useSessionRestore } from './hooks/useSessionRestore';
 import styles from './index.module.css';
@@ -42,9 +44,10 @@ export default function ArchitectWindow() {
   const { architect, home, board, boardLoading, boardError, loadError, refreshBoard } =
     useArchitectData(architectKey);
   useSessionEvents();
+  useDaemonRecovery(architectKey);
   useSessionRestore(architectKey);
 
-  const shortcutConfig = useShortcutConfig();
+  const { config: shortcutConfig, error: shortcutError } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
 
   const focusedPane = useSessionStore((s) => s.focusedPane);
@@ -59,7 +62,7 @@ export default function ArchitectWindow() {
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [spawnRequest, setSpawnRequest] = useState<TicketSummary | null>(null);
-  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [ticketError, setTicketError] = useState<unknown | null>(null);
   const ticketRequestId = useRef(0);
 
   async function handleTicketSelect(ticket: TicketSummary): Promise<void> {
@@ -73,7 +76,7 @@ export default function ArchitectWindow() {
       setSelectedTicket(next);
     } catch (error) {
       if (ticketRequestId.current !== requestId) return;
-      setTicketError(error instanceof Error ? error.message : `Failed to load ticket ${ticket.id}`);
+      setTicketError(error);
     }
   }
 
@@ -132,29 +135,38 @@ export default function ArchitectWindow() {
 
       <main className={styles.content}>
         {loadError ? (
-          <Text className={styles.error}>{loadError}</Text>
+          <ApiEnvelopeError error={loadError} />
         ) : (
-          <div className={styles.splitPane}>
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
-            {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
-            <div
-              className={styles.leftPane}
-              data-focused={isLeftFocused || undefined}
-              onClick={() => setFocusedPane('main-terminal')}
-            >
-              <MainTerminalStack className={styles.terminal} />
-            </div>
-            <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
-              <RightPane
-                board={board}
-                boardLoading={boardLoading}
-                boardError={boardError}
-                ticketError={ticketError}
-                shortcutConfig={shortcutConfig}
-                onTicketSelect={handleTicketSelect}
-                onSpawnTicket={handleSpawnTicket}
-                onRefreshBoard={() => void refreshBoard()}
+          <div className={styles.contentStack}>
+            {shortcutError ? (
+              <ApiEnvelopeError
+                className={styles.shortcutError}
+                error={shortcutError}
+                title="Shortcut Config API Error"
               />
+            ) : null}
+            <div className={styles.splitPane}>
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
+              {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
+              <div
+                className={styles.leftPane}
+                data-focused={isLeftFocused || undefined}
+                onClick={() => setFocusedPane('main-terminal')}
+              >
+                <MainTerminalStack className={styles.terminal} />
+              </div>
+              <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
+                <RightPane
+                  board={board}
+                  boardLoading={boardLoading}
+                  boardError={boardError}
+                  ticketError={ticketError}
+                  shortcutConfig={shortcutConfig}
+                  onTicketSelect={handleTicketSelect}
+                  onSpawnTicket={handleSpawnTicket}
+                  onRefreshBoard={() => void refreshBoard()}
+                />
+              </div>
             </div>
           </div>
         )}

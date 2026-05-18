@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { app, BrowserWindow, nativeTheme, shell } from 'electron';
+import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 
@@ -109,6 +110,7 @@ nativeTheme.on('updated', () => {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.hiveryn.desktop');
+  daemonHealth.start();
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
@@ -122,6 +124,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  daemonHealth.stop();
   shutdownDesktopLogging();
 });
 

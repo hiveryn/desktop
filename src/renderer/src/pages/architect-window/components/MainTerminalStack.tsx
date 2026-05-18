@@ -1,26 +1,12 @@
 import { Button, Caption } from '@components';
 import { useMemo } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
+import { refreshSessionFromDaemon } from '../hooks/sessionSnapshot';
 import SessionTerminal from '../SessionTerminal';
 import styles from './terminal-stack.module.css';
 
 interface Props {
   className?: string;
-}
-
-async function refreshMainTerminalID(sessionId: string, terminalId: string): Promise<void> {
-  const sessions = await window.hiveryn.sessions.list();
-  const session = sessions.find((candidate) => candidate.id === sessionId);
-  if (!session) {
-    throw new Error(`Cannot refresh missing session ${sessionId}`);
-  }
-  if (!session.main_terminal_id) {
-    throw new Error(`Session ${sessionId} is missing main_terminal_id`);
-  }
-  if (session.main_terminal_id === terminalId) {
-    return;
-  }
-  useSessionStore.getState().updateSessionMainTerminal(sessionId, session.main_terminal_id);
 }
 
 // Renders every session's main terminal as a persistent sibling. Exactly one is
@@ -53,7 +39,7 @@ export default function MainTerminalStack({ className }: Props) {
             visible={isVisible}
             focused={isFocused}
             onDisconnected={() => {
-              void refreshMainTerminalID(session.id, terminalId);
+              void refreshSessionFromDaemon(session.id);
             }}
           />
         );

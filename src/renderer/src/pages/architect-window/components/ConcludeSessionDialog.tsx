@@ -1,4 +1,4 @@
-import { Dialog } from '@components';
+import { ApiEnvelopeError, Dialog } from '@components';
 import { useState } from 'react';
 import styles from './ConcludeSessionDialog.module.css';
 
@@ -10,7 +10,7 @@ interface ConcludeSessionDialogProps {
 export default function ConcludeSessionDialog({ sessionId, onClose }: ConcludeSessionDialogProps) {
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
 
   async function handleConfirm(): Promise<void> {
     setSubmitting(true);
@@ -19,7 +19,7 @@ export default function ConcludeSessionDialog({ sessionId, onClose }: ConcludeSe
       await window.hiveryn.sessions.conclude(sessionId, body.trim());
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err);
       setSubmitting(false);
     }
   }
@@ -39,7 +39,7 @@ export default function ConcludeSessionDialog({ sessionId, onClose }: ConcludeSe
         placeholder="Enter conclusion summary…"
         rows={5}
       />
-      {error && <p className={styles.error}>{error}</p>}
+      {error ? <ApiEnvelopeError error={error} title="Conclude API Error" /> : null}
     </Dialog>
   );
 }

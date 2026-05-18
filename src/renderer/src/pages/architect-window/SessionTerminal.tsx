@@ -1,4 +1,4 @@
-import { TerminalPane } from '@components';
+import { ApiEnvelopeError, TerminalPane } from '@components';
 import { useEffect, useRef, useState } from 'react';
 import { useSessionStore } from '../../state/sessionStore';
 
@@ -27,7 +27,7 @@ export default function SessionTerminal({
   onConnected,
   onDisconnected,
 }: Props) {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const writeRef = useRef<((data: string | Uint8Array) => void) | null>(null);
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const onConnectedRef = useRef(onConnected);
@@ -63,13 +63,7 @@ export default function SessionTerminal({
         onConnectedRef.current?.(sessionId);
       } catch (err: unknown) {
         if (cancelled) return;
-        setError(
-          (err as { status?: number }).status === 409
-            ? 'Session is already running'
-            : err instanceof Error
-              ? err.message
-              : 'Connection failed',
-        );
+        setError(err);
         onDisconnectedRef.current?.();
       }
     }
@@ -98,15 +92,7 @@ export default function SessionTerminal({
           justifyContent: 'center',
         }}
       >
-        <span
-          style={{
-            color: 'var(--ansi-9-red)',
-            fontFamily: 'var(--font-family-mono)',
-            fontSize: '0.875rem',
-          }}
-        >
-          {error}
-        </span>
+        <ApiEnvelopeError error={error} title="Terminal Connection Error" />
       </div>
     );
   }

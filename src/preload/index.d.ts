@@ -229,6 +229,16 @@ interface SystemHome {
   home: string;
 }
 
+type DaemonHealthStatus = 'healthy' | 'unreachable' | 'unknown';
+
+interface DaemonHealthState {
+  status: DaemonHealthStatus;
+}
+
+interface DesktopConfig {
+  health_poll_interval_ms: number;
+}
+
 interface ArchitectRepo {
   key: string;
   path: string;
@@ -328,6 +338,8 @@ interface HiverynAPI {
     list: (sessionId: string) => Promise<SessionTab[]>;
   };
   daemon: {
+    getHealthStatus: () => Promise<DaemonHealthState>;
+    onHealthStatus: (callback: (state: DaemonHealthState) => void) => () => void;
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;
   };
   logs: {
@@ -335,6 +347,7 @@ interface HiverynAPI {
   };
   config: {
     getShortcuts: () => Promise<Record<string, Record<string, string>>>;
+    getDesktop: () => Promise<DesktopConfig>;
   };
 }
 

@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import type { DaemonResult } from '../../shared/types';
+import type { DaemonResult, DesktopConfig } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 
 export function registerConfigIpc(): void {
@@ -9,4 +9,8 @@ export function registerConfigIpc(): void {
       return daemonFetch<Record<string, Record<string, string>>>('/api/config/shortcuts');
     },
   );
+
+  ipcMain.handle('config:desktop', async (): Promise<DaemonResult<DesktopConfig>> => {
+    return daemonFetch<DesktopConfig>('/api/config/desktop');
+  });
 }

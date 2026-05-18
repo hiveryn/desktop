@@ -1,23 +1,20 @@
 import { ipcMain } from 'electron';
 import type { DaemonResult, Session } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
-
-function empty<T>(data: T): DaemonResult<T> {
-  return {
-    httpStatus: 200,
-    envelope: { data, error: null, logs: [], commands: [], meta: { request_id: '' } },
-  };
-}
+import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerSessionsIpc(): void {
   ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
     const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
-    if (result.httpStatus === 0 || result.httpStatus === 404) {
-      return empty<Session[]>([]);
+    if (result.envelope.error) {
+      return withNullData(result);
+    }
+    if (!Array.isArray(result.envelope.data?.sessions)) {
+      return invalidDaemonResponse('sessions:list returned missing sessions array');
     }
     return {
       httpStatus: result.httpStatus,
-      envelope: { ...result.envelope, data: result.envelope.data?.sessions ?? [] },
+      envelope: { ...result.envelope, data: result.envelope.data.sessions },
     };
   });
 

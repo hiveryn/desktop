@@ -1,15 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import type { ArchitectInfo, DaemonResult } from '../../shared/types';
+import { ok } from './results';
 
 interface ArchitectIpcOptions {
   openLauncherWindow: () => void;
-}
-
-function ok<T>(data: T): DaemonResult<T> {
-  return {
-    httpStatus: 200,
-    envelope: { data, error: null, logs: [], commands: [], meta: { request_id: '' } },
-  };
 }
 
 export function registerArchitectIpc({ openLauncherWindow }: ArchitectIpcOptions): void {

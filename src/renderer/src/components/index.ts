@@ -1,4 +1,5 @@
 export { default as Button } from './Button/Button';
+export { default as ApiEnvelopeError } from './ApiEnvelopeError/ApiEnvelopeError';
 export { default as ArchitectCard } from './ArchitectCard/ArchitectCard';
 export type { ArchitectCardData } from './ArchitectCard/ArchitectCard';
 export { default as TerminalPane } from './TerminalPane/TerminalPane';

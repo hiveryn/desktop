@@ -1,5 +1,6 @@
 import {
   Activity,
+  ApiEnvelopeError,
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
@@ -8,7 +9,6 @@ import {
   TabBar,
   type TabBarTab,
   Terminal,
-  Text,
 } from '@components';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -66,8 +66,8 @@ function tabIdToFocusId(tabId: string): string {
 interface Props {
   board: TicketBoard;
   boardLoading: boolean;
-  boardError: string | null;
-  ticketError: string | null;
+  boardError: unknown | null;
+  ticketError: unknown | null;
   shortcutConfig: ShortcutConfig | null;
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
@@ -281,8 +281,8 @@ export default function RightPane({
           }}
         >
           <div className={styles.kanbanPane}>
-            {boardError ? <Text className={styles.error}>{boardError}</Text> : null}
-            {ticketError ? <Text className={styles.error}>{ticketError}</Text> : null}
+            {boardError ? <ApiEnvelopeError error={boardError} title="Tickets API Error" /> : null}
+            {ticketError ? <ApiEnvelopeError error={ticketError} title="Ticket API Error" /> : null}
             {!boardError || boardLoading ? (
               <KanbanBoard
                 className={styles.kanbanBoard}

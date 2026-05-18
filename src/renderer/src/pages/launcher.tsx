@@ -1,5 +1,6 @@
 import type { AgentProfile } from '@components';
 import {
+  ApiEnvelopeError,
   ArchitectCard,
   BottomBar,
   Caption,
@@ -11,13 +12,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './launcher.module.css';
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'Something went wrong';
-}
-
 function shortenPath(path: string, home: string | null): string {
   if (home && path === home) return '~';
   if (home && path.startsWith(`${home}/`)) return `~/${path.slice(home.length + 1)}`;
@@ -28,16 +22,16 @@ export default function Launcher() {
   const [architects, setArchitects] = useState<Architect[]>([]);
   const [home, setHome] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
 
   const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set());
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
-  const [profilesError, setProfilesError] = useState<string | null>(null);
+  const [profilesError, setProfilesError] = useState<unknown | null>(null);
 
   const [pendingArchitectKey, setPendingArchitectKey] = useState<string | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
   const [isSpawning, setIsSpawning] = useState(false);
-  const [spawnError, setSpawnError] = useState<string | null>(null);
+  const [spawnError, setSpawnError] = useState<unknown | null>(null);
 
   const pendingArchitectKeyRef = useRef(pendingArchitectKey);
   useEffect(() => {
@@ -64,7 +58,7 @@ export default function Launcher() {
       if (architectsResult.status === 'fulfilled') {
         setArchitects(architectsResult.value);
       } else {
-        setError(errorMessage(architectsResult.reason));
+        setError(architectsResult.reason);
       }
 
       if (homeResult.status === 'fulfilled') {
@@ -81,7 +75,7 @@ export default function Launcher() {
       if (profilesResult.status === 'fulfilled') {
         setProfiles(profilesResult.value);
       } else {
-        setProfilesError(errorMessage(profilesResult.reason));
+        setProfilesError(profilesResult.reason);
       }
 
       setIsLoading(false);
@@ -103,11 +97,11 @@ export default function Launcher() {
 
     if (runningSessions.has(key)) {
       void window.hiveryn.launcher.openArchitect(key).catch((err) => {
-        setError(errorMessage(err));
+        setError(err);
       });
     } else {
       if (profilesError) {
-        setError(`Cannot start session: ${profilesError}`);
+        setError(profilesError);
         return;
       }
       setPendingArchitectKey(key);
@@ -126,7 +120,7 @@ export default function Launcher() {
       await window.hiveryn.architects.spawn(key, profileName);
       await window.hiveryn.launcher.openArchitect(key);
     } catch (err) {
-      setSpawnError(errorMessage(err));
+      setSpawnError(err);
       setIsSpawning(false);
     }
   };
@@ -137,6 +131,8 @@ export default function Launcher() {
       setPendingArchitectKey(null);
     }
   };
+
+  const displayedError = error ?? spawnError;
 
   return (
     <div className={styles.window}>
@@ -152,7 +148,7 @@ export default function Launcher() {
       </Navigation>
 
       <main className={styles.content}>
-        {(error || spawnError) && <Text className={styles.error}>{error ?? spawnError}</Text>}
+        {displayedError ? <ApiEnvelopeError error={displayedError} /> : null}
 
         {isLoading ? (
           <div className={styles.centerState}>

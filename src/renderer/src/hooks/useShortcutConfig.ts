@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 
 export type ShortcutConfig = Record<string, Record<string, string>>;
 
+export interface ShortcutConfigState {
+  config: ShortcutConfig | null;
+  error: unknown | null;
+}
+
 const REQUIRED_SECTIONS = ['global', 'kanban', 'event-log'] as const;
 
-export function useShortcutConfig(): ShortcutConfig | null {
+export function useShortcutConfig(): ShortcutConfigState {
   const [config, setConfig] = useState<ShortcutConfig | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
 
   useEffect(() => {
     function load(): void {
@@ -14,16 +20,21 @@ export function useShortcutConfig(): ShortcutConfig | null {
         .then((raw) => {
           for (const section of REQUIRED_SECTIONS) {
             if (!raw?.[section]) {
-              console.error(
-                `[shortcuts] daemon returned incomplete config (missing section: "${section}") — keyboard shortcuts disabled`,
+              setConfig(null);
+              setError(
+                new Error(
+                  `[shortcuts] daemon returned incomplete config (missing section: "${section}") — keyboard shortcuts disabled`,
+                ),
               );
               return;
             }
           }
+          setError(null);
           setConfig(raw);
         })
         .catch((err: unknown) => {
-          console.error('[shortcuts] failed to load shortcuts config:', err);
+          setConfig(null);
+          setError(err);
         });
     }
 
@@ -34,5 +45,5 @@ export function useShortcutConfig(): ShortcutConfig | null {
     return () => window.removeEventListener('focus', load);
   }, []);
 
-  return config;
+  return { config, error };
 }

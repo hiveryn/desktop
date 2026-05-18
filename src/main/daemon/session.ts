@@ -9,7 +9,6 @@ interface TerminalConnection {
 }
 
 interface ActiveSession {
-  finish: (result: ConnectResult | ConnectError) => void;
   terminals: Map<string, TerminalConnection>;
   sseAbort: AbortController;
   sseRunning: boolean;
@@ -87,12 +86,19 @@ export interface ConnectError {
 function startSse(session: ActiveSession, sessionId: string): void {
   if (session.sseRunning) return;
   session.sseRunning = true;
-  void consumeSse(sessionId, session.sseAbort.signal, session.sendEventToRenderer).catch((err) => {
-    if (session.sseAbort.signal.aborted) {
-      return;
-    }
-    throw err;
-  });
+  void consumeSse(sessionId, session.sseAbort.signal, session.sendEventToRenderer)
+    .catch((err) => {
+      if (session.sseAbort.signal.aborted) {
+        return;
+      }
+      console.warn('[main:session] SSE stream failed', {
+        sessionId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    })
+    .finally(() => {
+      session.sseRunning = false;
+    });
 }
 
 function detachTerminal(session: ActiveSession, terminalId: string, closeSocket: boolean): void {
@@ -107,14 +113,9 @@ function detachTerminal(session: ActiveSession, terminalId: string, closeSocket:
   }
 }
 
-function teardownSession(
-  wcId: number,
-  sessionId: string,
-  session: ActiveSession,
-  message: string,
-): void {
+function teardownSession(wcId: number, sessionId: string, session: ActiveSession): void {
   session.sseAbort.abort();
-  session.finish({ ok: false, message });
+  session.sseRunning = false;
   const wcSessions = sessionsByWcId.get(wcId);
   if (wcSessions) {
     wcSessions.delete(sessionId);
@@ -171,12 +172,11 @@ export function connect(
 
   const promise = new Promise<ConnectResult | ConnectError>((resolve) => {
     let settled = false;
-    const finish = (_result: ConnectResult | ConnectError): void => {
+    const settle = (result: ConnectResult | ConnectError): void => {
       if (settled) return;
       settled = true;
       pendingConnects.delete(key);
-      // Resolve the outer promise only for the initial connect call.
-      // finish may be called again during cleanup — ignore duplicate resolves.
+      resolve(result);
     };
 
     const ws = new WebSocket(wsUrl);
@@ -191,7 +191,6 @@ export function connect(
     let session = wcSessions.get(sessionId);
     if (!session) {
       session = {
-        finish,
         terminals: new Map(),
         sseAbort: new AbortController(),
         sseRunning: false,
@@ -229,16 +228,14 @@ export function connect(
         return;
       }
       console.log('[main:session] open ✓', { wcId, sessionId, terminalId });
-      finish({ ok: true });
-      resolve({ ok: true });
+      settle({ ok: true });
     });
 
     ws.addEventListener('error', (ev) => {
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
       if (!stillActive || stillActive.terminals.get(terminalId) !== conn) return;
       console.warn('[main:session] error', { wcId, sessionId, terminalId, ev });
-      finish({ ok: false, message: 'WebSocket connection failed' });
-      resolve({ ok: false, message: 'WebSocket connection failed' });
+      settle({ ok: false, message: 'WebSocket connection failed' });
     });
 
     ws.addEventListener('message', (ev) => {
@@ -266,7 +263,7 @@ export function connect(
         stillActive.sendTerminalClosedToRenderer(sessionId, terminalId);
         detachTerminal(stillActive, terminalId, false);
       }
-      finish({ ok: false, message: 'WebSocket connection closed' });
+      settle({ ok: false, message: 'WebSocket connection closed' });
     });
   });
 
@@ -298,7 +295,7 @@ export function disconnect(wcId: number, sessionId?: string, terminalId?: string
       if (conn) conn.ws.close();
     }
     session.terminals.clear();
-    teardownSession(wcId, sessionId, session, 'Session disconnected');
+    teardownSession(wcId, sessionId, session);
   } else {
     console.log('[main:session] disconnect → all sessions', { wcId, count: wcSessions.size });
     for (const [activeSessionId, session] of wcSessions) {
@@ -306,8 +303,29 @@ export function disconnect(wcId: number, sessionId?: string, terminalId?: string
         conn.ws.close();
       }
       session.terminals.clear();
-      teardownSession(wcId, activeSessionId, session, 'All sessions disconnected');
+      teardownSession(wcId, activeSessionId, session);
     }
+  }
+}
+
+export function handleDaemonUnavailable(): void {
+  const sockets: WebSocket[] = [];
+
+  for (const [, wcSessions] of sessionsByWcId) {
+    for (const [, session] of wcSessions) {
+      session.sseAbort.abort();
+      session.sseRunning = false;
+      for (const [, conn] of session.terminals) {
+        sockets.push(conn.ws);
+      }
+      session.terminals.clear();
+    }
+  }
+
+  sessionsByWcId.clear();
+
+  for (const socket of sockets) {
+    socket.close();
   }
 }
 

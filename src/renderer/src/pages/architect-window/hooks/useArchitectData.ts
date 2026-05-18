@@ -8,8 +8,8 @@ export interface ArchitectData {
   home: string | null;
   board: TicketBoard;
   boardLoading: boolean;
-  boardError: string | null;
-  loadError: string | null;
+  boardError: unknown | null;
+  loadError: unknown | null;
   refreshBoard(): Promise<void>;
 }
 
@@ -18,8 +18,8 @@ export function useArchitectData(architectKey: string): ArchitectData {
   const [home, setHome] = useState<string | null>(null);
   const [board, setBoard] = useState<TicketBoard>(EMPTY_TICKET_BOARD);
   const [boardLoading, setBoardLoading] = useState(true);
-  const [boardError, setBoardError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [boardError, setBoardError] = useState<unknown | null>(null);
+  const [loadError, setLoadError] = useState<unknown | null>(null);
 
   const refreshBoard = useCallback(async () => {
     if (!architectKey) return;
@@ -28,7 +28,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
       setBoard(next);
       setBoardError(null);
     } catch (error: unknown) {
-      setBoardError(error instanceof Error ? error.message : 'Failed to refresh tickets');
+      setBoardError(error);
     }
   }, [architectKey]);
 
@@ -57,11 +57,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
       if (architectResult.status === 'fulfilled') {
         setArchitect(architectResult.value);
       } else {
-        setLoadError(
-          architectResult.reason instanceof Error
-            ? architectResult.reason.message
-            : 'Failed to load architect',
-        );
+        setLoadError(architectResult.reason);
       }
 
       if (homeResult.status === 'fulfilled') {
@@ -72,11 +68,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
         setBoard(boardResult.value);
       } else {
         setBoard(EMPTY_TICKET_BOARD);
-        setBoardError(
-          boardResult.reason instanceof Error
-            ? boardResult.reason.message
-            : 'Failed to load tickets',
-        );
+        setBoardError(boardResult.reason);
       }
 
       setBoardLoading(false);

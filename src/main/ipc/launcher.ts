@@ -1,22 +1,10 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import type { Architect, DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
+import { withData } from './results';
 
 interface LauncherIpcOptions {
   openArchitectWindow: (architectKey: string) => BrowserWindow;
-}
-
-function withData<TInput, TOutput>(
-  result: DaemonResult<TInput>,
-  data: TOutput | null,
-): DaemonResult<TOutput> {
-  return {
-    httpStatus: result.httpStatus,
-    envelope: {
-      ...result.envelope,
-      data,
-    },
-  };
 }
 
 function closeSenderWindow(sender: Electron.WebContents): void {

@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import type { CreateTerminalBody, DaemonResult, TerminalInfo } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
+import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerTerminalsIpc(): void {
   ipcMain.handle(
@@ -9,15 +10,17 @@ export function registerTerminalsIpc(): void {
       const result = await daemonFetch<{ terminals: TerminalInfo[] }>(
         `/api/sessions/${encodeURIComponent(sessionId)}/terminals`,
       );
-      if (result.httpStatus === 0 || result.httpStatus === 404) {
-        return {
-          httpStatus: 200,
-          envelope: { data: [], error: null, logs: [], commands: [], meta: { request_id: '' } },
-        };
+      if (result.envelope.error) {
+        return withNullData(result);
+      }
+      if (!Array.isArray(result.envelope.data?.terminals)) {
+        return invalidDaemonResponse(
+          `terminals:list returned missing terminals array for session ${sessionId}`,
+        );
       }
       return {
         httpStatus: result.httpStatus,
-        envelope: { ...result.envelope, data: result.envelope.data?.terminals ?? [] },
+        envelope: { ...result.envelope, data: result.envelope.data.terminals },
       };
     },
   );

@@ -5,6 +5,8 @@ import { consumeSseBuffer, dispatchSseBlock } from './sse';
 
 interface Subscription {
   wcId: number;
+  architectKey: string;
+  sender: WebContents;
   abort: AbortController;
 }
 
@@ -19,19 +21,22 @@ export function subscribe(sender: WebContents, architectKey: string): void {
   const key = subKey(wcId, architectKey);
 
   const existing = subscriptions.get(key);
-  if (existing) {
-    existing.abort.abort();
-  }
+  existing?.abort.abort();
 
-  const abort = new AbortController();
-  subscriptions.set(key, { wcId, abort });
+  subscriptions.set(key, {
+    wcId,
+    architectKey,
+    sender,
+    abort: new AbortController(),
+  });
 
   sender.once('destroyed', () => {
-    abort.abort();
+    const subscription = subscriptions.get(key);
+    subscription?.abort.abort();
     subscriptions.delete(key);
   });
 
-  void consumeArchitectEventStream(architectKey, abort.signal, sender);
+  startSubscription(key);
 }
 
 export function unsubscribe(wcId: number, architectKey: string): void {
@@ -41,6 +46,37 @@ export function unsubscribe(wcId: number, architectKey: string): void {
     sub.abort.abort();
     subscriptions.delete(key);
   }
+}
+
+export function handleDaemonUnavailable(): void {
+  for (const subscription of subscriptions.values()) {
+    subscription.abort.abort();
+  }
+}
+
+export function handleDaemonAvailable(): void {
+  for (const key of subscriptions.keys()) {
+    startSubscription(key);
+  }
+}
+
+function startSubscription(key: string): void {
+  const subscription = subscriptions.get(key);
+  if (!subscription) {
+    return;
+  }
+  if (subscription.sender.isDestroyed()) {
+    subscriptions.delete(key);
+    return;
+  }
+
+  subscription.abort.abort();
+  subscription.abort = new AbortController();
+  void consumeArchitectEventStream(
+    subscription.architectKey,
+    subscription.abort.signal,
+    subscription.sender,
+  );
 }
 
 async function consumeArchitectEventStream(

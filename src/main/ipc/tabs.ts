@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import type { DaemonResult, SessionTab } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
+import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerTabsIpc(): void {
   ipcMain.handle(
@@ -9,15 +10,17 @@ export function registerTabsIpc(): void {
       const result = await daemonFetch<SessionTab[]>(
         `/api/sessions/${encodeURIComponent(sessionId)}/tabs`,
       );
-      if (result.httpStatus === 0 || result.httpStatus === 404) {
-        return {
-          httpStatus: 200,
-          envelope: { data: [], error: null, logs: [], commands: [], meta: { request_id: '' } },
-        };
+      if (result.envelope.error) {
+        return withNullData(result);
+      }
+      if (!Array.isArray(result.envelope.data)) {
+        return invalidDaemonResponse(
+          `tabs:list returned non-array payload for session ${sessionId}`,
+        );
       }
       return {
         httpStatus: result.httpStatus,
-        envelope: { ...result.envelope, data: result.envelope.data ?? [] },
+        envelope: { ...result.envelope, data: result.envelope.data },
       };
     },
   );

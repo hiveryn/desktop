@@ -4,7 +4,9 @@ import type {
   Architect,
   ArchitectInfo,
   CreateTerminalBody,
+  DaemonHealthState,
   DaemonResult,
+  DesktopConfig,
   RendererLogPayload,
   RequestLogEntry,
   Session,
@@ -60,6 +62,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
+  'config:desktop': { method: 'GET', path: '/api/config/desktop' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -148,7 +151,10 @@ contextBridge.exposeInMainWorld('hiveryn', {
       const listener = (
         _event: Electron.IpcRendererEvent,
         workspaceEvent: WorkspaceChangedEvent,
-      ): void => callback(workspaceEvent);
+      ): void => {
+        if (workspaceEvent.architect_key !== key) return;
+        callback(workspaceEvent);
+      };
       ipcRenderer.on('architect:workspace-event', listener);
       return () => {
         void ipcRenderer.invoke('architects:events:unsubscribe', key);
@@ -240,6 +246,13 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (sessionId: string): Promise<SessionTab[]> => invoke('tabs:list', sessionId),
   },
   daemon: {
+    getHealthStatus: (): Promise<DaemonHealthState> => ipcRenderer.invoke('daemon:health:get'),
+    onHealthStatus: (callback: (state: DaemonHealthState) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: DaemonHealthState): void =>
+        callback(state);
+      ipcRenderer.on('daemon:health-status', listener);
+      return () => ipcRenderer.removeListener('daemon:health-status', listener);
+    },
     onRequest: (callback: RequestCallback): (() => void) => {
       requestListeners.add(callback);
       return () => requestListeners.delete(callback);
@@ -252,5 +265,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   config: {
     getShortcuts: (): Promise<Record<string, Record<string, string>>> => invoke('config:shortcuts'),
+    getDesktop: (): Promise<DesktopConfig> => invoke('config:desktop'),
   },
 });

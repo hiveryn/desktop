@@ -1,6 +1,7 @@
 import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
 import { registerConfigIpc } from './config';
+import { registerDaemonIpc } from './daemon';
 import { registerLauncherIpc } from './launcher';
 import { registerLogsIpc } from './logs';
 import { registerPreferencesIpc } from './preferences';
@@ -21,6 +22,7 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerPreferencesIpc();
   registerProfilesIpc();
   registerConfigIpc();
+  registerDaemonIpc();
   registerLogsIpc();
   registerArchitectIpc({ openLauncherWindow: options.openLauncherWindow });
   registerArchitectsIpc();

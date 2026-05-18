@@ -1,0 +1,32 @@
+.root {
+  border: 1px solid var(--theme-status-error);
+  background: color-mix(in srgb, var(--theme-status-error) 8%, transparent);
+  color: var(--theme-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  padding: var(--space-3);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.header {
+  color: var(--theme-status-error);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.message {
+  overflow-wrap: anywhere;
+  margin-bottom: var(--space-3);
+}
+
+.body {
+  margin: 0;
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

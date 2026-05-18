@@ -27,11 +27,13 @@ src/
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
+      health.ts           Daemon health polling — GET /api/health, broadcasts daemon:health-status
       sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-session per webContents
       architect-events.ts Architect SSE subscription manager — live kanban refresh
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
+      results.ts          Centralized DaemonResult helpers (ok, errorResult, invalidDaemonResponse, withNullData, withData)
       logs.ts             logs:renderer handler — writes forwarded renderer console logs
       preferences.ts      preferences:*, user:* handlers (local, no daemon call)
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
@@ -42,6 +44,7 @@ src/
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       launcher.ts         launcher:open-architect handler
+      daemon.ts           daemon:health:get handler
   preload/
     index.ts              contextBridge — invoke() wrapper + daemon.onRequest listeners
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
@@ -63,7 +66,8 @@ src/
       architect-window/
         index.tsx                Thin shell — composes hooks + view components
         SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalId)
-        hooks/                   useArchitectData, useSessionRestore, useSessionEvents
+        hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
+                                 useDaemonRecovery, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog
       dashboard/          Dashboard page
@@ -85,7 +89,7 @@ Every daemon-backed IPC call follows this chain:
 
 1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws.
 2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
-3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; other errors are toasted.
+3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; other API errors are surfaced through the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`), which renders the full daemon error including `status`, `code`, `details`, and `stacktrace`.
 
 All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, `meta.request_id`). The desktop surfaces this in the `RequestLog` panel at the bottom of every page.
 
@@ -178,9 +182,34 @@ Architect sessions run in the daemon and survive component mount/unmount cycles 
 
 - **Spawn**: the launcher spawns the architect session via `architects.spawn(key, profileName)` and opens the architect window. The architect window does not spawn — it only restores.
 - **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `tabs.list(id)` for every running session that matches the architect key, using `main_terminal_id` for the left-pane terminal and daemon tabs for the right pane.
+- **Recovery**: `useDaemonRecovery` subscribes to `daemon:health-status` events from the main-process health poller. On `unreachable → healthy` transitions, it re-fetches the full daemon session snapshot and reconciles the store via `store.reconcileSessions()`, which handles changed terminal UUIDs, removed sessions, and stale tab/focus selection.
 - **`sessions:list`** returns daemon session records directly, including `main_terminal_id` for main-terminal reconnects.
 - The daemon enforces **one running session per architect** (partial unique index).
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
+
+## Daemon health polling
+
+The main-process health manager (`src/main/daemon/health.ts`) polls `GET /api/health` on a configurable interval. It tracks `unknown | unreachable | healthy` state transitions and broadcasts `daemon:health-status` events to all renderer windows.
+
+| Transition | Action |
+|---|---|
+| Any → unreachable | `sessionManager.handleDaemonUnavailable()` + `architectEvents.handleDaemonUnavailable()` — abort all WS, SSE, and clear stale state |
+| Unreachable → healthy | `architectEvents.handleDaemonAvailable()` — re-open architect SSE subscriptions; renderer triggers session snapshot reconciliation |
+| First healthy detection | Loads `GET /api/config/desktop` to read `desktop_health_poll_interval` from `~/.hiveryn/config.yaml` |
+
+The `daemon:health:get` IPC lets renderers read the current status synchronously upon mount, so windows opened during an outage receive the correct initial state.
+
+## IPC response helpers
+
+All main-process IPC handlers that construct `DaemonResult` envelopes use the centralized helpers in `src/main/ipc/results.ts`:
+
+| Helper | Use |
+|---|---|
+| `ok(data)` | Success response with payload |
+| `errorResult(code, message)` | Desktop-authored error (session, network) |
+| `invalidDaemonResponse(message)` | Daemon returned an unexpected payload shape |
+| `withNullData(result)` | Passthrough daemon error, null data |
+| `withData(result, data)` | Passthrough with transformed data |
 
 ## Session conclusion cleanup
 
@@ -193,7 +222,7 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 
 ## Keyboard shortcuts and focus model
 
-Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and an error is logged.
+Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and the error is surfaced via the `ApiEnvelopeError` component.
 
 ### Dispatch architecture
 

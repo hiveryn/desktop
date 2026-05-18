@@ -239,6 +239,16 @@ export interface SystemHome {
   home: string;
 }
 
+export type DaemonHealthStatus = 'healthy' | 'unreachable' | 'unknown';
+
+export interface DaemonHealthState {
+  status: DaemonHealthStatus;
+}
+
+export interface DesktopConfig {
+  health_poll_interval_ms: number;
+}
+
 // ── Request log ────────────────────────────────────────────────────────────
 
 export interface RequestLogEntry {
