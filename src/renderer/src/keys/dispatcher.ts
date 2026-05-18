@@ -120,7 +120,6 @@ function getRightTabIds(): string[] {
 function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
-  if (tabId === 'terminal') return 'main-terminal';
   return `right-terminal:${tabId}`;
 }
 
@@ -230,39 +229,38 @@ async function closeCurrentTab(): Promise<void> {
   const state = useSessionStore.getState();
   const { activeSessionId, activeRightTab, sessions } = state;
 
-  const isExtraTerminalTab =
-    activeRightTab !== 'kanban' && activeRightTab !== 'event-log' && activeRightTab !== 'terminal';
+  const isExtraTerminalTab = activeRightTab !== 'kanban' && activeRightTab !== 'event-log';
 
   if (isExtraTerminalTab && activeSessionId) {
-    try {
-      await window.hiveryn.terminals.kill(activeSessionId, activeRightTab);
-    } catch {
-      // already killed
-    }
-    await window.hiveryn.session.disconnect(activeSessionId, activeRightTab).catch(() => {});
-    const nextTabs = await window.hiveryn.tabs.list(activeSessionId).catch(() => null);
-    if (nextTabs) {
-      const s = useSessionStore.getState();
-      s.setSessionTabs(activeSessionId, nextTabs);
-      const firstTab = nextTabs[0];
-      const firstId =
-        firstTab?.type === 'kanban'
-          ? 'kanban'
-          : firstTab?.type === 'event-log'
-            ? 'event-log'
-            : (firstTab?.id ?? 'event-log');
-      s.setActiveRightTab(firstId);
-      s.setFocusedPane(
-        `right-${firstId === 'kanban' || firstId === 'event-log' ? firstId : `terminal:${firstId}`}`,
+    await window.hiveryn.terminals.kill(activeSessionId, activeRightTab);
+    await window.hiveryn.session.disconnect(activeSessionId, activeRightTab);
+    const nextTabs = await window.hiveryn.tabs.list(activeSessionId);
+    const s = useSessionStore.getState();
+    s.setSessionTabs(activeSessionId, nextTabs);
+    const firstTab = nextTabs[0];
+    if (!firstTab) {
+      throw new Error(
+        `Session ${activeSessionId} returned no tabs after closing ${activeRightTab}`,
       );
     }
+    const firstId =
+      firstTab.type === 'kanban'
+        ? 'kanban'
+        : firstTab.type === 'event-log'
+          ? 'event-log'
+          : firstTab.id;
+    if (!firstId) {
+      throw new Error(`First tab after closing ${activeRightTab} is missing id`);
+    }
+    s.setActiveRightTab(firstId);
+    s.setFocusedPane(tabIdToFocusId(firstId));
     return;
   }
 
   if (!activeSessionId) return;
   const session = sessions[activeSessionId];
   if (session?.type === 'work') {
-    void window.hiveryn.session.disconnect(activeSessionId).catch(() => {});
+    await window.hiveryn.session.disconnect(activeSessionId);
     const s = useSessionStore.getState();
     s.unregisterSession(activeSessionId);
     s.setFocusedPane('main-terminal');
@@ -272,14 +270,10 @@ async function closeCurrentTab(): Promise<void> {
 async function openNewTerminal(): Promise<void> {
   const { activeSessionId } = useSessionStore.getState();
   if (!activeSessionId) return;
-  try {
-    const created = await window.hiveryn.terminals.create(activeSessionId, {});
-    const tabs = await window.hiveryn.tabs.list(activeSessionId);
-    const s = useSessionStore.getState();
-    s.setSessionTabs(activeSessionId, tabs);
-    s.setActiveRightTab(created.terminal_id);
-    s.setFocusedPane(`right-terminal:${created.terminal_id}`);
-  } catch {
-    // non-fatal
-  }
+  const created = await window.hiveryn.terminals.create(activeSessionId, {});
+  const tabs = await window.hiveryn.tabs.list(activeSessionId);
+  const s = useSessionStore.getState();
+  s.setSessionTabs(activeSessionId, tabs);
+  s.setActiveRightTab(created.terminal_id);
+  s.setFocusedPane(`right-terminal:${created.terminal_id}`);
 }

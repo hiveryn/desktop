@@ -17,8 +17,7 @@ interface SessionState {
   events: Record<string, SessionEvent[]>;
   // Which session is selected in the bottom tab bar.
   activeSessionId: string | null;
-  // Which right-pane tab is shown. 'kanban' | 'event-log' | 'terminal' | <terminal-uuid>.
-  // 'terminal' is only used in compact mode (shows main terminal in the single pane).
+  // Which right-pane tab is shown. 'kanban' | 'event-log' | <terminal-uuid>.
   activeRightTab: string;
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'

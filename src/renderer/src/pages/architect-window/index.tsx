@@ -9,20 +9,19 @@ import {
   Text,
   ThemeSwitcher,
 } from '@components';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../shared/types';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
-import LeftPane from './components/LeftPane';
+import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
 import { useArchitectData } from './hooks/useArchitectData';
 import { useSessionEvents } from './hooks/useSessionEvents';
 import { useSessionRestore } from './hooks/useSessionRestore';
-import { useViewportMode } from './hooks/useViewportMode';
 import styles from './index.module.css';
 
 function readArchitectKey(): string {
@@ -40,7 +39,6 @@ function shortenPath(path: string, home: string | null): string {
 
 export default function ArchitectWindow() {
   const architectKey = useMemo(readArchitectKey, []);
-  const isCompact = useViewportMode();
   const { architect, home, board, boardLoading, boardError, loadError, refreshBoard } =
     useArchitectData(architectKey);
   useSessionEvents();
@@ -63,16 +61,6 @@ export default function ArchitectWindow() {
   const [spawnRequest, setSpawnRequest] = useState<TicketSummary | null>(null);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const ticketRequestId = useRef(0);
-
-  // On viewport mode change, snap activeRightTab to a tab that exists in that mode.
-  useEffect(() => {
-    const { activeRightTab, setActiveRightTab } = useSessionStore.getState();
-    if (isCompact && activeRightTab === 'kanban') {
-      setActiveRightTab('terminal');
-    } else if (!isCompact && activeRightTab === 'terminal') {
-      setActiveRightTab('kanban');
-    }
-  }, [isCompact]);
 
   async function handleTicketSelect(ticket: TicketSummary): Promise<void> {
     if (!architectKey) return;
@@ -147,20 +135,17 @@ export default function ArchitectWindow() {
           <Text className={styles.error}>{loadError}</Text>
         ) : (
           <div className={styles.splitPane}>
-            {!isCompact ? (
-              // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
-              // biome-ignore lint/a11y/useKeyWithClickEvents: see above
-              <div
-                className={styles.leftPane}
-                data-focused={isLeftFocused || undefined}
-                onClick={() => setFocusedPane('main-terminal')}
-              >
-                <LeftPane />
-              </div>
-            ) : null}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
+            <div
+              className={styles.leftPane}
+              data-focused={isLeftFocused || undefined}
+              onClick={() => setFocusedPane('main-terminal')}
+            >
+              <MainTerminalStack className={styles.terminal} />
+            </div>
             <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
               <RightPane
-                isCompact={isCompact}
                 board={board}
                 boardLoading={boardLoading}
                 boardError={boardError}

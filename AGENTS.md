@@ -63,8 +63,8 @@ src/
       architect-window/
         index.tsx                Thin shell — composes hooks + view components
         SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalId)
-        hooks/                   useArchitectData, useSessionRestore, useSessionEvents, useViewportMode
-        components/              LeftPane, RightPane, BottomTabs, MainTerminalStack,
+        hooks/                   useArchitectData, useSessionRestore, useSessionEvents
+        components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema

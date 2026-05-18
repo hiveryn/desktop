@@ -24,7 +24,6 @@ import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 import ExtraTerminalStack from './ExtraTerminalStack';
-import MainTerminalStack from './MainTerminalStack';
 
 const EVENT_STATUSES: EventStatus[] = [
   'starting',
@@ -61,12 +60,10 @@ function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
 function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
-  if (tabId === 'terminal') return 'main-terminal';
   return `right-terminal:${tabId}`;
 }
 
 interface Props {
-  isCompact: boolean;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: string | null;
@@ -78,7 +75,6 @@ interface Props {
 }
 
 export default function RightPane({
-  isCompact,
   board,
   boardLoading,
   boardError,
@@ -105,9 +101,6 @@ export default function RightPane({
 
   const tabs = useMemo<TabBarTab[]>(() => {
     const result: TabBarTab[] = [];
-    if (isCompact) {
-      result.push({ id: 'terminal', icon: Terminal });
-    }
     if (activeSession) {
       for (const tab of activeSession.tabs) {
         const mapped = mapTabToBarTab(tab);
@@ -115,7 +108,7 @@ export default function RightPane({
       }
     }
     return result;
-  }, [activeSession, isCompact]);
+  }, [activeSession]);
 
   const tabIsValid = tabs.some((t) => t.id === activeRightTab);
   const effectiveTab = tabIsValid ? activeRightTab : (tabs[0]?.id ?? 'event-log');
@@ -263,16 +256,10 @@ export default function RightPane({
     if (!activeSession) return;
     const terminalTab = activeSession.tabs.find((tab) => tab.type === 'terminal' && tab.id === id);
     if (!terminalTab?.id) return;
-    try {
-      await window.hiveryn.terminals.kill(activeSession.id, terminalTab.id);
-    } catch {
-      return;
-    }
-    await window.hiveryn.session.disconnect(activeSession.id, terminalTab.id).catch(() => {});
-    const nextTabs = await window.hiveryn.tabs.list(activeSession.id).catch(() => null);
-    if (nextTabs) {
-      useSessionStore.getState().setSessionTabs(activeSession.id, nextTabs);
-    }
+    await window.hiveryn.terminals.kill(activeSession.id, terminalTab.id);
+    await window.hiveryn.session.disconnect(activeSession.id, terminalTab.id);
+    const nextTabs = await window.hiveryn.tabs.list(activeSession.id);
+    useSessionStore.getState().setSessionTabs(activeSession.id, nextTabs);
   }
 
   // Click anywhere in the right pane sets focus to the current effective tab
@@ -285,19 +272,6 @@ export default function RightPane({
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
     <div className={styles.rightPaneInner} onClick={handlePaneClick}>
       <div className={styles.rightPaneContent}>
-        {isCompact && (
-          <div
-            style={{
-              display: effectiveTab === 'terminal' ? 'flex' : 'none',
-              flex: 1,
-              minHeight: 0,
-              flexDirection: 'column',
-            }}
-          >
-            <MainTerminalStack paneVisible={effectiveTab === 'terminal'} />
-          </div>
-        )}
-
         <div
           style={{
             display: effectiveTab === 'kanban' ? 'flex' : 'none',
@@ -362,15 +336,11 @@ export default function RightPane({
 async function handleOpenNewTerminal(sessionId: string | undefined): Promise<void> {
   if (!sessionId) return;
 
-  try {
-    const created = await window.hiveryn.terminals.create(sessionId, {});
-    const tabs = await window.hiveryn.tabs.list(sessionId);
-    useSessionStore.getState().setSessionTabs(sessionId, tabs);
-    useSessionStore.getState().setActiveRightTab(created.terminal_id);
-    useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
-  } catch {
-    // Non-fatal — keep current layout.
-  }
+  const created = await window.hiveryn.terminals.create(sessionId, {});
+  const tabs = await window.hiveryn.tabs.list(sessionId);
+  useSessionStore.getState().setSessionTabs(sessionId, tabs);
+  useSessionStore.getState().setActiveRightTab(created.terminal_id);
+  useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
 }
 
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {

@@ -5,9 +5,6 @@ import SessionTerminal from '../SessionTerminal';
 import styles from './terminal-stack.module.css';
 
 interface Props {
-  // Whether the parent pane is currently visible. Used to suppress fitting
-  // when the whole pane is hidden (e.g., in compact mode when not on 'terminal' tab).
-  paneVisible: boolean;
   className?: string;
 }
 
@@ -29,7 +26,7 @@ async function refreshMainTerminalID(sessionId: string, terminalId: string): Pro
 // Renders every session's main terminal as a persistent sibling. Exactly one is
 // visible at a time, picked by activeSessionId. Inactive ones stay mounted to
 // preserve scrollback and avoid black-screen-on-tab-switch.
-export default function MainTerminalStack({ paneVisible, className }: Props) {
+export default function MainTerminalStack({ className }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const focusedPane = useSessionStore((s) => s.focusedPane);
@@ -40,12 +37,12 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
     [sessions],
   );
 
-  const showDisconnected = paneVisible && (activeSessionId === null || mains.length === 0);
+  const showDisconnected = activeSessionId === null || mains.length === 0;
 
   return (
     <div className={[styles.stack, className].filter(Boolean).join(' ')}>
       {mains.map(({ session, terminalId }) => {
-        const isVisible = paneVisible && session.id === activeSessionId;
+        const isVisible = session.id === activeSessionId;
         const isFocused = isVisible && focusedPane === 'main-terminal';
         return (
           <SessionTerminal

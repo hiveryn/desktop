@@ -140,19 +140,3 @@
   position: static;
   flex-shrink: 0;
 }
-
-@media (max-width: 960px) {
-  .splitPane {
-    flex-direction: column;
-  }
-
-  .leftPane,
-  .rightPane {
-    width: 100%;
-  }
-
-  .leftPane {
-    border-right: 0;
-    border-bottom: 1px solid var(--theme-border);
-  }
-}

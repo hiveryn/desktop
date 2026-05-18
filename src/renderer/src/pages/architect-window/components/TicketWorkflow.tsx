@@ -46,12 +46,9 @@ export default function TicketWorkflow({
 
   useEffect(() => {
     let cancelled = false;
-    window.hiveryn.profiles
-      .list()
-      .then((list) => {
-        if (!cancelled) setProfiles(list);
-      })
-      .catch(() => {});
+    void window.hiveryn.profiles.list().then((list) => {
+      if (!cancelled) setProfiles(list);
+    });
     return () => {
       cancelled = true;
     };
@@ -88,11 +85,7 @@ export default function TicketWorkflow({
           tabs: [],
         };
 
-        try {
-          record.tabs = await window.hiveryn.tabs.list(result.session_id);
-        } catch {
-          // Non-fatal — extras will appear on next restore.
-        }
+        record.tabs = await window.hiveryn.tabs.list(result.session_id);
 
         const store = useSessionStore.getState();
         store.registerSession(record);

@@ -43,8 +43,7 @@ export default function ExtraTerminalStack() {
               onDisconnected={() => {
                 void window.hiveryn.tabs
                   .list(session.id)
-                  .then((tabs) => useSessionStore.getState().setSessionTabs(session.id, tabs))
-                  .catch(() => {});
+                  .then((tabs) => useSessionStore.getState().setSessionTabs(session.id, tabs));
               }}
             />
           </div>
