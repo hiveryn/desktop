@@ -71,6 +71,7 @@ export function isInputFocused(): boolean {
 }
 
 export function matchesShortcut(event: KeyboardEvent, binding: string): boolean {
+  if (event.repeat) return false;
   if (!binding) return false;
   const parts = binding.toLowerCase().split('+');
   const rawKey = parts[parts.length - 1];

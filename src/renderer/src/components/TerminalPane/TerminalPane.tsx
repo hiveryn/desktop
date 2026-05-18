@@ -94,6 +94,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   onDataRef.current = onData;
   const onResizeRef = React.useRef(onResize);
   onResizeRef.current = onResize;
+  const suppressRepeatsBeforeFirstTerminalKeydownRef = React.useRef(false);
 
   // Re-fit and refresh synchronously when the pane transitions to visible.
   // Without this, switching from a hidden tab leaves xterm's last-known size
@@ -114,8 +115,10 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     const term = termRef.current;
     if (!term || disposedRef.current || readonly) return;
     if (focused) {
+      suppressRepeatsBeforeFirstTerminalKeydownRef.current = true;
       term.focus();
     } else {
+      suppressRepeatsBeforeFirstTerminalKeydownRef.current = false;
       term.blur();
     }
   }, [focused, readonly]);
@@ -183,7 +186,18 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     let suppressNextKeypress = false;
     const handleKeyDownCapture = (event: KeyboardEvent): void => {
+      if (event.repeat && suppressRepeatsBeforeFirstTerminalKeydownRef.current) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (!event.repeat) {
+        suppressRepeatsBeforeFirstTerminalKeydownRef.current = false;
+      }
       suppressNextKeypress = shouldSuppressXtermKeypressAfterKeydown(event);
+    };
+    const handleKeyUpCapture = (): void => {
+      suppressRepeatsBeforeFirstTerminalKeydownRef.current = false;
     };
     const handleKeyPressCapture = (event: KeyboardEvent): void => {
       if (!suppressNextKeypress) return;
@@ -193,6 +207,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     };
     const terminalElement = containerRef.current;
     terminalElement.addEventListener('keydown', handleKeyDownCapture, true);
+    terminalElement.addEventListener('keyup', handleKeyUpCapture, true);
     terminalElement.addEventListener('keypress', handleKeyPressCapture, true);
 
     if (onWrite) {
@@ -234,6 +249,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       dataDispose?.dispose();
       terminalElement.removeEventListener('keydown', handleKeyDownCapture, true);
+      terminalElement.removeEventListener('keyup', handleKeyUpCapture, true);
       terminalElement.removeEventListener('keypress', handleKeyPressCapture, true);
       observer.disconnect();
       themeObserver.disconnect();

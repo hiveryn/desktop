@@ -188,6 +188,7 @@ export default function RightPane({
       if (!cfg) return;
 
       if (isInputFocused()) return;
+      if (e.repeat) return;
 
       // Skip if any navigation modifier is held — those belong to the nav hook
       if (e.metaKey || e.ctrlKey || e.altKey) return;
