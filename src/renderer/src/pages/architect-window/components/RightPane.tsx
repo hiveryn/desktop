@@ -18,7 +18,8 @@ import type {
   TicketSummary,
 } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
-import { isInputFocused, matchesShortcut } from '../../../hooks/useShortcutConfig';
+import { registerDynamicHandler } from '../../../keys/dispatcher';
+import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -176,22 +177,13 @@ export default function RightPane({
 
   useEffect(() => {
     if (!isKanbanFocused && !isEventLogFocused) return;
-
-    function consume(e: KeyboardEvent): void {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-    }
-
-    function handler(e: KeyboardEvent): void {
+    return registerDynamicHandler((e) => {
       const cfg = shortcutConfigRef.current;
-      if (!cfg) return;
-
-      if (isInputFocused()) return;
-      if (e.repeat) return;
-
-      // Skip if any navigation modifier is held — those belong to the nav hook
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!cfg) return 'passthrough';
+      if (e.repeat) return 'passthrough';
+      if (isTextInputFocused()) return 'passthrough';
+      // Modifier-bearing combos belong to global shortcuts.
+      if (e.metaKey || e.ctrlKey || e.altKey) return 'passthrough';
 
       if (isKanbanFocused) {
         const kanban = cfg.kanban ?? {};
@@ -200,43 +192,36 @@ export default function RightPane({
         const colLen = columns[cursor.col]?.length ?? 0;
 
         if (matchesShortcut(e, kanban.left ?? '')) {
-          consume(e);
           setKanbanCursor({ col: (cursor.col - 1 + 3) % 3, ticketIdx: 0 });
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.right ?? '')) {
-          consume(e);
           setKanbanCursor({ col: (cursor.col + 1) % 3, ticketIdx: 0 });
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.down ?? '')) {
-          consume(e);
           if (colLen > 0)
             setKanbanCursor({ ...cursor, ticketIdx: (cursor.ticketIdx + 1) % colLen });
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.up ?? '')) {
-          consume(e);
           if (colLen > 0)
             setKanbanCursor({ ...cursor, ticketIdx: (cursor.ticketIdx - 1 + colLen) % colLen });
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.open ?? '')) {
-          consume(e);
           const ticket = columns[cursor.col]?.[cursor.ticketIdx];
           if (ticket) onTicketSelectRef.current(ticket);
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.spawn ?? '')) {
-          consume(e);
           const ticket = columns[cursor.col]?.[cursor.ticketIdx];
           if (ticket) onSpawnTicketRef.current(ticket);
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, kanban.refresh ?? '')) {
-          consume(e);
           onRefreshBoardRef.current();
-          return;
+          return 'consumed';
         }
       }
 
@@ -246,36 +231,31 @@ export default function RightPane({
         const displayed = displayedEventsRef.current;
 
         if (matchesShortcut(e, log.down ?? '')) {
-          consume(e);
           setCursorDisplayIdx(Math.min(idx + 1, displayed.length - 1));
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, log.up ?? '')) {
-          consume(e);
           setCursorDisplayIdx(Math.max(idx - 1, 0));
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, log.open ?? '')) {
-          consume(e);
           const ev = displayed[idx];
           if (ev) {
             setEventLogToggle((prev) => ({ id: ev.id, seq: (prev?.seq ?? 0) + 1 }));
           }
-          return;
+          return 'consumed';
         }
         if (matchesShortcut(e, log.copy ?? '')) {
-          consume(e);
           const ev = displayed[idx];
           if (ev) {
             void navigator.clipboard.writeText(JSON.stringify(ev, null, 2));
           }
-          return;
+          return 'consumed';
         }
       }
-    }
 
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
+      return 'passthrough';
+    });
   }, [isKanbanFocused, isEventLogFocused]);
 
   // ── Tab close ────────────────────────────────────────────────────────────

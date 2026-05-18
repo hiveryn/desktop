@@ -2,7 +2,9 @@ import type { AgentProfile } from '@components';
 import { ProfileSelector, Text, TicketDetail } from '@components';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../../shared/types';
-import { matchesShortcut, type ShortcutConfig } from '../../../hooks/useShortcutConfig';
+import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
+import { registerDynamicHandler } from '../../../keys/dispatcher';
+import { matchesShortcut } from '../../../keys/matchers';
 import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 
@@ -123,28 +125,22 @@ export default function TicketWorkflow({
   }, [spawnRequest]);
 
   // Global `quit` shortcut (default: q) — dismisses the open dialog. Only
-  // listens while a dialog is actually open so 'q' keystrokes elsewhere
+  // registered while a dialog is actually open so 'q' keystrokes elsewhere
   // (terminals, kanban, etc.) are not swallowed.
   const dialogOpen = selectedTicket !== null || showProfileSelector;
   useEffect(() => {
     if (!dialogOpen) return;
     const binding = shortcutConfig?.global?.quit;
     if (!binding) return;
-
-    function handler(e: KeyboardEvent): void {
-      if (!matchesShortcut(e, binding ?? '')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    return registerDynamicHandler((e) => {
+      if (!matchesShortcut(e, binding)) return 'passthrough';
       if (showProfileSelector) {
         handleProfileSelectorClose();
       } else if (selectedTicket) {
         onCloseTicket();
       }
-    }
-
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
+      return 'consumed';
+    });
   }, [
     dialogOpen,
     shortcutConfig,

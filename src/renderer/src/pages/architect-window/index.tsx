@@ -10,8 +10,8 @@ import {
 } from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../shared/types';
-import { useNavigationShortcuts } from '../../hooks/useNavigationShortcuts';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
+import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
 import LeftPane from './components/LeftPane';
@@ -45,7 +45,7 @@ export default function ArchitectWindow() {
   useSessionRestore(architectKey);
 
   const shortcutConfig = useShortcutConfig();
-  useNavigationShortcuts(shortcutConfig);
+  useKeyDispatcher(shortcutConfig);
 
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);

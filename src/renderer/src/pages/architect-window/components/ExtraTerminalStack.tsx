@@ -37,6 +37,7 @@ export default function ExtraTerminalStack() {
             <SessionTerminal
               sessionId={session.id}
               terminalId={terminalId}
+              paneId={`right-terminal:${terminalId}`}
               visible={isVisible}
               focused={isFocused}
               onDisconnected={() => {

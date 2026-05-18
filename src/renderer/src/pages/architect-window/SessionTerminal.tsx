@@ -1,9 +1,15 @@
 import { TerminalPane } from '@components';
 import { useEffect, useRef, useState } from 'react';
+import { useSessionStore } from '../../state/sessionStore';
 
 interface Props {
   sessionId: string;
   terminalId: string;
+  // The logical pane identifier that this terminal should claim when its
+  // textarea receives DOM focus (e.g., 'main-terminal' or
+  // `right-terminal:${terminalId}`). Keeps focusedPane state in sync with
+  // user mouse clicks, not just programmatic focus transitions.
+  paneId: string;
   className?: string;
   visible?: boolean;
   focused?: boolean;
@@ -14,6 +20,7 @@ interface Props {
 export default function SessionTerminal({
   sessionId,
   terminalId,
+  paneId,
   className,
   visible = true,
   focused = true,
@@ -127,6 +134,10 @@ export default function SessionTerminal({
           if (cols <= 0 || rows <= 0) return;
           lastSizeRef.current = { cols, rows };
           window.hiveryn.session.resize(sessionId, terminalId, cols, rows);
+        }}
+        onTextAreaFocus={() => {
+          const state = useSessionStore.getState();
+          if (state.focusedPane !== paneId) state.setFocusedPane(paneId);
         }}
       />
     </div>

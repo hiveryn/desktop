@@ -52,6 +52,7 @@ export default function MainTerminalStack({ paneVisible, className }: Props) {
             key={`${session.id}:${terminalId}`}
             sessionId={session.id}
             terminalId={terminalId}
+            paneId="main-terminal"
             visible={isVisible}
             focused={isFocused}
             onDisconnected={() => {

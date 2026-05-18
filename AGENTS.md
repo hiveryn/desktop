@@ -53,8 +53,11 @@ src/
       sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     hooks/
-      useShortcutConfig.ts        Fetches keybindings from daemon; exports matchesShortcut() helper
-      useNavigationShortcuts.ts   Capture-phase global keydown — focus moves, session cycling, Cmd+T/W
+      useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
+    keys/
+      matchers.ts                 matchesShortcut(), isTextInputFocused(), SHIFT_MAP, CODE_MAP
+      dispatcher.ts               dispatch() — single routing function for all key events; registerDynamicHandler()
+      useKeyDispatcher.ts         Single document-level keydown listener; calls setActiveShortcutConfig + dispatch
     pages/
       launcher.tsx        Launcher page — architect list, variant selection on click
       architect-window/
@@ -192,22 +195,33 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 
 Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and an error is logged.
 
-- **`useShortcutConfig`** fetches the config on mount and on every window `focus` event, so daemon-side edits to `~/.hiveryn/shortcuts.yaml` flow in without a desktop reload. It exports `matchesShortcut(event, binding)` which understands modifier strings (`Cmd+Shift+x`), shift-character mapping (`Shift+[` → `{`), and falls back to `event.code` for layout-independent matching of punctuation/digits. It also exports `isInputFocused()` — all capture-phase shortcut handlers call this as an early-return guard so keystrokes are never stolen from a focused `<input>`, `<textarea>`, `<select>`, or `contenteditable` element.
-- **`useNavigationShortcuts`** mounts a single capture-phase `keydown` listener on `document`, calls `e.preventDefault() + stopImmediatePropagation()` on match so xterm never sees the keystroke. It dispatches:
-  - **focus-left/right** — toggle between `main-terminal` and the right pane (cycling within the right pane is `j/k`'s job, not `h/l`'s).
-  - **focus-down/up** — cycle through the vertically-stacked right pane tabs (kanban → event-log → terminals), with wrap.
-  - **focus-main** (`Cmd+1`) and direct tab jumps **`Cmd+2..9`** (position-based, not configurable).
-  - **first-session** (`Cmd+Shift+0`), **prev/next-session** (`Cmd+Shift+[/]`).
-  - **close-tab** (`Cmd+W`) — closes the current terminal tab or worker session.
-  - **new-terminal** (`Cmd+T`) — adds an ad-hoc terminal to the active session.
-- **Pane-local shortcuts** (kanban `h/l/j/k/o/s/r`, event-log `j/k/o/c`) are handled inside `RightPane` with a capture-phase listener gated on `focusedPane`. The cursor state for both lives in `RightPane`.
-- **`quit`** (`q`) is owned by `TicketWorkflow` — listens only while a dialog is open and dismisses the profile selector first, then the ticket detail.
+### Dispatch architecture
+
+All keyboard routing flows through a single `dispatch(event)` function in `keys/dispatcher.ts`. It returns `'consumed' | 'passthrough'`.
+
+There are two callers:
+
+1. **`TerminalPane.attachCustomKeyEventHandler`** — called by xterm itself before its own `_keyDown`/`_keyPress` processing. When the terminal has DOM focus, this is the gate. Returning `false` suppresses xterm's emit so the keystroke never reaches the PTY. Returning `true` passes through. xterm-level concerns (Shift+Enter → `\n`, double-fire suppression) are also handled here.
+
+2. **`useKeyDispatcher`** — a single bubble-phase `keydown` listener on `document`. Skips events whose target is `.xterm-helper-textarea` (those come via path 1). Calls `dispatch(event)`, and if `'consumed'`, calls `preventDefault()`/`stopPropagation()`.
+
+The dispatcher runs handlers in two stages:
+- **Dynamic handlers** (LIFO stack, registered via `registerDynamicHandler`) — for modal/pane-local shortcuts that need component state (kanban cursor, dialog-open flag). Components register via `useEffect` and get an unregister cleanup.
+- **Global shortcuts** — focus-left/right/up/down, focus-main, first/prev/next-session, close-tab, new-terminal, direct tab jumps (Cmd+2..9).
+
+`matchesShortcut(event, binding)` in `keys/matchers.ts` understands modifier strings (`Cmd+Shift+x`), shift-character mapping (`Shift+[` → `{`), and `event.code` fallback for layout-independent punctuation/digit matching.
+
+- **Pane-local shortcuts** (kanban `h/l/j/k/o/s/r`, event-log `j/k/o/c`) use `registerDynamicHandler` inside `RightPane`, gated on `focusedPane`. `isTextInputFocused()` guards them so modal inputs are never stolen.
+- **`quit`** (`q`) uses `registerDynamicHandler` inside `TicketWorkflow`, active only while a dialog is open.
 
 ### Focus model
 
-`sessionStore.focusedPane` is a single string field: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. Clicks on a pane wrapper set it; navigation shortcuts set it; the bottom session bar has no focus state — sessions are switched by `Cmd+Shift+[/]/0`, not by focusing the bar.
+`sessionStore.focusedPane` is the single source of truth: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. It is updated by:
+- Clicks on pane wrappers
+- Navigation shortcut actions inside the dispatcher
+- `TerminalPane.onTextAreaFocus` callback — fires when xterm's helper textarea receives DOM focus by any means (keyboard shortcut transition or mouse click), calling `setFocusedPane` to keep app state in sync with DOM reality.
 
-`TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`, so xterm's DOM textarea is actively blurred when the user navigates elsewhere — keystrokes don't leak to the PTY. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane`.
+`TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane` and pass `paneId` so each terminal knows which pane ID to claim on focus.
 
 The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focus-ring` (defined in `styles/global.css`), which tracks the active light/dark theme.
 
