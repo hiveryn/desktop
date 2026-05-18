@@ -61,6 +61,17 @@ function readTerminalTheme(): ITheme {
   };
 }
 
+function shouldSuppressXtermKeypressAfterKeydown(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.isComposing) return false;
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.key.length !== 1) return false;
+
+  // xterm 5.5 emits lowercase printable input from keydown, then emits the
+  // same input again from keypress. Shifted A-Z is deliberately handled only
+  // by keypress inside xterm, so keep those events flowing.
+  return !/^[A-Z]$/.test(event.key);
+}
+
 const TerminalPane: React.FC<TerminalPaneProps> = ({
   onWrite,
   onData,
@@ -170,6 +181,20 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    let suppressNextKeypress = false;
+    const handleKeyDownCapture = (event: KeyboardEvent): void => {
+      suppressNextKeypress = shouldSuppressXtermKeypressAfterKeydown(event);
+    };
+    const handleKeyPressCapture = (event: KeyboardEvent): void => {
+      if (!suppressNextKeypress) return;
+      suppressNextKeypress = false;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const terminalElement = containerRef.current;
+    terminalElement.addEventListener('keydown', handleKeyDownCapture, true);
+    terminalElement.addEventListener('keypress', handleKeyPressCapture, true);
+
     if (onWrite) {
       onWrite(term.write.bind(term));
     }
@@ -208,6 +233,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       disposedRef.current = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       dataDispose?.dispose();
+      terminalElement.removeEventListener('keydown', handleKeyDownCapture, true);
+      terminalElement.removeEventListener('keypress', handleKeyPressCapture, true);
       observer.disconnect();
       themeObserver.disconnect();
       // Detach xterm's DOM element before React tears down the container.
