@@ -9,10 +9,11 @@ import type {
   DesktopConfig,
   RendererLogPayload,
   RequestLogEntry,
-  Session,
   SessionEvent,
+  SessionIntent,
+  SessionKind,
+  SessionRunResult,
   SessionTab,
-  SpawnResult,
   SystemHome,
   TerminalInfo,
   Ticket,
@@ -47,8 +48,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
-  'architects:spawn': { method: 'POST', path: '/api/architects/:key/spawn' },
-  'architects:spawnWorker': { method: 'POST', path: '/api/architects/:key/tickets/:id/spawn' },
+  'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
@@ -133,16 +133,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
-    spawn: (key: string, profileName: string, cols?: number, rows?: number): Promise<SpawnResult> =>
-      invoke('architects:spawn', key, profileName, cols, rows),
-    spawnWorker: (
-      key: string,
-      ticketId: string,
-      profileName: string,
-      cols?: number,
-      rows?: number,
-    ): Promise<SpawnResult> =>
-      invoke('architects:spawnWorker', key, ticketId, profileName, cols, rows),
     subscribeEvents: (
       key: string,
       callback: (event: WorkspaceChangedEvent) => void,
@@ -208,9 +198,18 @@ contextBridge.exposeInMainWorld('hiveryn', {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
   },
   sessions: {
-    list: (): Promise<Session[]> => invoke('sessions:list'),
-    create: (profileId: string, workdir: string): Promise<Session> =>
-      invoke('sessions:create', profileId, workdir),
+    list: (): Promise<SessionIntent[]> => invoke('sessions:list'),
+    create: (
+      sessionType: SessionKind,
+      architectKey: string,
+      ticketId?: string,
+    ): Promise<SessionIntent> => invoke('sessions:create', sessionType, architectKey, ticketId),
+    createRun: (
+      intentId: string,
+      profileName: string,
+      cols?: number,
+      rows?: number,
+    ): Promise<SessionRunResult> => invoke('sessions:createRun', intentId, profileName, cols, rows),
     conclude: (sessionId: string, body: string): Promise<void> =>
       invoke('sessions:conclude', sessionId, body),
   },

@@ -86,21 +86,40 @@ export interface RendererLogPayload {
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
 export type SessionKind = 'architect' | 'work';
-export type SessionStatus = 'running' | 'completed' | 'failed';
 
-export interface Session {
+export interface SessionRun {
   id: string;
+  session_intent_id: string;
+  status: 'running' | 'completed' | 'failed';
   profile_name: string;
-  session_type: SessionKind;
-  status: SessionStatus;
-  prompt: string;
-  instructions: string;
-  architect_key: string;
-  ticket_id?: string;
+  profile_snapshot?: { agent: string; args: string[]; env: Record<string, string> };
+  workdir: string;
   native_id?: string;
+  failure_reason?: 'launch_failed' | 'process_exited' | 'restore_failed' | 'user_cancelled';
   main_terminal_id?: string;
+  started_at?: string;
+  ended_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface SessionIntent {
+  id: string;
+  architect_key: string;
+  session_type: SessionKind;
+  ticket_id?: string;
+  prompt?: string;
+  instructions?: string;
+  created_by?: 'desktop' | 'architect_mcp';
+  created_at: string;
+  updated_at: string;
+  current_run?: SessionRun;
+}
+
+export interface SessionRunResult {
+  run: SessionRun;
+  main_terminal_id: string;
+  ws_url: string;
 }
 
 export interface SessionEvent {
@@ -203,12 +222,6 @@ export interface Architect {
 export interface ArchitectInfo {
   name: string;
   path: string;
-}
-
-export interface SpawnResult {
-  session_id: string;
-  main_terminal_id: string;
-  ws_url: string;
 }
 
 export interface TerminalInfo {

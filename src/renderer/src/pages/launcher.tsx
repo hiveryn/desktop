@@ -67,7 +67,9 @@ export default function Launcher() {
 
       if (sessionsResult.status === 'fulfilled') {
         const running = new Set(
-          sessionsResult.value.filter((s) => s.status === 'running').map((s) => s.architect_key),
+          sessionsResult.value
+            .filter((s) => s.current_run?.status === 'running')
+            .map((s) => s.architect_key),
         );
         setRunningSessions(running);
       }
@@ -117,7 +119,8 @@ export default function Launcher() {
     setSpawnError(null);
 
     try {
-      await window.hiveryn.architects.spawn(key, profileName);
+      const intent = await window.hiveryn.sessions.create('architect', key);
+      await window.hiveryn.sessions.createRun(intent.id, profileName);
       await window.hiveryn.launcher.openArchitect(key);
     } catch (err) {
       setSpawnError(err);

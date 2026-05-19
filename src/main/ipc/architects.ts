@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import type { Architect, DaemonResult, SpawnResult } from '../../shared/types';
+import type { Architect, DaemonResult } from '../../shared/types';
 import * as architectEvents from '../daemon/architect-events';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, ok, withData, withNullData } from './results';
@@ -24,42 +24,6 @@ export function registerArchitectsIpc(): void {
     'architects:get',
     async (_event, key: string): Promise<DaemonResult<Architect>> => {
       return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(key)}`);
-    },
-  );
-
-  ipcMain.handle(
-    'architects:spawn',
-    async (
-      _event,
-      key: string,
-      profileName: string,
-      cols?: number,
-      rows?: number,
-    ): Promise<DaemonResult<SpawnResult>> => {
-      return daemonFetch<SpawnResult>(`/api/architects/${encodeURIComponent(key)}/spawn`, {
-        method: 'POST',
-        body: JSON.stringify({ profile_name: profileName, cols, rows }),
-      });
-    },
-  );
-
-  ipcMain.handle(
-    'architects:spawnWorker',
-    async (
-      _event,
-      key: string,
-      ticketId: string,
-      profileName: string,
-      cols?: number,
-      rows?: number,
-    ): Promise<DaemonResult<SpawnResult>> => {
-      return daemonFetch<SpawnResult>(
-        `/api/architects/${encodeURIComponent(key)}/tickets/${encodeURIComponent(ticketId)}/spawn`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ profile_name: profileName, cols, rows }),
-        },
-      );
     },
   );
 

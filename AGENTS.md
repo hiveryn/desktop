@@ -180,10 +180,10 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 Architect sessions run in the daemon and survive component mount/unmount cycles in the renderer. Component lifecycle is NOT session lifecycle.
 
-- **Spawn**: the launcher spawns the architect session via `architects.spawn(key, profileName)` and opens the architect window. The architect window does not spawn — it only restores.
-- **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `tabs.list(id)` for every running session that matches the architect key, using `main_terminal_id` for the left-pane terminal and daemon tabs for the right pane.
+- **Spawn**: the launcher creates a session intent via `sessions.create('architect', key)` then spawns a run via `sessions.createRun(intent.id, profileName)`, then opens the architect window. The architect window does not spawn — it only restores.
+- **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `tabs.list(id)` for every running session that matches the architect key, using `current_run.main_terminal_id` for the left-pane terminal and daemon tabs for the right pane.
 - **Recovery**: `useDaemonRecovery` subscribes to `daemon:health-status` events from the main-process health poller. On `unreachable → healthy` transitions, it re-fetches the full daemon session snapshot and reconciles the store via `store.reconcileSessions()`, which handles changed terminal UUIDs, removed sessions, and stale tab/focus selection.
-- **`sessions:list`** returns daemon session records directly, including `main_terminal_id` for main-terminal reconnects.
+- **`sessions:list`** returns `SessionIntent[]`. A session is running when `intent.current_run?.status === 'running'`; main-terminal reconnects use `current_run.main_terminal_id`.
 - The daemon enforces **one running session per architect** (partial unique index).
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
 

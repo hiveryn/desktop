@@ -64,22 +64,17 @@ export default function TicketWorkflow({
       setShowProfileSelector(false);
       setSpawnError(null);
       try {
-        const result = await window.hiveryn.architects.spawnWorker(
-          architectKey,
-          ticket.id,
-          profileName,
-          100,
-          30,
-        );
+        const intent = await window.hiveryn.sessions.create('work', architectKey, ticket.id);
+        await window.hiveryn.sessions.createRun(intent.id, profileName, 100, 30);
 
-        const record = await loadSessionRecord(result.session_id);
+        const record = await loadSessionRecord(intent.id);
         if (!record) {
-          throw new Error(`Spawned session ${result.session_id} is missing from sessions.list()`);
+          throw new Error(`Spawned session ${intent.id} is missing from sessions.list()`);
         }
 
         const store = useSessionStore.getState();
         store.registerSession(record);
-        store.setActiveSession(result.session_id);
+        store.setActiveSession(intent.id);
         store.setActiveRightTab('event-log');
 
         setPendingTicket(null);

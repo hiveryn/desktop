@@ -1,11 +1,16 @@
 import { ipcMain } from 'electron';
-import type { DaemonResult, Session } from '../../shared/types';
+import type {
+  DaemonResult,
+  SessionIntent,
+  SessionKind,
+  SessionRunResult,
+} from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerSessionsIpc(): void {
-  ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
-    const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
+  ipcMain.handle('sessions:list', async (): Promise<DaemonResult<SessionIntent[]>> => {
+    const result = await daemonFetch<{ sessions: SessionIntent[] }>('/api/sessions');
     if (result.envelope.error) {
       return withNullData(result);
     }
@@ -20,10 +25,35 @@ export function registerSessionsIpc(): void {
 
   ipcMain.handle(
     'sessions:create',
-    async (_event, profileId: string, workdir: string): Promise<DaemonResult<Session>> => {
-      return daemonFetch<Session>('/api/sessions', {
+    async (
+      _event,
+      sessionType: SessionKind,
+      architectKey: string,
+      ticketId?: string,
+    ): Promise<DaemonResult<SessionIntent>> => {
+      return daemonFetch<SessionIntent>('/api/sessions', {
         method: 'POST',
-        body: JSON.stringify({ profile_id: profileId, workdir }),
+        body: JSON.stringify({
+          session_type: sessionType,
+          architect_key: architectKey,
+          ticket_id: ticketId,
+        }),
+      });
+    },
+  );
+
+  ipcMain.handle(
+    'sessions:createRun',
+    async (
+      _event,
+      intentId: string,
+      profileName: string,
+      cols?: number,
+      rows?: number,
+    ): Promise<DaemonResult<SessionRunResult>> => {
+      return daemonFetch<SessionRunResult>(`/api/sessions/${encodeURIComponent(intentId)}/runs`, {
+        method: 'POST',
+        body: JSON.stringify({ profile_name: profileName, cols, rows }),
       });
     },
   );
