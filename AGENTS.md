@@ -263,7 +263,7 @@ The architect window subscribes to the daemon's `GET /api/architects/{key}/event
 - **`architects.subscribeEvents(key, callback)`** (renderer API) — opens SSE, `callback` fires on each `WorkspaceChangedEvent`. Returns unsubscribe function.
 - **Main process** — `architect-events.ts` manages SSE connections per `(webContents, architectKey)`. Parses `data:` lines, forwards `WorkspaceChangedEvent` to renderer via `sender.send('architect:workspace-event', ...)`.
 - **Subscription lifecycle** — `subscribeEvents` invokes `architects:events:subscribe` IPC (opens SSE), `unsubscribe` invokes `architects:events:unsubscribe` IPC (aborts SSE). Window `destroyed` auto-cleans up.
-- **Re-fetch on event** — renderer callback checks `event.type === 'workspace_changed'`, then re-fetches `tickets.list(architectKey)` and updates board state without toggling loading.
+- **Re-fetch on event** — renderer callback checks `event.type === 'workspace_changed'`, then re-fetches both `architects.get(architectKey)` (architect metadata/repos) and `tickets.list(architectKey)` (board state) without toggling loading.
 - **Event shape** — `{ type: string, architect_key: string, reason: string, ticket_id: string, at: string }`. Reasons: `ticket_created`, `ticket_updated`, `ticket_moved`, `ticket_deleted`.
 
 ## Development

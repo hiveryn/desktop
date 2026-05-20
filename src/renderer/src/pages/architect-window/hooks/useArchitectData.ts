@@ -10,6 +10,7 @@ export interface ArchitectData {
   boardLoading: boolean;
   boardError: unknown | null;
   loadError: unknown | null;
+  refreshArchitect(): Promise<void>;
   refreshBoard(): Promise<void>;
 }
 
@@ -20,6 +21,12 @@ export function useArchitectData(architectKey: string): ArchitectData {
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError, setBoardError] = useState<unknown | null>(null);
   const [loadError, setLoadError] = useState<unknown | null>(null);
+
+  const refreshArchitect = useCallback(async () => {
+    if (!architectKey) return;
+    const next = await window.hiveryn.architects.get(architectKey);
+    setArchitect(next);
+  }, [architectKey]);
 
   const refreshBoard = useCallback(async () => {
     if (!architectKey) return;
@@ -84,9 +91,19 @@ export function useArchitectData(architectKey: string): ArchitectData {
     if (!architectKey) return;
     return window.hiveryn.architects.subscribeEvents(architectKey, (event) => {
       if (event.type !== 'workspace_changed') return;
+      void refreshArchitect();
       void refreshBoard();
     });
-  }, [architectKey, refreshBoard]);
+  }, [architectKey, refreshArchitect, refreshBoard]);
 
-  return { architect, home, board, boardLoading, boardError, loadError, refreshBoard };
+  return {
+    architect,
+    home,
+    board,
+    boardLoading,
+    boardError,
+    loadError,
+    refreshArchitect,
+    refreshBoard,
+  };
 }
