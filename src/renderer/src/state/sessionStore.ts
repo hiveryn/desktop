@@ -206,13 +206,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   appendEvent(event) {
     set((state) => {
-      const existing = state.events[event.session_id] ?? [];
+      const existing = state.events[event.session_intent_id] ?? [];
       const next =
         existing.length >= EVENTS_PER_SESSION_CAP
           ? [...existing.slice(existing.length - EVENTS_PER_SESSION_CAP + 1), event]
           : [...existing, event];
       return {
-        events: { ...state.events, [event.session_id]: next },
+        events: { ...state.events, [event.session_intent_id]: next },
       };
     });
   },

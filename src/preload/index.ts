@@ -52,6 +52,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
+  'session:subscribe': { method: 'SSE', path: '/api/sessions/:id/events' },
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
   'session:send': { method: 'WS', path: '/session/send' },
@@ -153,6 +154,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
     },
   },
   session: {
+    subscribe: (sessionId: string): Promise<void> => invoke('session:subscribe', sessionId),
     connect: (sessionId: string, terminalId: string): Promise<void> =>
       invoke('session:connect', sessionId, terminalId),
     disconnect: (sessionId?: string, terminalId?: string): Promise<void> =>

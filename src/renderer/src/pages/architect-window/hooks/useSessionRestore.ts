@@ -12,6 +12,7 @@ export function useSessionRestore(architectKey: string): void {
       const records = await loadSessionRecordsForArchitect(architectKey);
       if (cancelled) return;
       useSessionStore.getState().reconcileSessions(records);
+      await Promise.all(records.map((r) => window.hiveryn.session.subscribe(r.id)));
     }
 
     void restore();

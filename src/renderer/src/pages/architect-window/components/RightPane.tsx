@@ -44,7 +44,7 @@ function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
   }
   return {
     id: event.id,
-    session_id: event.session_id,
+    session_intent_id: event.session_intent_id,
     seq: event.seq,
     type: 'status',
     status: event.status,

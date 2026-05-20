@@ -137,12 +137,14 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 
 - **`session:data` IPC events** carry `{ sessionId: string; terminalId: string; data: Uint8Array | string }` so the renderer can route PTY output to the correct terminal.
 - **`session:terminal-closed` IPC events** carry `{ sessionId: string; terminalId: string }` — fired when a terminal's WebSocket closes server-side (e.g. user ran `exit`). `SessionTerminal` subscribes via `onTerminalClosed` and calls `onDisconnected` in response.
-- **`session:event` IPC events** include `session_id` in the payload — session-level lifecycle events unchanged.
+- **`session:event` IPC events** include `session_intent_id` in the payload — session-level lifecycle events from the daemon's SSE stream.
 - **`session.send(sessionId, terminalId, data)`** and **`session.resize(sessionId, terminalId, cols, rows)`** take explicit identifiers — there is no global "active terminal" concept in the main process. Each `SessionTerminal` knows its own `(sessionId, terminalId)` and routes accordingly.
 
 ### Terminal lifecycle
 
-Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` connects on mount and starts the SSE stream (session-level, shared across terminals). The WebSocket stays alive in the main process across renders.
+Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` connects on mount, opening the terminal WebSocket; the SSE event stream is session-level and shared across all terminals for that session. The WebSocket stays alive in the main process across renders.
+
+`session.subscribe(sessionId)` starts the SSE stream independently of any terminal WebSocket — used by `useSessionRestore` to begin receiving events as soon as sessions are restored, before `SessionTerminal` mounts. Calling `connect()` for a session that `subscribe()` already opened is safe: `startSse` is a no-op when SSE is already running.
 
 Main terminal disconnect is not session lifecycle. If the main terminal WebSocket closes because the daemon respawned the agent, keep the session registered, keep session SSE active, update `mainTerminalId` from the daemon's `main_terminal_resumed` event or refreshed session list, and let `MainTerminalStack` reconnect by remounting the terminal keyed by the new UUID.
 

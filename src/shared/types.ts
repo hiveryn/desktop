@@ -124,7 +124,7 @@ export interface SessionRunResult {
 
 export interface SessionEvent {
   id: string;
-  session_id: string;
+  session_intent_id: string;
   seq: number;
   type: string;
   status?: string;

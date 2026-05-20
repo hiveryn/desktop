@@ -123,6 +123,36 @@ function teardownSession(wcId: number, sessionId: string, session: ActiveSession
   }
 }
 
+export function subscribe(sender: WebContents, sessionId: string): void {
+  const wcId = sender.id;
+  let wcSessions = sessionsByWcId.get(wcId);
+  if (!wcSessions) {
+    wcSessions = new Map();
+    sessionsByWcId.set(wcId, wcSessions);
+  }
+
+  let session = wcSessions.get(sessionId);
+  if (!session) {
+    const sendEventToRenderer = (event: SessionEvent): void => {
+      if (!sender.isDestroyed()) {
+        sender.send('session:event', event);
+      }
+    };
+    session = {
+      terminals: new Map(),
+      sseAbort: new AbortController(),
+      sseRunning: false,
+      sendToRenderer: () => {},
+      sendEventToRenderer,
+      sendTerminalClosedToRenderer: () => {},
+      sessionId,
+    };
+    wcSessions.set(sessionId, session);
+  }
+  console.log('[main:session] subscribe', { wcId, sessionId });
+  startSse(session, sessionId);
+}
+
 export function connect(
   sender: WebContents,
   sessionId: string,
@@ -200,6 +230,10 @@ export function connect(
         sessionId,
       };
       wcSessions.set(sessionId, session);
+    } else {
+      // Session may have been created by subscribe() with stub callbacks — update
+      // sendTerminalClosedToRenderer so terminal-closed events reach the renderer.
+      session.sendTerminalClosedToRenderer = sendTerminalClosedToRenderer;
     }
     startSse(session, sessionId);
 

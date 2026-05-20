@@ -120,7 +120,7 @@ interface SessionRunResult {
 
 interface SessionEvent {
   id: string;
-  session_id: string;
+  session_intent_id: string;
   seq: number;
   type: string;
   status?: string;
@@ -298,6 +298,7 @@ interface HiverynAPI {
     subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
+    subscribe: (sessionId: string) => Promise<void>;
     connect: (sessionId: string, terminalId: string) => Promise<void>;
     disconnect: (sessionId?: string, terminalId?: string) => Promise<void>;
     send: (sessionId: string, terminalId: string, data: string) => void;

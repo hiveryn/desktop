@@ -4,6 +4,11 @@ import * as sessionManager from '../daemon/session';
 import { errorResult, ok } from './results';
 
 export function registerSessionIpc(): void {
+  ipcMain.handle('session:subscribe', (event, sessionId: string): DaemonResult<null> => {
+    sessionManager.subscribe(event.sender, sessionId);
+    return ok(null);
+  });
+
   ipcMain.handle(
     'session:connect',
     async (event, sessionId: string, terminalId: string): Promise<DaemonResult<null>> => {

@@ -61,27 +61,29 @@ export function useSessionEvents(): void {
       store.appendEvent(event);
 
       if (event.type === 'main_terminal_resumed') {
-        const session = store.sessions[event.session_id];
+        const session = store.sessions[event.session_intent_id];
         if (!session) {
-          throw new Error(`main_terminal_resumed received for missing session ${event.session_id}`);
+          throw new Error(
+            `main_terminal_resumed received for missing session ${event.session_intent_id}`,
+          );
         }
         const resume = mainTerminalResumeEvent(event);
         if (session.mainTerminalId === resume.mainTerminalId) return;
         if (session.mainTerminalId !== resume.previousTerminalId) return;
-        store.updateSessionMainTerminal(event.session_id, resume.mainTerminalId);
+        store.updateSessionMainTerminal(event.session_intent_id, resume.mainTerminalId);
         return;
       }
 
       if (event.type !== 'status' || event.status !== 'ended' || !isConcludedSessionEnd(event)) {
         return;
       }
-      if (endingSessionIdsRef.current.has(event.session_id)) return;
+      if (endingSessionIdsRef.current.has(event.session_intent_id)) return;
 
-      const session = store.sessions[event.session_id];
+      const session = store.sessions[event.session_intent_id];
       if (!session) return;
 
-      endingSessionIdsRef.current.add(event.session_id);
-      void cleanupEndedSession(event.session_id, session.type);
+      endingSessionIdsRef.current.add(event.session_intent_id);
+      void cleanupEndedSession(event.session_intent_id, session.type);
     });
   }, []);
 }
