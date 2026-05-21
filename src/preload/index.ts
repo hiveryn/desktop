@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AgentProfile,
+  AppMode,
   Architect,
   ArchitectInfo,
   CreateTerminalBody,
@@ -123,6 +124,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   app: {
     getPlatform: (): Promise<string> => Promise.resolve(process.platform),
+    getMode: (): Promise<AppMode> => ipcRenderer.invoke('app:getMode') as Promise<AppMode>,
   },
   profiles: {
     list: (): Promise<AgentProfile[]> => invoke('profiles:list'),

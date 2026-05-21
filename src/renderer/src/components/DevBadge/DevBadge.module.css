@@ -1,0 +1,12 @@
+.badge {
+  display: inline-block;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  padding: 1px var(--space-h-2);
+  background: var(--theme-status-warning);
+  color: var(--theme-status-warning-on);
+  margin: 0 var(--space-h-2);
+}

@@ -262,6 +262,8 @@ export interface DesktopConfig {
   health_poll_interval_ms: number;
 }
 
+export type AppMode = 'development' | 'production';
+
 // ── Request log ────────────────────────────────────────────────────────────
 
 export interface RequestLogEntry {

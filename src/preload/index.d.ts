@@ -250,6 +250,8 @@ interface DesktopConfig {
   health_poll_interval_ms: number;
 }
 
+type AppMode = 'development' | 'production';
+
 interface ArchitectRepo {
   key: string;
   path: string;
@@ -283,6 +285,7 @@ interface HiverynAPI {
   };
   app: {
     getPlatform: () => Promise<string>;
+    getMode: () => Promise<AppMode>;
   };
   profiles: {
     list: () => Promise<AgentProfile[]>;

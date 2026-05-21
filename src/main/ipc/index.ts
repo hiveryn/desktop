@@ -1,3 +1,4 @@
+import { registerAppIpc } from './app';
 import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
 import { registerConfigIpc } from './config';
@@ -19,6 +20,7 @@ interface RegisterIpcOptions {
 }
 
 export function registerIpc(options: RegisterIpcOptions): void {
+  registerAppIpc();
   registerPreferencesIpc();
   registerProfilesIpc();
   registerConfigIpc();

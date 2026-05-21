@@ -4,6 +4,7 @@ import {
   ArchitectCard,
   BottomBar,
   Caption,
+  DevBadge,
   Navigation,
   ProfileSelector,
   Text,
@@ -139,7 +140,7 @@ export default function Launcher() {
 
   return (
     <div className={styles.window}>
-      <Navigation>
+      <Navigation left={<DevBadge />}>
         <span className={styles.navTitle}>
           <span className={styles.brandMark} aria-hidden="true">
             ▣

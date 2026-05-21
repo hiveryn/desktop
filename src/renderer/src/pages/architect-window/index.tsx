@@ -3,6 +3,7 @@ import {
   BottomBar,
   Caption,
   Close,
+  DevBadge,
   Glyph,
   IconButton,
   Navigation,
@@ -103,6 +104,7 @@ export default function ArchitectWindow() {
   return (
     <div className={styles.window}>
       <Navigation
+        left={<DevBadge />}
         right={
           <>
             <IconButton
