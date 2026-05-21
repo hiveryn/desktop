@@ -203,9 +203,6 @@ function firstSession(): void {
   const first = ordered[0];
   if (!first || first.id === state.activeSessionId) return;
   state.setActiveSession(first.id);
-  if (first.type === 'work' && state.activeRightTab === 'kanban') {
-    state.setActiveRightTab('event-log');
-  }
   state.setFocusedPane('main-terminal');
 }
 
@@ -217,9 +214,6 @@ function cycleSession(delta: number): void {
   const next = ordered[(idx + delta + ordered.length) % ordered.length];
   if (!next || next.id === state.activeSessionId) return;
   state.setActiveSession(next.id);
-  if (next.type === 'work' && state.activeRightTab === 'kanban') {
-    state.setActiveRightTab('event-log');
-  }
   state.setFocusedPane('main-terminal');
 }
 

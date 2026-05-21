@@ -19,6 +19,8 @@ interface SessionState {
   activeSessionId: string | null;
   // Which right-pane tab is shown. 'kanban' | 'event-log' | <terminal-uuid>.
   activeRightTab: string;
+  // Last active right tab per session ID — restored on session switch.
+  sessionRightTabs: Record<string, string>;
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
   focusedPane: string;
@@ -45,6 +47,7 @@ const initialState: SessionState = {
   events: {},
   activeSessionId: null,
   activeRightTab: 'kanban',
+  sessionRightTabs: {},
   focusedPane: 'main-terminal',
 };
 
@@ -72,6 +75,7 @@ function normalizeSelection(
   activeSessionId: string | null,
   activeRightTab: string,
   focusedPane: string,
+  sessionRightTabs: Record<string, string>,
 ): Pick<SessionState, 'activeSessionId' | 'activeRightTab' | 'focusedPane'> {
   const ordered = Object.values(sessions);
   const nextActiveSessionId =
@@ -90,7 +94,8 @@ function normalizeSelection(
 
   const session = sessions[nextActiveSessionId];
   const validTabs = tabIds(session);
-  const nextActiveRightTab = validTabs.includes(activeRightTab) ? activeRightTab : validTabs[0];
+  const candidate = sessionRightTabs[nextActiveSessionId] ?? activeRightTab;
+  const nextActiveRightTab = validTabs.includes(candidate) ? candidate : validTabs[0];
   if (!nextActiveRightTab) {
     throw new Error(`Session ${session.id} returned no tabs`);
   }
@@ -118,14 +123,19 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const events = Object.fromEntries(
         Object.entries(state.events).filter(([sessionId]) => sessionId in sessions),
       );
+      const sessionRightTabs = Object.fromEntries(
+        Object.entries(state.sessionRightTabs).filter(([id]) => id in sessions),
+      );
       return {
         sessions,
         events,
+        sessionRightTabs,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
           state.activeRightTab,
           state.focusedPane,
+          sessionRightTabs,
         ),
       };
     });
@@ -136,14 +146,17 @@ export const useSessionStore = create<SessionStore>((set) => ({
       if (!state.sessions[id]) return state;
       const { [id]: _removed, ...sessions } = state.sessions;
       const { [id]: _removedEvents, ...events } = state.events;
+      const { [id]: _removedRightTab, ...sessionRightTabs } = state.sessionRightTabs;
       return {
         sessions,
         events,
+        sessionRightTabs,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
           state.activeRightTab,
           state.focusedPane,
+          sessionRightTabs,
         ),
       };
     });
@@ -168,11 +181,26 @@ export const useSessionStore = create<SessionStore>((set) => ({
   },
 
   setActiveSession(sessionId) {
-    set({ activeSessionId: sessionId });
+    set((state) => {
+      if (!sessionId) return { activeSessionId: null };
+      const session = state.sessions[sessionId];
+      if (!session) throw new Error(`Cannot switch to missing session ${sessionId}`);
+      const validTabIds = tabIds(session);
+      const savedTab = state.sessionRightTabs[sessionId];
+      const nextTab = savedTab && validTabIds.includes(savedTab) ? savedTab : validTabIds[0];
+      if (!nextTab) throw new Error(`Session ${sessionId} has no tabs`);
+      return { activeSessionId: sessionId, activeRightTab: nextTab };
+    });
   },
 
   setActiveRightTab(tab) {
-    set({ activeRightTab: tab });
+    set((state) => {
+      if (!state.activeSessionId) return { activeRightTab: tab };
+      return {
+        activeRightTab: tab,
+        sessionRightTabs: { ...state.sessionRightTabs, [state.activeSessionId]: tab },
+      };
+    });
   },
 
   setFocusedPane(pane) {
@@ -199,6 +227,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
           state.activeSessionId,
           state.activeRightTab,
           state.focusedPane,
+          state.sessionRightTabs,
         ),
       };
     });

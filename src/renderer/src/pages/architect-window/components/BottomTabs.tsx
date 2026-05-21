@@ -10,7 +10,6 @@ export default function BottomTabs() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
-  const setActiveRightTab = useSessionStore((s) => s.setActiveRightTab);
   const unregisterSession = useSessionStore((s) => s.unregisterSession);
 
   const tabs = useMemo<TabBarTab[]>(() => {
@@ -39,13 +38,6 @@ export default function BottomTabs() {
         const session = useSessionStore.getState().sessions[id];
         if (!session) return;
         setActiveSession(id);
-        // Workers don't have kanban — flip to event-log on switch to a worker.
-        if (session.type === 'work') {
-          const currentRight = useSessionStore.getState().activeRightTab;
-          if (currentRight === 'kanban') {
-            setActiveRightTab('event-log');
-          }
-        }
       }}
       onTabClose={(id: string) => {
         void window.hiveryn.session.disconnect(id).then(() => {

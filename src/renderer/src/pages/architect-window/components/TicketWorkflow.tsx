@@ -75,7 +75,6 @@ export default function TicketWorkflow({
         const store = useSessionStore.getState();
         store.registerSession(record);
         store.setActiveSession(intent.id);
-        store.setActiveRightTab('event-log');
 
         setPendingTicket(null);
         onCloseTicket();

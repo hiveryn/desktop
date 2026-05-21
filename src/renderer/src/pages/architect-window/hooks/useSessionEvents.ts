@@ -48,7 +48,6 @@ async function cleanupEndedSession(
   }
 
   store.setActiveSession(architectId);
-  store.setActiveRightTab(architectId ? 'kanban' : 'event-log');
   store.setFocusedPane(architectId ? 'main-terminal' : 'right-event-log');
 }
 
