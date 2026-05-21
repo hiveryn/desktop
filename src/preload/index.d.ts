@@ -81,7 +81,7 @@ interface AgentProfile {
 
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
-type SessionKind = 'architect' | 'work';
+type SessionKind = 'architect' | 'ticket' | 'freeform';
 
 interface SessionRun {
   id: string;
@@ -103,7 +103,7 @@ interface SessionIntent {
   id: string;
   architect_key: string;
   session_type: SessionKind;
-  ticket_id?: string;
+  context_id: string;
   prompt?: string;
   instructions?: string;
   created_by?: 'desktop' | 'architect_mcp';

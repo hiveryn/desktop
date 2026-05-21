@@ -15,7 +15,7 @@ export default function BottomTabs() {
   const tabs = useMemo<TabBarTab[]>(() => {
     const arr = Object.values(sessions);
     const architect = arr.find((s) => s.type === 'architect');
-    const workers = arr.filter((s) => s.type === 'work');
+    const workers = arr.filter((s) => s.type !== 'architect');
 
     const result: TabBarTab[] = [];
     if (architect) {

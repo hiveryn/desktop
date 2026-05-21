@@ -12,7 +12,7 @@
 // path continue: type into input / send to PTY).
 
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
-import { useSessionStore } from '../state/sessionStore';
+import { type SessionRecord, useSessionStore } from '../state/sessionStore';
 import { matchesShortcut } from './matchers';
 
 export type DispatchResult = 'consumed' | 'passthrough';
@@ -189,11 +189,11 @@ function jumpRightTab(idx: number): boolean {
 
 // ── Session actions ──────────────────────────────────────────────────────────
 
-function getOrderedSessions(): { id: string; type: 'architect' | 'work' }[] {
+function getOrderedSessions(): { id: string; type: SessionRecord['type'] }[] {
   const { sessions } = useSessionStore.getState();
   const arr = Object.values(sessions);
   const architect = arr.find((s) => s.type === 'architect');
-  const workers = arr.filter((s) => s.type === 'work');
+  const workers = arr.filter((s) => s.type !== 'architect');
   return [...(architect ? [architect] : []), ...workers].map((s) => ({ id: s.id, type: s.type }));
 }
 
@@ -253,7 +253,7 @@ async function closeCurrentTab(): Promise<void> {
 
   if (!activeSessionId) return;
   const session = sessions[activeSessionId];
-  if (session?.type === 'work') {
+  if (session?.type !== 'architect') {
     await window.hiveryn.session.disconnect(activeSessionId);
     const s = useSessionStore.getState();
     s.unregisterSession(activeSessionId);

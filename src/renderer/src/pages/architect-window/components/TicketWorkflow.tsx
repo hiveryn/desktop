@@ -64,7 +64,7 @@ export default function TicketWorkflow({
       setShowProfileSelector(false);
       setSpawnError(null);
       try {
-        const intent = await window.hiveryn.sessions.create('work', architectKey, ticket.id);
+        const intent = await window.hiveryn.sessions.create('ticket', architectKey, ticket.id);
         await window.hiveryn.sessions.createRun(intent.id, profileName, 100, 30);
 
         const record = await loadSessionRecord(intent.id);

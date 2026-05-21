@@ -5,7 +5,7 @@ function sessionLabel(intent: SessionIntent): string {
   if (intent.session_type === 'architect') {
     return 'Architect';
   }
-  const label = intent.ticket_id || intent.current_run?.profile_name;
+  const label = intent.context_id || intent.current_run?.profile_name;
   if (!label) {
     throw new Error(`Running session ${intent.id} is missing label fields`);
   }
@@ -22,9 +22,9 @@ export function buildSessionRecord(intent: SessionIntent, tabs: SessionTab[]): S
 
   return {
     id: intent.id,
-    type: intent.session_type === 'architect' ? 'architect' : 'work',
+    type: intent.session_type,
     label: sessionLabel(intent),
-    ticketId: intent.ticket_id,
+    contextId: intent.context_id,
     mainTerminalId: intent.current_run.main_terminal_id,
     tabs,
   };

@@ -30,7 +30,7 @@ function isConcludedSessionEnd(event: { raw?: Record<string, unknown> }): boolea
 
 async function cleanupEndedSession(
   sessionId: string,
-  sessionType: 'architect' | 'work',
+  sessionType: 'architect' | 'ticket' | 'freeform',
 ): Promise<void> {
   await window.hiveryn.session.disconnect(sessionId);
 

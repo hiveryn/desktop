@@ -85,7 +85,7 @@ export interface RendererLogPayload {
 
 // ── Sessions & tickets ─────────────────────────────────────────────────────
 
-export type SessionKind = 'architect' | 'work';
+export type SessionKind = 'architect' | 'ticket' | 'freeform';
 
 export interface SessionRun {
   id: string;
@@ -107,7 +107,7 @@ export interface SessionIntent {
   id: string;
   architect_key: string;
   session_type: SessionKind;
-  ticket_id?: string;
+  context_id: string;
   prompt?: string;
   instructions?: string;
   created_by?: 'desktop' | 'architect_mcp';

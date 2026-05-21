@@ -17,10 +17,10 @@ export function useArchitectSession(): SessionRecord | undefined {
   });
 }
 
-export function useWorkSessions(): SessionRecord[] {
+export function useTicketSessions(): SessionRecord[] {
   return useSessionStore(
     useShallow((s) => {
-      const result = Object.values(s.sessions).filter((session) => session.type === 'work');
+      const result = Object.values(s.sessions).filter((session) => session.type === 'ticket');
       return result.length === 0 ? EMPTY_SESSIONS : result;
     }),
   );

@@ -3,9 +3,9 @@ import type { SessionEvent, SessionTab } from '../../../shared/types';
 
 export interface SessionRecord {
   id: string;
-  type: 'architect' | 'work';
+  type: 'architect' | 'ticket' | 'freeform';
   label: string;
-  ticketId?: string;
+  contextId: string;
   mainTerminalId: string;
   tabs: SessionTab[];
 }

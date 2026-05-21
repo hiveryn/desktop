@@ -158,7 +158,7 @@ Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per 
 |---|---|
 | **Left pane** | `MainTerminalStack` — every session's main terminal mounted as a sibling; visibility picked by `activeSessionId`. Shows a "No active session / Return to Launcher" fallback when no session is registered. |
 | **Right pane** | Daemon-provided tabs from `tabs:list`: Kanban, Activity log, and `ExtraTerminalStack` terminal tabs. Tab visibility picked by `activeRightTab`. |
-| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then workers). Active tab driven by `activeSessionId`. |
+| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. |
 
 Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, terminalId)` props — no shared input-routing state needed.
 
@@ -220,7 +220,7 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 1. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 2. `store.unregisterSession(sessionId)` — removes the session from the Zustand store
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
-4. **Worker session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
+4. **Ticket/freeform session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
 
 ## Keyboard shortcuts and focus model
 
