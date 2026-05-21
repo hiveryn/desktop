@@ -326,6 +326,12 @@ interface HiverynAPI {
       rows?: number,
     ) => Promise<SessionRunResult>;
     conclude: (sessionId: string, body: string) => Promise<void>;
+    createFreeform: (
+      architectKey: string,
+      prompt: string,
+      workdir: string,
+      slug: string,
+    ) => Promise<SessionIntent>;
   };
   tickets: {
     list: (architectKey: string) => Promise<TicketBoard>;

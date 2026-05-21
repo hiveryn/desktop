@@ -4,8 +4,11 @@ import {
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
+  Glyph,
+  IconButton,
   Kanban,
   KanbanBoard,
+  Plus,
   TabBar,
   type TabBarTab,
   Terminal,
@@ -64,6 +67,7 @@ function tabIdToFocusId(tabId: string): string {
 }
 
 interface Props {
+  architectKey: string;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
@@ -72,9 +76,11 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
+  onNewFreeform(): void;
 }
 
 export default function RightPane({
+  architectKey: _architectKey,
   board,
   boardLoading,
   boardError,
@@ -83,6 +89,7 @@ export default function RightPane({
   onTicketSelect,
   onSpawnTicket,
   onRefreshBoard,
+  onNewFreeform,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -316,19 +323,26 @@ export default function RightPane({
         <ExtraTerminalStack />
       </div>
 
-      <TabBar
-        className={styles.rightPaneTabs}
-        tabs={tabs}
-        activeTab={effectiveTab}
-        onTabChange={(id: string) => {
-          setActiveRightTab(id);
-          setFocusedPane(tabIdToFocusId(id));
-        }}
-        onTabClose={(id: string) => void handleTabClose(id)}
-        onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
-        addLabel="New terminal"
-        side="right"
-      />
+      <div className={styles.tabColumn}>
+        <TabBar
+          tabs={tabs}
+          activeTab={effectiveTab}
+          onTabChange={(id: string) => {
+            setActiveRightTab(id);
+            setFocusedPane(tabIdToFocusId(id));
+          }}
+          onTabClose={(id: string) => void handleTabClose(id)}
+          onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
+          addLabel="New terminal"
+          side="right"
+        />
+        <div className={styles.tabColumnSeparator} />
+        <IconButton onClick={onNewFreeform} aria-label="New freeform session">
+          <Glyph>
+            <Plus />
+          </Glyph>
+        </IconButton>
+      </div>
     </div>
   );
 }

@@ -49,6 +49,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
+  'sessions:createFreeform': { method: 'POST', path: '/api/sessions' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
@@ -214,6 +215,13 @@ contextBridge.exposeInMainWorld('hiveryn', {
     ): Promise<SessionRunResult> => invoke('sessions:createRun', intentId, profileName, cols, rows),
     conclude: (sessionId: string, body: string): Promise<void> =>
       invoke('sessions:conclude', sessionId, body),
+    createFreeform: (
+      architectKey: string,
+      prompt: string,
+      workdir: string,
+      slug: string,
+    ): Promise<SessionIntent> =>
+      invoke('sessions:createFreeform', architectKey, prompt, workdir, slug),
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),

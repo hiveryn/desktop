@@ -17,6 +17,7 @@ import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
+import FreeformSessionDialog from './components/FreeformSessionDialog';
 import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
@@ -58,6 +59,7 @@ export default function ArchitectWindow() {
   });
 
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
+  const [freeformOpen, setFreeformOpen] = useState(false);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -157,6 +159,7 @@ export default function ArchitectWindow() {
               </div>
               <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
                 <RightPane
+                  architectKey={architectKey}
                   board={board}
                   boardLoading={boardLoading}
                   boardError={boardError}
@@ -165,6 +168,7 @@ export default function ArchitectWindow() {
                   onTicketSelect={handleTicketSelect}
                   onSpawnTicket={handleSpawnTicket}
                   onRefreshBoard={() => void refreshBoard()}
+                  onNewFreeform={() => setFreeformOpen(true)}
                 />
               </div>
             </div>
@@ -188,6 +192,14 @@ export default function ArchitectWindow() {
         <ConcludeSessionDialog
           sessionId={architectSessionId}
           onClose={() => setConcludeDialogOpen(false)}
+        />
+      )}
+
+      {freeformOpen && (
+        <FreeformSessionDialog
+          architectKey={architectKey}
+          open={freeformOpen}
+          onClose={() => setFreeformOpen(false)}
         />
       )}
     </div>

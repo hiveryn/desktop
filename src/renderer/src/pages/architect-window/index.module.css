@@ -106,6 +106,18 @@
   flex-shrink: 0;
 }
 
+.tabColumn {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.tabColumnSeparator {
+  height: 1px;
+  background: var(--theme-border);
+  margin: var(--space-2) 0;
+}
+
 .rightPaneContent {
   flex: 1;
   display: flex;

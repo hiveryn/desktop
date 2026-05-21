@@ -59,6 +59,28 @@ export function registerSessionsIpc(): void {
   );
 
   ipcMain.handle(
+    'sessions:createFreeform',
+    async (
+      _event,
+      architectKey: string,
+      prompt: string,
+      workdir: string,
+      slug: string,
+    ): Promise<DaemonResult<SessionIntent>> => {
+      return daemonFetch<SessionIntent>('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({
+          session_type: 'freeform',
+          architect_key: architectKey,
+          prompt,
+          workdir,
+          slug,
+        }),
+      });
+    },
+  );
+
+  ipcMain.handle(
     'sessions:conclude',
     async (_event, sessionId: string, body: string): Promise<DaemonResult<null>> => {
       return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/conclude`, {

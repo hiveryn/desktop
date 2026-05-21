@@ -39,7 +39,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/conclude → daemon HTTP
+      sessions.ts         sessions:list/create/createFreeform/conclude → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
@@ -69,7 +69,8 @@ src/
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
                                  useDaemonRecovery, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
-                                 ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog
+                                 ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog,
+                                 FreeformSessionDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
