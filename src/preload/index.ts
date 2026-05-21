@@ -125,6 +125,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   app: {
     getPlatform: (): Promise<string> => Promise.resolve(process.platform),
     getMode: (): Promise<AppMode> => ipcRenderer.invoke('app:getMode') as Promise<AppMode>,
+    getDaemonUrl: (): Promise<string> => ipcRenderer.invoke('app:getDaemonUrl') as Promise<string>,
   },
   profiles: {
     list: (): Promise<AgentProfile[]> => invoke('profiles:list'),

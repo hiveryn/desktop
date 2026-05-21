@@ -1,19 +1,32 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
+import type { AppMode } from '../../../../shared/types';
 import styles from './DevBadge.module.css';
 
 const DevBadge: React.FC = () => {
-  const [isDev, setIsDev] = useState(false);
+  const [mode, setMode] = useState<AppMode | null>(null);
+  const [port, setPort] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.hiveryn.app.getMode().then((mode) => {
-      setIsDev(mode === 'development');
+    void Promise.all([
+      window.hiveryn.app.getMode(),
+      window.hiveryn.app.getDaemonUrl(),
+    ]).then(([m, url]) => {
+      setMode(m);
+      try {
+        setPort(new URL(url).port || null);
+      } catch {
+        setPort(null);
+      }
     });
   }, []);
 
-  if (!isDev) return null;
+  if (mode === null) return null;
 
-  return <span className={styles.badge}>DEV</span>;
+  const isDev = mode === 'development';
+  const label = isDev ? `DEV · :${port ?? '?'}` : `:${port ?? '?'}`;
+
+  return <span className={isDev ? styles.badge : styles.badgeProd}>{label}</span>;
 };
 
 export default DevBadge;

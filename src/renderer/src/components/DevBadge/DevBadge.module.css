@@ -8,5 +8,16 @@
   padding: 1px var(--space-h-2);
   background: var(--theme-status-warning);
   color: var(--theme-status-warning-on);
-  margin: 0 var(--space-h-2);
+  margin-left: var(--space-h-2);
+}
+
+.badgeProd {
+  display: inline-block;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 1px var(--space-h-2);
+  background: var(--theme-bg-subtle);
+  color: var(--theme-fg-muted);
+  margin-left: var(--space-h-2);
 }

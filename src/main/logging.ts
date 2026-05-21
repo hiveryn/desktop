@@ -23,7 +23,11 @@ interface SinkState {
   fileName: string;
 }
 
-const LOG_DIR = join(homedir(), '.hiveryn', 'logs');
+const LOG_DIR = join(
+  homedir(),
+  '.hiveryn',
+  process.env.HIVERYN_APP_MODE === 'development' ? 'logs-dev' : 'logs',
+);
 const CONSOLE_LEVELS: Record<ConsoleMethodName, StructuredLogLevel> = {
   debug: 'debug',
   error: 'error',

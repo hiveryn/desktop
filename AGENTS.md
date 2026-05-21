@@ -96,7 +96,7 @@ All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, 
 
 ## Structured desktop logging
 
-The desktop app writes append-only structured JSONL logs under `~/.hiveryn/logs/`.
+The desktop app writes append-only structured JSONL logs. The directory is mode-specific: `~/.hiveryn/logs/` for production, `~/.hiveryn/logs-dev/` for development (driven by `HIVERYN_APP_MODE`).
 
 - **Main process** — `desktop.jsonl`: `src/main/logging.ts` patches `console.debug/info/log/warn/error`, captures source location from stack traces, and writes one JSON object per line with `src: "desktop"`.
 - **Renderer** — `renderer.jsonl`: `src/renderer/src/logging.ts` patches `console.*`, captures browser-side source location, and forwards a structured payload through `window.hiveryn.logs.writeRenderer(...)` to `logs:renderer` IPC, where the main process appends it with `src: "renderer"`.

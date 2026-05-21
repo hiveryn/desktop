@@ -286,6 +286,7 @@ interface HiverynAPI {
   app: {
     getPlatform: () => Promise<string>;
     getMode: () => Promise<AppMode>;
+    getDaemonUrl: () => Promise<string>;
   };
   profiles: {
     list: () => Promise<AgentProfile[]>;

@@ -104,7 +104,6 @@ export default function ArchitectWindow() {
   return (
     <div className={styles.window}>
       <Navigation
-        left={<DevBadge />}
         right={
           <>
             <IconButton
@@ -134,6 +133,7 @@ export default function ArchitectWindow() {
             {architect?.key.toUpperCase() ?? 'ARCHITECT'}
           </Text>
           <Caption>{architect ? shortenPath(architect.path, home) : ''}</Caption>
+          <DevBadge />
         </div>
       </Navigation>
 

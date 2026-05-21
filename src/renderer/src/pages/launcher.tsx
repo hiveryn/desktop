@@ -140,7 +140,7 @@ export default function Launcher() {
 
   return (
     <div className={styles.window}>
-      <Navigation left={<DevBadge />}>
+      <Navigation>
         <span className={styles.navTitle}>
           <span className={styles.brandMark} aria-hidden="true">
             ▣
@@ -148,6 +148,7 @@ export default function Launcher() {
           <Text as="span" className={styles.brandText}>
             HIVERYN
           </Text>
+          <DevBadge />
         </span>
       </Navigation>
 

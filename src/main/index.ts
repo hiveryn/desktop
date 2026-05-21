@@ -1,9 +1,16 @@
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
+
+const appMode = process.env.HIVERYN_APP_MODE === 'development' ? 'development' : 'production';
+if (appMode === 'development') {
+  app.setPath('userData', join(homedir(), '.hiveryn', 'desktop-dev'));
+  app.setName('Hiveryn Dev');
+}
 
 const rendererEntry = join(__dirname, '../renderer/index.html');
 let launcherWindow: BrowserWindow | null = null;
@@ -109,7 +116,9 @@ nativeTheme.on('updated', () => {
 });
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.hiveryn.desktop');
+  electronApp.setAppUserModelId(
+    appMode === 'development' ? 'com.hiveryn.desktop.dev' : 'com.hiveryn.desktop',
+  );
   daemonHealth.start();
 
   app.on('browser-window-created', (_, window) => {

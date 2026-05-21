@@ -6,8 +6,14 @@ Built with Electron, React, and Tailwind CSS. Talks to the local Hiveryn daemon 
 
 ## Logging
 
-- Main-process structured logs append to `~/.hiveryn/logs/desktop.jsonl`
-- Renderer `console.*` output is forwarded over IPC and appended to `~/.hiveryn/logs/renderer.jsonl`
+Log location is mode-specific:
+
+| Mode | Directory |
+|------|-----------|
+| Production | `~/.hiveryn/logs/` |
+| Development | `~/.hiveryn/logs-dev/` |
+
+Both modes write `desktop.jsonl` (main process) and `renderer.jsonl` (forwarded renderer `console.*` output) into their respective directory.
 
 ## Requirements
 
