@@ -6,14 +6,14 @@ Built with Electron, React, and Tailwind CSS. Talks to the local Hiveryn daemon 
 
 ## Logging
 
-Log location is mode-specific:
+Log location follows the daemon runtime model:
 
-| Mode | Directory |
-|------|-----------|
-| Production | `~/.hiveryn/logs/` |
-| Development | `~/.hiveryn/logs-dev/` |
+| Environment | Directory |
+|-------------|-----------|
+| Default | `~/.hiveryn/logs/` |
+| Custom `HIVERYN_HOME` | `$HIVERYN_HOME/logs/` |
 
-Both modes write `desktop.jsonl` (main process) and `renderer.jsonl` (forwarded renderer `console.*` output) into their respective directory.
+Desktop writes `desktop.jsonl` (main process) and `renderer.jsonl` (forwarded renderer `console.*` output) alongside daemon logs in that directory.
 
 ## Requirements
 

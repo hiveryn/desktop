@@ -43,7 +43,7 @@ function shortenPath(path: string, home: string | null): string {
 
 export default function ArchitectWindow() {
   const architectKey = useMemo(readArchitectKey, []);
-  const { architect, home, board, boardLoading, boardError, loadError, refreshBoard } =
+  const { architect, runtime, board, boardLoading, boardError, loadError, refreshBoard } =
     useArchitectData(architectKey);
   useSessionEvents();
   useDaemonRecovery(architectKey);
@@ -132,7 +132,7 @@ export default function ArchitectWindow() {
           <Text as="span" className={styles.architectTitle}>
             {architect?.key.toUpperCase() ?? 'ARCHITECT'}
           </Text>
-          <Caption>{architect ? shortenPath(architect.path, home) : ''}</Caption>
+          <Caption>{architect ? shortenPath(architect.path, runtime?.home ?? null) : ''}</Caption>
           <DevBadge />
         </div>
       </Navigation>

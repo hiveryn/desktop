@@ -236,8 +236,15 @@ interface ArchitectInfo {
   path: string;
 }
 
-interface SystemHome {
+interface SystemRuntime {
+  environment: string;
   home: string;
+  config_path: string;
+  db_path: string;
+  log_dir: string;
+  bind_address: string;
+  port: number;
+  base_url: string;
 }
 
 type DaemonHealthStatus = 'healthy' | 'unreachable' | 'unknown';
@@ -351,7 +358,7 @@ interface HiverynAPI {
     create: (architectKey: string, input: TicketCreateInput) => Promise<Ticket>;
   };
   system: {
-    getHome: () => Promise<SystemHome>;
+    getRuntime: () => Promise<SystemRuntime>;
   };
   terminals: {
     list: (sessionId: string) => Promise<TerminalInfo[]>;

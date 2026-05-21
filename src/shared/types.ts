@@ -248,8 +248,15 @@ export interface WorkspaceChangedEvent {
   at: string;
 }
 
-export interface SystemHome {
+export interface SystemRuntime {
+  environment: string;
   home: string;
+  config_path: string;
+  db_path: string;
+  log_dir: string;
+  bind_address: string;
+  port: number;
+  base_url: string;
 }
 
 export type DaemonHealthStatus = 'healthy' | 'unreachable' | 'unknown';

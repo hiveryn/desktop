@@ -1,14 +1,13 @@
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
+import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
 
-const appMode = process.env.HIVERYN_APP_MODE === 'development' ? 'development' : 'production';
-if (appMode === 'development') {
-  app.setPath('userData', join(homedir(), '.hiveryn', 'desktop-dev'));
+app.setPath('userData', join(DESKTOP_RUNTIME_HOME, 'desktop'));
+if (IS_DESKTOP_DEVELOPMENT) {
   app.setName('Hiveryn Dev');
 }
 
@@ -117,7 +116,7 @@ nativeTheme.on('updated', () => {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId(
-    appMode === 'development' ? 'com.hiveryn.desktop.dev' : 'com.hiveryn.desktop',
+    IS_DESKTOP_DEVELOPMENT ? 'com.hiveryn.desktop.dev' : 'com.hiveryn.desktop',
   );
   daemonHealth.start();
 

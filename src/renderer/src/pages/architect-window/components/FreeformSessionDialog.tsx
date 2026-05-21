@@ -1,6 +1,7 @@
 import type { AgentProfile } from '@components';
 import { ApiEnvelopeError, Dialog, Input, ProfileSelector } from '@components';
 import { useEffect, useState } from 'react';
+import type { SystemRuntime } from '../../../../../shared/types';
 import { useSessionStore } from '../../../state/sessionStore';
 import { loadSessionRecord } from '../hooks/sessionSnapshot';
 
@@ -37,7 +38,7 @@ function expandHome(location: string, home: string): string {
 
 export default function FreeformSessionDialog({ architectKey, open, onClose }: Props) {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
-  const [home, setHome] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
   const [location, setLocation] = useState('');
   const [prompt, setPrompt] = useState('');
   const [slug, setSlug] = useState('');
@@ -50,16 +51,19 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void Promise.all([window.hiveryn.profiles.list(), window.hiveryn.system.getHome()]).then(
-      ([profileList, homeResult]) => {
+    void Promise.all([window.hiveryn.profiles.list(), window.hiveryn.system.getRuntime()])
+      .then(([profileList, runtimeResult]) => {
         if (cancelled) return;
         setProfiles(profileList);
-        setHome(homeResult.home);
+        setRuntime(runtimeResult);
         setSelectedProfile((prev) =>
           prev === null && profileList.length > 0 ? profileList[0].name : prev,
         );
-      },
-    );
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err);
+      });
     return () => {
       cancelled = true;
     };
@@ -85,7 +89,10 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
     setError(null);
 
     try {
-      const expandedWorkdir = home ? expandHome(location.trim(), home) : location.trim();
+      if (!runtime) {
+        throw new Error('Cannot create freeform session before daemon runtime is loaded');
+      }
+      const expandedWorkdir = expandHome(location.trim(), runtime.home);
       const intent = await window.hiveryn.sessions.createFreeform(
         architectKey,
         prompt.trim(),
@@ -132,7 +139,8 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
     location.trim() !== '' &&
     prompt.trim() !== '' &&
     slug.trim() !== '' &&
-    selectedProfile !== null;
+    selectedProfile !== null &&
+    runtime !== null;
 
   return (
     <>

@@ -21,7 +21,7 @@ function shortenPath(path: string, home: string | null): string {
 
 export default function Launcher() {
   const [architects, setArchitects] = useState<Architect[]>([]);
-  const [home, setHome] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown | null>(null);
 
@@ -46,10 +46,10 @@ export default function Launcher() {
       setIsLoading(true);
       setError(null);
       setProfilesError(null);
-      const [architectsResult, homeResult, sessionsResult, profilesResult] =
+      const [architectsResult, runtimeResult, sessionsResult, profilesResult] =
         await Promise.allSettled([
           window.hiveryn.architects.list(),
-          window.hiveryn.system.getHome(),
+          window.hiveryn.system.getRuntime(),
           window.hiveryn.sessions.list(),
           window.hiveryn.profiles.list(),
         ]);
@@ -62,8 +62,10 @@ export default function Launcher() {
         setError(architectsResult.reason);
       }
 
-      if (homeResult.status === 'fulfilled') {
-        setHome(homeResult.value.home);
+      if (runtimeResult.status === 'fulfilled') {
+        setRuntime(runtimeResult.value);
+      } else {
+        setError(runtimeResult.reason);
       }
 
       if (sessionsResult.status === 'fulfilled') {
@@ -168,7 +170,10 @@ export default function Launcher() {
             {sortedArchitects.map((architect) => (
               <ArchitectCard
                 key={architect.key}
-                architect={{ ...architect, path: shortenPath(architect.path, home) }}
+                architect={{
+                  ...architect,
+                  path: shortenPath(architect.path, runtime?.home ?? null),
+                }}
                 onOpen={handleOpenArchitect}
                 isLoading={isSpawning && pendingArchitectKey === architect.key}
                 status={runningSessions.has(architect.key) ? 'running' : undefined}

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Architect, TicketBoard } from '../../../../../shared/types';
+import type { Architect, SystemRuntime, TicketBoard } from '../../../../../shared/types';
 
 const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
 export interface ArchitectData {
   architect: Architect | null;
-  home: string | null;
+  runtime: SystemRuntime | null;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
@@ -16,7 +16,7 @@ export interface ArchitectData {
 
 export function useArchitectData(architectKey: string): ArchitectData {
   const [architect, setArchitect] = useState<Architect | null>(null);
-  const [home, setHome] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
   const [board, setBoard] = useState<TicketBoard>(EMPTY_TICKET_BOARD);
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError, setBoardError] = useState<unknown | null>(null);
@@ -53,9 +53,9 @@ export function useArchitectData(architectKey: string): ArchitectData {
       setBoardError(null);
       setBoardLoading(true);
 
-      const [architectResult, homeResult, boardResult] = await Promise.allSettled([
+      const [architectResult, runtimeResult, boardResult] = await Promise.allSettled([
         window.hiveryn.architects.get(architectKey),
-        window.hiveryn.system.getHome(),
+        window.hiveryn.system.getRuntime(),
         window.hiveryn.tickets.list(architectKey),
       ]);
 
@@ -67,8 +67,10 @@ export function useArchitectData(architectKey: string): ArchitectData {
         setLoadError(architectResult.reason);
       }
 
-      if (homeResult.status === 'fulfilled') {
-        setHome(homeResult.value.home);
+      if (runtimeResult.status === 'fulfilled') {
+        setRuntime(runtimeResult.value);
+      } else {
+        setLoadError(runtimeResult.reason);
       }
 
       if (boardResult.status === 'fulfilled') {
@@ -98,7 +100,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
 
   return {
     architect,
-    home,
+    runtime,
     board,
     boardLoading,
     boardError,

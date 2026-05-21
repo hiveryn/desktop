@@ -1,5 +1,4 @@
 import { closeSync, mkdirSync, openSync, writeSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type {
   RendererLogPayload,
@@ -7,6 +6,7 @@ import type {
   StructuredLogError,
   StructuredLogLevel,
 } from '../shared/types';
+import { DESKTOP_RUNTIME_HOME } from './runtime';
 
 type ConsoleMethodName = 'debug' | 'error' | 'info' | 'log' | 'warn';
 type ConsoleMethod = (...args: unknown[]) => void;
@@ -23,11 +23,7 @@ interface SinkState {
   fileName: string;
 }
 
-const LOG_DIR = join(
-  homedir(),
-  '.hiveryn',
-  process.env.HIVERYN_APP_MODE === 'development' ? 'logs-dev' : 'logs',
-);
+const LOG_DIR = join(DESKTOP_RUNTIME_HOME, 'logs');
 const CONSOLE_LEVELS: Record<ConsoleMethodName, StructuredLogLevel> = {
   debug: 'debug',
   error: 'error',

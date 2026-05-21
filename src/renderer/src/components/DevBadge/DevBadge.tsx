@@ -1,32 +1,58 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import type { AppMode } from '../../../../shared/types';
+import type { SystemRuntime } from '../../../../shared/types';
 import styles from './DevBadge.module.css';
 
 const DevBadge: React.FC = () => {
-  const [mode, setMode] = useState<AppMode | null>(null);
-  const [port, setPort] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
+  const [daemonUrl, setDaemonUrl] = useState<string | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
 
   useEffect(() => {
-    void Promise.all([
-      window.hiveryn.app.getMode(),
-      window.hiveryn.app.getDaemonUrl(),
-    ]).then(([m, url]) => {
-      setMode(m);
-      try {
-        setPort(new URL(url).port || null);
-      } catch {
-        setPort(null);
-      }
-    });
+    void Promise.all([window.hiveryn.system.getRuntime(), window.hiveryn.app.getDaemonUrl()])
+      .then(([nextRuntime, nextDaemonUrl]) => {
+        setRuntime(nextRuntime);
+        setDaemonUrl(nextDaemonUrl);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        setRuntime(null);
+        setError(err);
+      });
   }, []);
 
-  if (mode === null) return null;
+  if (error) {
+    return (
+      <span
+        className={styles.badgeError}
+        title={error instanceof Error ? error.message : String(error)}
+      >
+        RUNTIME ERROR
+      </span>
+    );
+  }
 
-  const isDev = mode === 'development';
-  const label = isDev ? `DEV · :${port ?? '?'}` : `:${port ?? '?'}`;
+  if (runtime === null) return null;
 
-  return <span className={isDev ? styles.badge : styles.badgeProd}>{label}</span>;
+  const isDev = runtime.environment !== 'production';
+  const label = `${runtime.environment} · ${daemonUrl ?? (runtime.base_url || `:${runtime.port}`)}`;
+  const title = [
+    `environment: ${runtime.environment}`,
+    `connected_url: ${daemonUrl ?? ''}`,
+    `base_url: ${runtime.base_url}`,
+    `bind_address: ${runtime.bind_address}`,
+    `port: ${runtime.port}`,
+    `home: ${runtime.home}`,
+    `config_path: ${runtime.config_path}`,
+    `db_path: ${runtime.db_path}`,
+    `log_dir: ${runtime.log_dir}`,
+  ].join('\n');
+
+  return (
+    <span className={isDev ? styles.badge : styles.badgeProd} title={title}>
+      {label}
+    </span>
+  );
 };
 
 export default DevBadge;
