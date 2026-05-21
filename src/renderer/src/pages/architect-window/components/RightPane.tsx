@@ -258,15 +258,12 @@ export default function RightPane({
     });
   }, [isKanbanFocused, isEventLogFocused]);
 
-  // ── Tab close ────────────────────────────────────────────────────────────
-  async function handleTabClose(id: string): Promise<void> {
-    if (!activeSession) return;
-    const terminalTab = activeSession.tabs.find((tab) => tab.type === 'terminal' && tab.id === id);
-    if (!terminalTab?.id) return;
-    await window.hiveryn.terminals.kill(activeSession.id, terminalTab.id);
-    await window.hiveryn.session.disconnect(activeSession.id, terminalTab.id);
-    const nextTabs = await window.hiveryn.tabs.list(activeSession.id);
-    useSessionStore.getState().setSessionTabs(activeSession.id, nextTabs);
+  // ── Terminal close (called from floating overlay on the pane) ────────────
+  async function handleCloseTerminal(sessionId: string, terminalId: string): Promise<void> {
+    await window.hiveryn.terminals.kill(sessionId, terminalId);
+    await window.hiveryn.session.disconnect(sessionId, terminalId);
+    const nextTabs = await window.hiveryn.tabs.list(sessionId);
+    useSessionStore.getState().setSessionTabs(sessionId, nextTabs);
   }
 
   // Click anywhere in the right pane sets focus to the current effective tab
@@ -320,7 +317,11 @@ export default function RightPane({
           />
         </div>
 
-        <ExtraTerminalStack />
+        <ExtraTerminalStack
+          onCloseTerminal={(sessionId, terminalId) =>
+            void handleCloseTerminal(sessionId, terminalId)
+          }
+        />
       </div>
 
       <div className={styles.tabColumn}>
@@ -331,7 +332,6 @@ export default function RightPane({
             setActiveRightTab(id);
             setFocusedPane(tabIdToFocusId(id));
           }}
-          onTabClose={(id: string) => void handleTabClose(id)}
           onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
           addLabel="New terminal"
           side="right"
@@ -364,7 +364,7 @@ function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
     case 'event-log':
       return { id: 'event-log', icon: Activity };
     case 'terminal':
-      return tab.id ? { id: tab.id, icon: Terminal, closable: tab.status !== 'exited' } : null;
+      return tab.id ? { id: tab.id, icon: Terminal } : null;
     default:
       return null;
   }

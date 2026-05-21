@@ -17,7 +17,53 @@
 }
 
 .extraSlot {
+  position: relative;
   flex: 1;
   min-height: 0;
   flex-direction: column;
+}
+
+/* Floating close button — anchored to the top-right of the terminal pane.
+   Sits at 30% opacity until the pane is hovered or the button itself is
+   focused, then fades to full opacity. pointer-events stay active so the
+   user can click it without first hovering elsewhere. */
+.floatingClose {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.3;
+  transition:
+    opacity 150ms ease,
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.extraSlot:hover .floatingClose,
+.floatingClose:hover,
+.floatingClose:focus-visible {
+  opacity: 1;
+}
+
+.floatingClose:hover,
+.floatingClose:focus-visible {
+  color: var(--theme-status-error);
+  background: var(--theme-surface-raised);
+}
+
+.floatingClose:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
 }

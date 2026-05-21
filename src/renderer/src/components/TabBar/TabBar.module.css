@@ -17,16 +17,6 @@
   border-top: 1px solid var(--theme-border);
 }
 
-.tabItem {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-}
-
-.bottom .tabItem {
-  width: auto;
-}
-
 .tab {
   display: flex;
   align-items: center;
@@ -37,10 +27,11 @@
   border-right: 2px solid transparent;
   color: var(--theme-text-muted);
   cursor: pointer;
-  padding: 0.4em 0.75ch;
+  padding: 0.65em;
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-icon);
-  flex: 1;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  flex: 0 0 auto;
   min-width: 0;
 
   &:hover:not(:disabled) {
@@ -66,29 +57,6 @@
   line-height: 1;
 }
 
-.closeBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.4ch;
-  background: transparent;
-  border: none;
-  color: var(--theme-text-muted);
-  cursor: pointer;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-
-  &:hover {
-    color: var(--theme-status-error);
-    background: var(--theme-surface-raised);
-  }
-
-  &:focus-visible {
-    outline: 1px solid var(--theme-focused-foreground);
-    outline-offset: -1px;
-  }
-}
-
 .addBtn {
   display: flex;
   align-items: center;
@@ -98,9 +66,10 @@
   color: var(--theme-text-muted);
   cursor: pointer;
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-icon);
-  padding: 0.4em 0.75ch;
-  width: 100%;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  padding: 0.65em;
+  flex: 0 0 auto;
 
   &:hover {
     color: var(--theme-text);
@@ -113,20 +82,27 @@
   }
 }
 
-.bottom .addBtn {
-  width: auto;
-  padding: var(--space-1) var(--space-h-3);
-  font-size: var(--font-size-lg);
-}
-
-.right .tab {
+/* Right-side vertical sidebar — uniform square cells stacked at the top.
+   Width is whatever the icon + padding produces; aspect-ratio keeps cells square. */
+.right .tab,
+.right .addBtn {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
   border-right: none;
   border-left: 2px solid transparent;
 }
 
+/* Bottom horizontal bar — keeps room for labels. */
 .bottom .tab {
   border-right: none;
   border-top: 2px solid transparent;
+  padding: var(--space-1) var(--space-h-3);
+  font-size: var(--font-size-lg);
+}
+
+.bottom .addBtn {
+  width: auto;
   padding: var(--space-1) var(--space-h-3);
   font-size: var(--font-size-lg);
 }

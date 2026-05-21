@@ -10,7 +10,6 @@ export default function BottomTabs() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
-  const unregisterSession = useSessionStore((s) => s.unregisterSession);
 
   const tabs = useMemo<TabBarTab[]>(() => {
     const arr = Object.values(sessions);
@@ -22,7 +21,7 @@ export default function BottomTabs() {
       result.push({ id: architect.id, icon: Terminal, label: ARCHITECT_TAB_LABEL });
     }
     for (const worker of workers) {
-      result.push({ id: worker.id, icon: Terminal, label: worker.label, closable: false });
+      result.push({ id: worker.id, icon: Terminal, label: worker.label });
     }
     return result;
   }, [sessions]);
@@ -38,11 +37,6 @@ export default function BottomTabs() {
         const session = useSessionStore.getState().sessions[id];
         if (!session) return;
         setActiveSession(id);
-      }}
-      onTabClose={(id: string) => {
-        void window.hiveryn.session.disconnect(id).then(() => {
-          unregisterSession(id);
-        });
       }}
     />
   );
