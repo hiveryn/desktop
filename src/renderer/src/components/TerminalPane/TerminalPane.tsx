@@ -106,6 +106,15 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   const termRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
   const disposedRef = React.useRef(false);
+  // Tracks whether WebGL was lost while hidden and is waiting for a visible
+  // transition to recreate. See recreateWebglRef below.
+  const webglDeferredRef = React.useRef(false);
+  // Called by the visibility useLayoutEffect to recreate the WebGL addon.
+  // Hoisted out of the mount effect so the visibility effect can invoke it
+  // without re-running mount.
+  const recreateWebglRef = React.useRef<(() => void) | null>(null);
+  const focusedRef = React.useRef(focused);
+  focusedRef.current = focused;
 
   // Keep refs so handlers always call the latest prop without re-running the effect
   const onDataRef = React.useRef(onData);
@@ -117,18 +126,50 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   const visibleRef = React.useRef(visible);
   visibleRef.current = visible;
 
-  // Re-fit and refresh synchronously when the pane transitions to visible.
-  // Without this, switching from a hidden tab leaves xterm's last-known size
-  // until the next ResizeObserver tick (~100ms later) — a visible black flash.
+  // Re-fit, refocus and refresh when the pane transitions to visible. Without
+  // this, switching from a hidden tab leaves xterm's last-known size until the
+  // next ResizeObserver tick (~100ms later) — a visible black flash.
+  //
+  // Three additional jobs handled here, all related to the long-standing
+  // "garbled terminal after switching back" bug:
+  //
+  //   1. clearTextureAtlas() — the WebGL renderer's glyph atlas can be left in
+  //      an inconsistent state if any measurement happened against a 0×0
+  //      hidden container (cellWidth=0 → Infinity downstream). Wiping the
+  //      atlas forces glyphs to be re-rasterized against the now-correct cell
+  //      dimensions.
+  //
+  //   2. WebGL recreation. Recreating the addon on every visible transition
+  //      is the most reliable way to eliminate accumulated renderer state
+  //      corruption. clearTextureAtlas() only clears glyph caches; the
+  //      underlying GL programs and framebuffers are not reset. Full
+  //      dispose+recreate matches what Cmd+R does for the renderer while
+  //      keeping the xterm buffer (scrollback) intact.
+  //
+  //      Also handles the deferred case: if onContextLoss fired while
+  //      hidden, WebGL creation was blocked (0×0 container → cellWidth=0 →
+  //      Infinity in glyph math). The deferred flag lets us reach this
+  //      point before attempting creation.
+  //
+  //   3. Re-focus. When display:none lands on an ancestor, the browser moves
+  //      focus to document.body. The `focused` prop hasn't changed, so the
+  //      focus useEffect doesn't re-fire on switch-back; the textarea stays
+  //      unfocused and keystrokes are dropped until the user clicks. Force
+  //      a focus call here whenever we transition to visible.
   React.useLayoutEffect(() => {
     if (!visible) return;
     const fit = fitAddonRef.current;
     const term = termRef.current;
     if (!fit || !term || disposedRef.current) return;
     fit.fit();
+    webglDeferredRef.current = false;
+    recreateWebglRef.current?.();
     term.refresh(0, term.rows - 1);
+    if (!readonly && focusedRef.current) {
+      term.focus();
+    }
     onResizeRef.current?.(term.cols, term.rows);
-  }, [visible]);
+  }, [visible, readonly]);
 
   // Drive xterm's DOM focus from the `focused` prop. When another pane has
   // logical keyboard focus, blur xterm so keystrokes don't reach the PTY.
@@ -178,14 +219,37 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     // WebGL renderer eliminates per-row canvas gaps that the default canvas
     // renderer produces at non-integer devicePixelRatios.
     let webglAddon: WebglAddon | null = null;
-    const tryAttachWebgl = (): void => {
+
+    const disposeWebgl = (): void => {
+      if (webglAddon) {
+        try { webglAddon.dispose(); } catch { /* disposal race */ }
+        webglAddon = null;
+      }
+    };
+
+    const attachWebgl = (): void => {
+      // Never create a fresh WebGL renderer while the container is hidden.
+      // The new WebglRenderer reads cell dimensions from the DOM at construct
+      // time; a 0×0 container produces cellWidth=0 / Infinity downstream and
+      // permanently corrupts glyph positioning. The visibility useLayoutEffect
+      // replays this when we become visible again.
+      if (!visibleRef.current) {
+        webglDeferredRef.current = true;
+        return;
+      }
       try {
         const addon = new WebglAddon();
         addon.onContextLoss(() => {
-          try { addon.dispose(); } catch { /* disposal race */ }
-          webglAddon = null;
-          tryAttachWebgl();
-          if (!webglAddon) term.refresh(0, term.rows - 1);
+          // On context loss, fall back to the DOM renderer and stop. Do NOT
+          // attempt to recreate WebGL here — if the terminal is hidden,
+          // recreation would land on a 0×0 container. The visible
+          // useLayoutEffect recreates WebGL cleanly on the next tab switch.
+          // (Pattern from waveterm: context loss → DOM fallback, recreate
+          // on next natural opportunity.)
+          disposeWebgl();
+          if (!webglDeferredRef.current) {
+            term.refresh(0, term.rows - 1);
+          }
         });
         term.loadAddon(addon);
         webglAddon = addon;
@@ -193,7 +257,17 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
         // WebGL unavailable — canvas renderer is the fallback
       }
     };
-    tryAttachWebgl();
+
+    // Exposed so the visibility useLayoutEffect can fully recreate the WebGL
+    // addon on each visible transition. This matches what Cmd+R does for the
+    // renderer (fresh GL context, fresh texture atlas) while preserving the
+    // xterm.js buffer state and scrollback.
+    recreateWebglRef.current = (): void => {
+      disposeWebgl();
+      attachWebgl();
+    };
+
+    attachWebgl();
 
     term.open(containerRef.current);
 
@@ -251,12 +325,19 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     };
     textarea?.addEventListener('focus', focusListener);
 
-    fitAddon.fit();
-    // Fire initial resize immediately so callers can size the PTY before connecting
-    onResizeRef.current?.(term.cols, term.rows);
-    // Focus so keystrokes are captured without requiring a manual click
-    if (!readonly && focused) {
-      term.focus();
+    // Only fit/focus on initial mount if visible. If we're mounted into a
+    // hidden tab (e.g., inactive session on app startup), fit() against a 0×0
+    // container would resize xterm to zero cells and poison the WebGL cell
+    // dimensions. The visibility useLayoutEffect runs fit+focus when the tab
+    // first becomes visible.
+    if (visibleRef.current) {
+      fitAddon.fit();
+      // Fire initial resize immediately so callers can size the PTY before connecting
+      onResizeRef.current?.(term.cols, term.rows);
+      // Focus so keystrokes are captured without requiring a manual click
+      if (!readonly && focused) {
+        term.focus();
+      }
     }
 
     termRef.current = term;
@@ -311,6 +392,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       if (xtermEl?.parentNode) xtermEl.parentNode.removeChild(xtermEl);
       termRef.current = null;
       fitAddonRef.current = null;
+      recreateWebglRef.current = null;
+      webglDeferredRef.current = false;
       // Viewport constructor schedules `setTimeout(() => syncScrollArea())` that
       // xterm never cancels in dispose(). In React StrictMode, cleanup runs
       // synchronously before that callback fires. Deferring disposal lets the
