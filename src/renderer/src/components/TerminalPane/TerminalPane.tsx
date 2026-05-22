@@ -114,6 +114,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   onResizeRef.current = onResize;
   const onTextAreaFocusRef = React.useRef(onTextAreaFocus);
   onTextAreaFocusRef.current = onTextAreaFocus;
+  const visibleRef = React.useRef(visible);
+  visibleRef.current = visible;
 
   // Re-fit and refresh synchronously when the pane transitions to visible.
   // Without this, switching from a hidden tab leaves xterm's last-known size
@@ -176,17 +178,22 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     // WebGL renderer eliminates per-row canvas gaps that the default canvas
     // renderer produces at non-integer devicePixelRatios.
     let webglAddon: WebglAddon | null = null;
-    try {
-      webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        try { webglAddon?.dispose(); } catch { /* context-loss disposal race, safe to ignore */ }
-        webglAddon = null;
-        term.refresh(0, term.rows - 1);
-      });
-      term.loadAddon(webglAddon);
-    } catch {
-      // WebGL unavailable — fall back to built-in canvas renderer silently
-    }
+    const tryAttachWebgl = (): void => {
+      try {
+        const addon = new WebglAddon();
+        addon.onContextLoss(() => {
+          try { addon.dispose(); } catch { /* disposal race */ }
+          webglAddon = null;
+          tryAttachWebgl();
+          if (!webglAddon) term.refresh(0, term.rows - 1);
+        });
+        term.loadAddon(addon);
+        webglAddon = addon;
+      } catch {
+        // WebGL unavailable — canvas renderer is the fallback
+      }
+    };
+    tryAttachWebgl();
 
     term.open(containerRef.current);
 
@@ -270,6 +277,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       resizeTimer = setTimeout(() => {
         resizeTimer = null;
         if (disposedRef.current) return;
+        if (!visibleRef.current) return;
         fitAddon.fit();
         onResizeRef.current?.(term.cols, term.rows);
       }, 100);
