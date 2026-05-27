@@ -337,6 +337,8 @@ interface HiverynAPI {
       rows?: number,
     ) => Promise<SessionRunResult>;
     conclude: (sessionId: string, body: string) => Promise<void>;
+    approveConclusion: (sessionId: string) => Promise<void>;
+    rejectConclusion: (sessionId: string, reason?: string) => Promise<void>;
     createFreeform: (
       architectKey: string,
       prompt: string,

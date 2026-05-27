@@ -15,8 +15,8 @@
   font-size: var(--font-size);
   color: var(--theme-text);
   line-height: var(--line-height-base);
-  min-width: 40ch;
-  max-width: 80ch;
+  min-width: 48ch;
+  max-width: 96ch;
   box-shadow: 0 8px 32px var(--color-black-alpha-40);
 }
 

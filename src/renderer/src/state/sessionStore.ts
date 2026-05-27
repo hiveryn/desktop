@@ -24,6 +24,7 @@ interface SessionState {
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
   focusedPane: string;
+  pendingApproval: { sessionId: string; body: string } | null;
 }
 
 interface SessionActions {
@@ -37,6 +38,7 @@ interface SessionActions {
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
+  setPendingApproval(approval: { sessionId: string; body: string } | null): void;
   reset(): void;
 }
 
@@ -49,6 +51,7 @@ const initialState: SessionState = {
   activeRightTab: 'kanban',
   sessionRightTabs: {},
   focusedPane: 'main-terminal',
+  pendingApproval: null,
 };
 
 function tabId(tab: SessionTab): string {
@@ -252,6 +255,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const { [sessionId]: _removed, ...events } = state.events;
       return { events };
     });
+  },
+
+  setPendingApproval(approval) {
+    set({ pendingApproval: approval });
   },
 
   reset() {

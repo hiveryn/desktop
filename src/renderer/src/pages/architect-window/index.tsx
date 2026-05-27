@@ -16,6 +16,7 @@ import type { Ticket, TicketSummary } from '../../../../shared/types';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
+import ApprovalDialog from './components/ApprovalDialog';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import FreeformSessionDialog from './components/FreeformSessionDialog';
@@ -58,6 +59,8 @@ export default function ArchitectWindow() {
     const found = Object.values(s.sessions).find((r) => r.type === 'architect');
     return found?.id ?? null;
   });
+
+  const pendingApproval = useSessionStore((s) => s.pendingApproval);
 
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [freeformOpen, setFreeformOpen] = useState(false);
@@ -202,6 +205,14 @@ export default function ArchitectWindow() {
           architectKey={architectKey}
           open={freeformOpen}
           onClose={() => setFreeformOpen(false)}
+        />
+      )}
+
+      {pendingApproval && (
+        <ApprovalDialog
+          sessionId={pendingApproval.sessionId}
+          body={pendingApproval.body}
+          onClose={() => useSessionStore.getState().setPendingApproval(null)}
         />
       )}
     </div>

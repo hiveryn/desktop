@@ -39,7 +39,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/createFreeform/conclude → daemon HTTP
+      sessions.ts         sessions:list/create/createFreeform/conclude/approve-conclusion/reject-conclusion → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
@@ -53,7 +53,7 @@ src/
     main.tsx              React entry, theme init, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection, pendingApproval
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
@@ -70,7 +70,7 @@ src/
                                  useDaemonRecovery, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog,
-                                 FreeformSessionDialog
+                                 FreeformSessionDialog, ApprovalDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
@@ -222,6 +222,17 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 2. `store.unregisterSession(sessionId)` — removes the session from the Zustand store
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
 4. **Ticket/freeform session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
+
+## Conclusion approval flow
+
+When an agent requests a conclusion via MCP, the daemon blocks and publishes a `{ type: "status", status: "approval_required", raw: { body: "..." } }` SSE event on the session stream. The desktop handles this as follows:
+
+1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw.body` (throws if missing), and calls `store.setPendingApproval({ sessionId, body })`.
+2. **`ArchitectWindow`** subscribes to `pendingApproval` from the session store and renders `<ApprovalDialog>` when non-null.
+3. **`ApprovalDialog`** shows the conclusion body as rendered markdown. "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`.
+4. On either action completing, `setPendingApproval(null)` closes the dialog.
+
+The dialog is scoped to the window that owns the session — each architect window runs its own `useSessionEvents` and its own store slice, so only the correct window shows the dialog.
 
 ## Keyboard shortcuts and focus model
 

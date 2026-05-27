@@ -73,6 +73,15 @@ export function useSessionEvents(): void {
         return;
       }
 
+      if (event.type === 'status' && event.status === 'approval_required') {
+        const body = event.raw?.body;
+        if (typeof body !== 'string' || !body) {
+          throw new Error(`approval_required event missing raw.body: ${JSON.stringify(event)}`);
+        }
+        store.setPendingApproval({ sessionId: event.session_intent_id, body });
+        return;
+      }
+
       if (event.type !== 'status' || event.status !== 'ended' || !isConcludedSessionEnd(event)) {
         return;
       }

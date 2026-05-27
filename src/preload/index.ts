@@ -37,6 +37,11 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'sessions:list': { method: 'GET', path: '/api/sessions' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'sessions:conclude': { method: 'POST', path: '/api/sessions/:id/conclude' },
+  'sessions:approve-conclusion': {
+    method: 'POST',
+    path: '/api/sessions/:id/approve-conclusion',
+  },
+  'sessions:reject-conclusion': { method: 'POST', path: '/api/sessions/:id/reject-conclusion' },
   'system:getRuntime': { method: 'GET', path: '/api/system/runtime' },
   'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
   'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
@@ -218,6 +223,10 @@ contextBridge.exposeInMainWorld('hiveryn', {
     ): Promise<SessionRunResult> => invoke('sessions:createRun', intentId, profileName, cols, rows),
     conclude: (sessionId: string, body: string): Promise<void> =>
       invoke('sessions:conclude', sessionId, body),
+    approveConclusion: (sessionId: string): Promise<void> =>
+      invoke('sessions:approve-conclusion', sessionId),
+    rejectConclusion: (sessionId: string, reason?: string): Promise<void> =>
+      invoke('sessions:reject-conclusion', sessionId, reason),
     createFreeform: (
       architectKey: string,
       prompt: string,

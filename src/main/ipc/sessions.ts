@@ -89,4 +89,24 @@ export function registerSessionsIpc(): void {
       });
     },
   );
+
+  ipcMain.handle(
+    'sessions:approve-conclusion',
+    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/approve-conclusion`,
+        { method: 'POST' },
+      );
+    },
+  );
+
+  ipcMain.handle(
+    'sessions:reject-conclusion',
+    async (_event, sessionId: string, reason?: string): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/reject-conclusion`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+  );
 }
