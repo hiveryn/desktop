@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import type { SessionEvent, SessionTab } from '../../../shared/types';
+import type { SessionEvent, SessionTab, TicketCommit } from '../../../shared/types';
+
+export interface PendingApproval {
+  sessionId: string;
+  body: string;
+  timeoutSeconds: number;
+  commits: TicketCommit[];
+  rejected: boolean;
+  rejectionReason: string;
+}
 
 export interface SessionRecord {
   id: string;
@@ -24,7 +33,7 @@ interface SessionState {
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
   focusedPane: string;
-  pendingApproval: { sessionId: string; body: string } | null;
+  pendingApproval: PendingApproval | null;
 }
 
 interface SessionActions {
@@ -38,7 +47,7 @@ interface SessionActions {
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
-  setPendingApproval(approval: { sessionId: string; body: string } | null): void;
+  setPendingApproval(approval: PendingApproval | null): void;
   reset(): void;
 }
 

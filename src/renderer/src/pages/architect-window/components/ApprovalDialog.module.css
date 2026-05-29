@@ -1,3 +1,69 @@
+.countdown {
+  color: var(--theme-text-muted);
+  font-weight: normal;
+}
+
+.rejectedBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-h-2);
+  border-left: 2px solid var(--theme-status-error);
+  background: var(--theme-surface-raised);
+}
+
+.rejectedLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-status-error);
+}
+
+.rejectedReason {
+  font-size: var(--font-size-sm);
+  color: var(--theme-text);
+}
+
+.commits {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--theme-border);
+  padding-top: var(--space-3);
+}
+
+.commitsLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.commitList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.commit {
+  display: flex;
+  gap: 1ch;
+  align-items: baseline;
+  font-size: var(--font-size-sm);
+  padding: 0.1em 0;
+}
+
+.commitRepo {
+  color: var(--theme-text);
+}
+
+.commitSha {
+  font-family: var(--font-family-mono);
+  color: var(--theme-text-muted);
+}
+
 .textarea {
   display: block;
   width: 100%;

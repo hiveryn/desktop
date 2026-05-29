@@ -225,11 +225,11 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 
 ## Conclusion approval flow
 
-When an agent requests a conclusion via MCP, the daemon blocks and publishes a `{ type: "status", status: "approval_required", raw: { body: "..." } }` SSE event on the session stream. The desktop handles this as follows:
+When an agent requests a conclusion via MCP, the daemon blocks and publishes a `{ type: "status", status: "approval_required", raw: { body, timeout_seconds, commits?, rejected?, rejection_reason? } }` SSE event on the session stream. The desktop handles this as follows:
 
-1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw.body` (throws if missing), and calls `store.setPendingApproval({ sessionId, body })`.
-2. **`ArchitectWindow`** subscribes to `pendingApproval` from the session store and renders `<ApprovalDialog>` when non-null.
-3. **`ApprovalDialog`** shows the conclusion body as rendered markdown. "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`.
+1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw` into a `PendingApproval` (throws on missing/invalid `body` or `timeout_seconds`; `commits`/`rejected`/`rejection_reason` are optional and default to `[]`/`false`/`''`, but throw if present and malformed), and calls `store.setPendingApproval(...)`.
+2. **`ArchitectWindow`** subscribes to `pendingApproval` from the session store and renders `<ApprovalDialog approval={...}>` when non-null.
+3. **`ApprovalDialog`** shows the conclusion body as rendered markdown, plus a "Resubmitted after rejection" banner when `rejected` and a commit list when `commits` is non-empty. A countdown driven by `timeout_seconds` shows in the title bar; on reaching zero the dialog auto-closes (the daemon has already auto-approved). "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`. A late Approve/Reject after the daemon resolved returns HTTP 404, which the dialog treats as already-resolved and closes silently.
 4. On either action completing, `setPendingApproval(null)` closes the dialog.
 
 The dialog is scoped to the window that owns the session — each architect window runs its own `useSessionEvents` and its own store slice, so only the correct window shows the dialog.

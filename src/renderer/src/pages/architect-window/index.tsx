@@ -210,8 +210,7 @@ export default function ArchitectWindow() {
 
       {pendingApproval && (
         <ApprovalDialog
-          sessionId={pendingApproval.sessionId}
-          body={pendingApproval.body}
+          approval={pendingApproval}
           onClose={() => useSessionStore.getState().setPendingApproval(null)}
         />
       )}

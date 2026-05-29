@@ -1,5 +1,22 @@
 import { useEffect, useRef } from 'react';
+import type { TicketCommit } from '../../../../../shared/types';
 import { useSessionStore } from '../../../state/sessionStore';
+
+function parseApprovalCommits(event: { raw?: Record<string, unknown> }): TicketCommit[] {
+  const commits = event.raw?.commits;
+  if (commits === undefined) return [];
+  if (!Array.isArray(commits)) {
+    throw new Error(`approval_required event has non-array raw.commits: ${JSON.stringify(event)}`);
+  }
+  return commits.map((commit) => {
+    const sha = (commit as { sha?: unknown }).sha;
+    const repo = (commit as { repo?: unknown }).repo;
+    if (typeof sha !== 'string' || typeof repo !== 'string') {
+      throw new Error(`approval_required commit missing sha/repo: ${JSON.stringify(commit)}`);
+    }
+    return { sha, repo };
+  });
+}
 
 interface MainTerminalResumeEvent {
   mainTerminalId: string;
@@ -78,7 +95,26 @@ export function useSessionEvents(): void {
         if (typeof body !== 'string' || !body) {
           throw new Error(`approval_required event missing raw.body: ${JSON.stringify(event)}`);
         }
-        store.setPendingApproval({ sessionId: event.session_intent_id, body });
+        const timeoutSeconds = event.raw?.timeout_seconds;
+        if (typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
+          throw new Error(
+            `approval_required event missing valid raw.timeout_seconds: ${JSON.stringify(event)}`,
+          );
+        }
+        const rejectionReason = event.raw?.rejection_reason;
+        if (rejectionReason !== undefined && typeof rejectionReason !== 'string') {
+          throw new Error(
+            `approval_required event has non-string raw.rejection_reason: ${JSON.stringify(event)}`,
+          );
+        }
+        store.setPendingApproval({
+          sessionId: event.session_intent_id,
+          body,
+          timeoutSeconds,
+          commits: parseApprovalCommits(event),
+          rejected: event.raw?.rejected === true,
+          rejectionReason: rejectionReason ?? '',
+        });
         return;
       }
 
