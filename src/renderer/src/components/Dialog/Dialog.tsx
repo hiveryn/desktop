@@ -14,6 +14,11 @@ interface DialogProps {
   cancelLabel?: string;
   confirmDisabled?: boolean;
   intent?: DialogIntent;
+  // When set, the dialog portals into this element and the backdrop is
+  // positioned absolutely (relative to the container) instead of covering the
+  // whole viewport. Use to scope a modal to a single pane. Defaults to a
+  // viewport-wide overlay on document.body.
+  container?: HTMLElement | null;
 }
 
 const Dialog: React.FC<DialogProps> = ({
@@ -25,6 +30,7 @@ const Dialog: React.FC<DialogProps> = ({
   cancelLabel = 'CANCEL',
   confirmDisabled,
   intent = 'default',
+  container,
 }) => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
@@ -84,8 +90,12 @@ const Dialog: React.FC<DialogProps> = ({
 
   const intentClass = intent !== 'default' ? styles[`intent-${intent}` as keyof typeof styles] : undefined;
 
+  const backdropClass = [styles.backdrop, container ? styles.scoped : undefined]
+    .filter(Boolean)
+    .join(' ');
+
   return createPortal(
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
+    <div className={backdropClass} onClick={handleBackdropClick}>
       <div className={[styles.panel, intentClass].filter(Boolean).join(' ')} ref={dialogRef} role="dialog" aria-modal="true">
         {title && <div className={styles.titleBar}>{title}</div>}
         <div className={styles.body}>{children}</div>
@@ -103,7 +113,7 @@ const Dialog: React.FC<DialogProps> = ({
         </div>
       </div>
     </div>,
-    document.body,
+    container ?? document.body,
   );
 };
 

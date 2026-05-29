@@ -7,6 +7,8 @@ export interface TabBarTab {
   icon: React.ComponentType;
   label?: string;
   disabled?: boolean;
+  // Shows an attention indicator on the tab (e.g. a pending approval).
+  notify?: boolean;
 }
 
 interface TabBarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -44,7 +46,7 @@ const TabBar: React.FC<TabBarProps> = ({
       aria-orientation={side === 'bottom' ? 'horizontal' : 'vertical'}
       {...rest}
     >
-      {tabs.map(({ id, icon: Icon, label, disabled }) => {
+      {tabs.map(({ id, icon: Icon, label, disabled, notify }) => {
         const isActive = id === activeTab;
         const tabClass = [styles.tab, isActive ? styles.active : undefined]
           .filter(Boolean)
@@ -60,6 +62,7 @@ const TabBar: React.FC<TabBarProps> = ({
           >
             <Icon />
             {label !== undefined && <span className={styles.tabLabel}>{label}</span>}
+            {notify && <span className={styles.notifyDot} aria-label="Needs attention" />}
           </button>
         );
       })}

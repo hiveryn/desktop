@@ -60,10 +60,18 @@ export default function ArchitectWindow() {
     return found?.id ?? null;
   });
 
-  const pendingApproval = useSessionStore((s) => s.pendingApproval);
+  // Only the active session's approval is shown, scoped to its pane — a pending
+  // approval from a background session surfaces as a tab badge, not a modal.
+  const activeApproval = useSessionStore((s) =>
+    s.activeSessionId ? (s.pendingApprovals[s.activeSessionId] ?? null) : null,
+  );
 
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [freeformOpen, setFreeformOpen] = useState(false);
+  // Tracked in state (not a ref) so the scoped dialog re-renders once the
+  // split-pane element mounts and can portal into it. Scoping to the split
+  // pane centers the dialog across both panes without covering nav/bottom bar.
+  const [splitPaneEl, setSplitPaneEl] = useState<HTMLDivElement | null>(null);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -152,7 +160,7 @@ export default function ArchitectWindow() {
                 title="Shortcut Config API Error"
               />
             ) : null}
-            <div className={styles.splitPane}>
+            <div ref={setSplitPaneEl} className={styles.splitPane}>
               {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
               <div
@@ -208,10 +216,11 @@ export default function ArchitectWindow() {
         />
       )}
 
-      {pendingApproval && (
+      {activeApproval && splitPaneEl && (
         <ApprovalDialog
-          approval={pendingApproval}
-          onClose={() => useSessionStore.getState().setPendingApproval(null)}
+          approval={activeApproval}
+          container={splitPaneEl}
+          onClose={() => useSessionStore.getState().clearPendingApproval(activeApproval.sessionId)}
         />
       )}
     </div>

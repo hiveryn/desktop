@@ -53,7 +53,7 @@ src/
     main.tsx              React entry, theme init, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection, pendingApproval
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection, pendingApprovals (per-session)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
@@ -227,12 +227,11 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 
 When an agent requests a conclusion via MCP, the daemon blocks and publishes a `{ type: "status", status: "approval_required", raw: { body, timeout_seconds, commits?, rejected?, rejection_reason? } }` SSE event on the session stream. The desktop handles this as follows:
 
-1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw` into a `PendingApproval` (throws on missing/invalid `body` or `timeout_seconds`; `commits`/`rejected`/`rejection_reason` are optional and default to `[]`/`false`/`''`, but throw if present and malformed), and calls `store.setPendingApproval(...)`.
-2. **`ArchitectWindow`** subscribes to `pendingApproval` from the session store and renders `<ApprovalDialog approval={...}>` when non-null.
-3. **`ApprovalDialog`** shows the conclusion body as rendered markdown, plus a "Resubmitted after rejection" banner when `rejected` and a commit list when `commits` is non-empty. A countdown driven by `timeout_seconds` shows in the title bar; on reaching zero the dialog auto-closes (the daemon has already auto-approved). "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`. A late Approve/Reject after the daemon resolved returns HTTP 404, which the dialog treats as already-resolved and closes silently.
-4. On either action completing, `setPendingApproval(null)` closes the dialog.
-
-The dialog is scoped to the window that owns the session — each architect window runs its own `useSessionEvents` and its own store slice, so only the correct window shows the dialog.
+1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw` into a `PendingApproval` (throws on missing/invalid `body` or `timeout_seconds`; `commits`/`rejected`/`rejection_reason` are optional and default to `[]`/`false`/`''`, but throw if present and malformed), and calls `store.setPendingApproval(approval)`.
+2. **`BottomTabs`** checks `pendingApprovals[sessionId]` for each session. If a session has a pending approval and is **not** the active session, a notification dot badges its tab to signal "needs attention".
+3. **`ArchitectWindow`** only renders `<ApprovalDialog>` when the **active** session has a pending approval — so a background session's approval never hijacks the window as a modal. The dialog is scoped to the split-pane container (both left and right panes) so it centers across the full tab.
+4. **`ApprovalDialog`** shows the conclusion body as rendered markdown, plus a "Resubmitted after rejection" banner when `rejected` and a commit list when `commits` is non-empty. A countdown driven by `timeout_seconds` shows in the title bar; on reaching zero the dialog auto-closes (the daemon has already auto-approved). "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`. A late Approve/Reject after the daemon resolved returns HTTP 404, which the dialog treats as already-resolved and closes silently.
+5. On either action completing, `clearPendingApproval(sessionId)` removes the approval from the store and closes the dialog.
 
 ## Keyboard shortcuts and focus model
 

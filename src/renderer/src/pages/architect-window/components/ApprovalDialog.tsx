@@ -8,13 +8,16 @@ import styles from './ApprovalDialog.module.css';
 interface ApprovalDialogProps {
   approval: PendingApproval;
   onClose: () => void;
+  // Pane element to scope the modal to, so it associates with the triggering
+  // session rather than covering the whole window.
+  container?: HTMLElement | null;
 }
 
 function isAlreadyResolved(err: unknown): boolean {
   return (err as { status?: number } | null)?.status === 404;
 }
 
-export default function ApprovalDialog({ approval, onClose }: ApprovalDialogProps) {
+export default function ApprovalDialog({ approval, onClose, container }: ApprovalDialogProps) {
   const { sessionId, body, timeoutSeconds, commits, rejected, rejectionReason } = approval;
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -73,6 +76,7 @@ export default function ApprovalDialog({ approval, onClose }: ApprovalDialogProp
         cancelLabel="BACK"
         confirmDisabled={submitting}
         intent="destructive"
+        container={container}
         onConfirm={() => void handleReject()}
         onCancel={() => {
           setRejecting(false);
@@ -97,6 +101,7 @@ export default function ApprovalDialog({ approval, onClose }: ApprovalDialogProp
       confirmLabel="APPROVE"
       cancelLabel="REJECT"
       confirmDisabled={submitting}
+      container={container}
       onConfirm={() => void handleApprove()}
       onCancel={() => setRejecting(true)}
     >

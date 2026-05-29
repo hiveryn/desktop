@@ -33,7 +33,10 @@ interface SessionState {
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
   focusedPane: string;
-  pendingApproval: PendingApproval | null;
+  // Pending conclusion approvals keyed by the session that triggered them.
+  // Each session owns at most one; the dialog only renders for the active
+  // session, so a background approval never hijacks the window.
+  pendingApprovals: Record<string, PendingApproval>;
 }
 
 interface SessionActions {
@@ -47,7 +50,8 @@ interface SessionActions {
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
-  setPendingApproval(approval: PendingApproval | null): void;
+  setPendingApproval(approval: PendingApproval): void;
+  clearPendingApproval(sessionId: string): void;
   reset(): void;
 }
 
@@ -60,7 +64,7 @@ const initialState: SessionState = {
   activeRightTab: 'kanban',
   sessionRightTabs: {},
   focusedPane: 'main-terminal',
-  pendingApproval: null,
+  pendingApprovals: {},
 };
 
 function tabId(tab: SessionTab): string {
@@ -138,10 +142,14 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const sessionRightTabs = Object.fromEntries(
         Object.entries(state.sessionRightTabs).filter(([id]) => id in sessions),
       );
+      const pendingApprovals = Object.fromEntries(
+        Object.entries(state.pendingApprovals).filter(([id]) => id in sessions),
+      );
       return {
         sessions,
         events,
         sessionRightTabs,
+        pendingApprovals,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
@@ -159,10 +167,12 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const { [id]: _removed, ...sessions } = state.sessions;
       const { [id]: _removedEvents, ...events } = state.events;
       const { [id]: _removedRightTab, ...sessionRightTabs } = state.sessionRightTabs;
+      const { [id]: _removedApproval, ...pendingApprovals } = state.pendingApprovals;
       return {
         sessions,
         events,
         sessionRightTabs,
+        pendingApprovals,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
@@ -267,7 +277,17 @@ export const useSessionStore = create<SessionStore>((set) => ({
   },
 
   setPendingApproval(approval) {
-    set({ pendingApproval: approval });
+    set((state) => ({
+      pendingApprovals: { ...state.pendingApprovals, [approval.sessionId]: approval },
+    }));
+  },
+
+  clearPendingApproval(sessionId) {
+    set((state) => {
+      if (!state.pendingApprovals[sessionId]) return state;
+      const { [sessionId]: _removed, ...pendingApprovals } = state.pendingApprovals;
+      return { pendingApprovals };
+    });
   },
 
   reset() {

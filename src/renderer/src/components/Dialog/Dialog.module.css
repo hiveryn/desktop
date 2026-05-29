@@ -8,6 +8,19 @@
   z-index: var(--z-index-page-modals);
 }
 
+/* Scoped variant — overlay fills the nearest positioned ancestor (a single
+   pane) rather than the whole viewport. */
+.scoped {
+  position: absolute;
+}
+
+.scoped .panel {
+  /* Mirror the base 48ch–96ch bounds so the panel width is stable across views
+     (e.g. the sparse reject view), but never overflow a narrow pane. */
+  max-width: min(96ch, 100%);
+  min-width: min(48ch, 100%);
+}
+
 .panel {
   background: var(--theme-background);
   border: 1px solid var(--theme-border-strong);

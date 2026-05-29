@@ -57,6 +57,14 @@
   line-height: 1;
 }
 
+.notifyDot {
+  width: 0.5em;
+  height: 0.5em;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--theme-status-warning);
+}
+
 .addBtn {
   display: flex;
   align-items: center;
