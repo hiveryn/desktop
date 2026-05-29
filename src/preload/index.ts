@@ -68,6 +68,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
+  'sessions:getTicket': { method: 'GET', path: '/api/sessions/:id/ticket' },
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
@@ -234,6 +235,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
       slug: string,
     ): Promise<SessionIntent> =>
       invoke('sessions:createFreeform', architectKey, prompt, workdir, slug),
+    getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),

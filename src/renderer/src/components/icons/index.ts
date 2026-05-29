@@ -13,3 +13,4 @@ export { default as Ellipsis } from './Ellipsis';
 export { default as Kanban } from './Kanban';
 export { default as Activity } from './Activity';
 export { default as Terminal } from './Terminal';
+export { default as TicketIcon } from './TicketIcon';

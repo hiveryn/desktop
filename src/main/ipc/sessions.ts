@@ -4,6 +4,7 @@ import type {
   SessionIntent,
   SessionKind,
   SessionRunResult,
+  Ticket,
 } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
@@ -107,6 +108,13 @@ export function registerSessionsIpc(): void {
         method: 'POST',
         body: JSON.stringify({ reason }),
       });
+    },
+  );
+
+  ipcMain.handle(
+    'sessions:getTicket',
+    async (_event, sessionId: string): Promise<DaemonResult<Ticket>> => {
+      return daemonFetch<Ticket>(`/api/sessions/${encodeURIComponent(sessionId)}/ticket`);
     },
   );
 }

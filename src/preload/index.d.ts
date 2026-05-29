@@ -223,7 +223,7 @@ interface TerminalInfo {
 type CreateTerminalBody = Record<string, never>;
 
 interface SessionTab {
-  type: 'kanban' | 'event-log' | 'terminal';
+  type: 'kanban' | 'event-log' | 'terminal' | 'ticket';
   id?: string;
   command?: string;
   status?: string;
@@ -345,6 +345,7 @@ interface HiverynAPI {
       workdir: string,
       slug: string,
     ) => Promise<SessionIntent>;
+    getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {
     list: (architectKey: string) => Promise<TicketBoard>;

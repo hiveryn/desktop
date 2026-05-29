@@ -112,6 +112,7 @@ function getRightTabIds(): string[] {
   return (activeSession?.tabs ?? []).flatMap((t) => {
     if (t.type === 'kanban') return ['kanban'];
     if (t.type === 'event-log') return ['event-log'];
+    if (t.type === 'ticket') return ['ticket'];
     if (t.type === 'terminal' && t.id) return [t.id];
     return [];
   });
@@ -120,6 +121,7 @@ function getRightTabIds(): string[] {
 function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
+  if (tabId === 'ticket') return 'right-ticket';
   return `right-terminal:${tabId}`;
 }
 
@@ -223,7 +225,8 @@ async function closeCurrentTab(): Promise<void> {
   const state = useSessionStore.getState();
   const { activeSessionId, activeRightTab, sessions } = state;
 
-  const isExtraTerminalTab = activeRightTab !== 'kanban' && activeRightTab !== 'event-log';
+  const isExtraTerminalTab =
+    activeRightTab !== 'kanban' && activeRightTab !== 'event-log' && activeRightTab !== 'ticket';
 
   if (isExtraTerminalTab && activeSessionId) {
     await window.hiveryn.terminals.kill(activeSessionId, activeRightTab);
@@ -242,7 +245,9 @@ async function closeCurrentTab(): Promise<void> {
         ? 'kanban'
         : firstTab.type === 'event-log'
           ? 'event-log'
-          : firstTab.id;
+          : firstTab.type === 'ticket'
+            ? 'ticket'
+            : firstTab.id;
     if (!firstId) {
       throw new Error(`First tab after closing ${activeRightTab} is missing id`);
     }

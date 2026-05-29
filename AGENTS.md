@@ -69,7 +69,7 @@ src/
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
                                  useDaemonRecovery, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
-                                 ExtraTerminalStack, TicketWorkflow, ConcludeSessionDialog,
+                                 ExtraTerminalStack, TicketPane, TicketWorkflow, ConcludeSessionDialog,
                                  FreeformSessionDialog, ApprovalDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema

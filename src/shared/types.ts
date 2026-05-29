@@ -234,7 +234,7 @@ export interface TerminalInfo {
 export type CreateTerminalBody = Record<string, never>;
 
 export interface SessionTab {
-  type: 'kanban' | 'event-log' | 'terminal';
+  type: 'kanban' | 'event-log' | 'terminal' | 'ticket';
   id?: string;
   command?: string;
   status?: string;

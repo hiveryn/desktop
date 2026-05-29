@@ -31,7 +31,7 @@ interface SessionState {
   // Last active right tab per session ID — restored on session switch.
   sessionRightTabs: Record<string, string>;
   // Which pane has keyboard focus. Values:
-  // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'
+  // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
   // Pending conclusion approvals keyed by the session that triggered them.
   // Each session owns at most one; the dialog only renders for the active
@@ -70,6 +70,7 @@ const initialState: SessionState = {
 function tabId(tab: SessionTab): string {
   if (tab.type === 'kanban') return 'kanban';
   if (tab.type === 'event-log') return 'event-log';
+  if (tab.type === 'ticket') return 'ticket';
   if (!tab.id) {
     throw new Error(`Terminal tab is missing id: ${JSON.stringify(tab)}`);
   }
@@ -83,6 +84,7 @@ function tabIds(session: SessionRecord): string[] {
 function focusIdForTab(tab: string): string {
   if (tab === 'kanban') return 'right-kanban';
   if (tab === 'event-log') return 'right-event-log';
+  if (tab === 'ticket') return 'right-ticket';
   return `right-terminal:${tab}`;
 }
 

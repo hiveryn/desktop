@@ -12,6 +12,7 @@ import {
   TabBar,
   type TabBarTab,
   Terminal,
+  TicketIcon,
 } from '@components';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -27,6 +28,7 @@ import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 import ExtraTerminalStack from './ExtraTerminalStack';
+import TicketPane from './TicketPane';
 
 const EVENT_STATUSES: EventStatus[] = [
   'starting',
@@ -63,6 +65,7 @@ function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
 function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
+  if (tabId === 'ticket') return 'right-ticket';
   return `right-terminal:${tabId}`;
 }
 
@@ -317,6 +320,17 @@ export default function RightPane({
           />
         </div>
 
+        <div
+          style={{
+            display: effectiveTab === 'ticket' ? 'flex' : 'none',
+            flex: 1,
+            minHeight: 0,
+            flexDirection: 'column',
+          }}
+        >
+          {activeSession && <TicketPane sessionId={activeSession.id} />}
+        </div>
+
         <ExtraTerminalStack
           onCloseTerminal={(sessionId, terminalId) =>
             void handleCloseTerminal(sessionId, terminalId)
@@ -363,6 +377,8 @@ function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
       return { id: 'kanban', icon: Kanban };
     case 'event-log':
       return { id: 'event-log', icon: Activity };
+    case 'ticket':
+      return { id: 'ticket', icon: TicketIcon };
     case 'terminal':
       return tab.id ? { id: tab.id, icon: Terminal } : null;
     default:
