@@ -130,6 +130,8 @@
   --z-index-page-popover: 5;
   --z-index-page-dropdown-menus: 6;
   --z-index-page-modals: 10;
+  --z-index-maximize-backdrop: 20;
+  --z-index-maximize-pane: 21;
 
   /* ── Light theme (default) ───────────────────────────────── */
   --theme-background: var(--color-white);

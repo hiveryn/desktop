@@ -53,7 +53,7 @@ src/
     main.tsx              React entry, theme init, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, active selection, pendingApprovals (per-session)
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane, active selection, pendingApprovals (per-session)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
@@ -249,7 +249,7 @@ There are two callers:
 
 The dispatcher runs handlers in two stages:
 - **Dynamic handlers** (LIFO stack, registered via `registerDynamicHandler`) — for modal/pane-local shortcuts that need component state (kanban cursor, dialog-open flag). Components register via `useEffect` and get an unregister cleanup.
-- **Global shortcuts** — focus-left/right/up/down, focus-main, first/prev/next-session, close-tab, new-terminal, direct tab jumps (Cmd+2..9).
+- **Global shortcuts** — focus-left/right/up/down, focus-main, first/prev/next-session, close-tab, new-terminal, maximize-pane (Cmd+M), direct tab jumps (Cmd+2..9).
 
 `matchesShortcut(event, binding)` in `keys/matchers.ts` understands modifier strings (`Cmd+Shift+x`), shift-character mapping (`Shift+[` → `{`), and `event.code` fallback for layout-independent punctuation/digit matching.
 
@@ -258,7 +258,7 @@ The dispatcher runs handlers in two stages:
 
 ### Focus model
 
-`sessionStore.focusedPane` is the single source of truth: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. It is updated by:
+`sessionStore.focusedPane` is the single source of truth for keyboard focus: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. It is updated by:
 - Clicks on pane wrappers
 - Navigation shortcut actions inside the dispatcher
 - `TerminalPane.onTextAreaFocus` callback — fires when xterm's helper textarea receives DOM focus by any means (keyboard shortcut transition or mouse click), calling `setFocusedPane` to keep app state in sync with DOM reality.
@@ -266,6 +266,8 @@ The dispatcher runs handlers in two stages:
 `TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane` and pass `paneId` so each terminal knows which pane ID to claim on focus.
 
 The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focus-ring` (defined in `styles/global.css`), which tracks the active light/dark theme.
+
+`sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Escape or clicking the backdrop clears it. On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
 
 ## Architect workspace events
 

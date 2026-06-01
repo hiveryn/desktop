@@ -92,6 +92,20 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
     void openNewTerminal();
     return 'consumed';
   }
+  if (matchesShortcut(event, global['maximize-pane'] ?? '')) {
+    const { focusedPane, maximizedPane, setMaximizedPane } = useSessionStore.getState();
+    setMaximizedPane(maximizedPane !== null ? null : focusedPane);
+    return 'consumed';
+  }
+
+  // Escape dismisses maximize (runs after dynamic handlers, so modals/dialogs take priority).
+  if (event.key === 'Escape' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+    const { maximizedPane, setMaximizedPane } = useSessionStore.getState();
+    if (maximizedPane !== null) {
+      setMaximizedPane(null);
+      return 'consumed';
+    }
+  }
 
   // Cmd+2..9: direct right-tab jump (position-based, not configurable).
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.repeat) {

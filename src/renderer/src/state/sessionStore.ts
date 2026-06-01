@@ -33,6 +33,8 @@ interface SessionState {
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
+  // Pane currently maximized (same value space as focusedPane), or null for normal split layout.
+  maximizedPane: string | null;
   // Pending conclusion approvals keyed by the session that triggered them.
   // Each session owns at most one; the dialog only renders for the active
   // session, so a background approval never hijacks the window.
@@ -47,6 +49,7 @@ interface SessionActions {
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
   setFocusedPane(pane: string): void;
+  setMaximizedPane(pane: string | null): void;
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
@@ -64,6 +67,7 @@ const initialState: SessionState = {
   activeRightTab: 'kanban',
   sessionRightTabs: {},
   focusedPane: 'main-terminal',
+  maximizedPane: null,
   pendingApprovals: {},
 };
 
@@ -229,6 +233,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   setFocusedPane(pane) {
     set({ focusedPane: pane });
+  },
+
+  setMaximizedPane(pane) {
+    set({ maximizedPane: pane });
   },
 
   setSessionTabs(sessionId, tabs) {

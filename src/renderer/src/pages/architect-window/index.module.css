@@ -167,3 +167,26 @@
   position: static;
   flex-shrink: 0;
 }
+
+/* ── Pane maximize ─────────────────────────────────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: var(--z-index-maximize-backdrop);
+}
+
+.leftPane[data-maximized],
+.rightPane[data-maximized] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95vw;
+  height: 85vh;
+  z-index: var(--z-index-maximize-pane);
+  background: var(--theme-background);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  border-right: none;
+}

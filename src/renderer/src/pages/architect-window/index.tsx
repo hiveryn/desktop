@@ -55,6 +55,8 @@ export default function ArchitectWindow() {
 
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
+  const maximizedPane = useSessionStore((s) => s.maximizedPane);
+  const setMaximizedPane = useSessionStore((s) => s.setMaximizedPane);
   const architectSessionId = useSessionStore((s) => {
     const found = Object.values(s.sessions).find((r) => r.type === 'architect');
     return found?.id ?? null;
@@ -111,6 +113,8 @@ export default function ArchitectWindow() {
 
   const isLeftFocused = focusedPane === 'main-terminal';
   const isRightFocused = focusedPane.startsWith('right-');
+  const isLeftMaximized = maximizedPane === 'main-terminal';
+  const isRightMaximized = maximizedPane?.startsWith('right-') ?? false;
 
   return (
     <div className={styles.window}>
@@ -166,11 +170,16 @@ export default function ArchitectWindow() {
               <div
                 className={styles.leftPane}
                 data-focused={isLeftFocused || undefined}
+                data-maximized={isLeftMaximized || undefined}
                 onClick={() => setFocusedPane('main-terminal')}
               >
                 <MainTerminalStack className={styles.terminal} />
               </div>
-              <div className={styles.rightPane} data-focused={isRightFocused || undefined}>
+              <div
+                className={styles.rightPane}
+                data-focused={isRightFocused || undefined}
+                data-maximized={isRightMaximized || undefined}
+              >
                 <RightPane
                   architectKey={architectKey}
                   board={board}
@@ -222,6 +231,12 @@ export default function ArchitectWindow() {
           container={splitPaneEl}
           onClose={() => useSessionStore.getState().clearPendingApproval(activeApproval.sessionId)}
         />
+      )}
+
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses maximize */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard dismiss handled by dispatcher Escape */}
+      {maximizedPane !== null && (
+        <div className={styles.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
     </div>
   );

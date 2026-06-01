@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
-import { app, BrowserWindow, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
@@ -118,6 +118,25 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId(
     IS_DESKTOP_DEVELOPMENT ? 'com.hiveryn.desktop.dev' : 'com.hiveryn.desktop',
   );
+
+  // On macOS, Electron's default Window menu binds Cmd+M to "Minimize Window",
+  // which fires before any renderer keydown event — preventing the renderer from
+  // claiming Cmd+M for pane maximize. Replace the default menu with a version
+  // that omits the minimize entry so the renderer gets the key unobstructed.
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        { role: 'appMenu' },
+        { role: 'editMenu' },
+        { role: 'viewMenu' },
+        {
+          label: 'Window',
+          submenu: [{ role: 'zoom' }, { role: 'close' }, { type: 'separator' }, { role: 'front' }],
+        },
+      ]),
+    );
+  }
+
   daemonHealth.start();
 
   app.on('browser-window-created', (_, window) => {
