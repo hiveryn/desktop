@@ -132,6 +132,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
     getPlatform: (): Promise<string> => Promise.resolve(process.platform),
     getMode: (): Promise<AppMode> => ipcRenderer.invoke('app:getMode') as Promise<AppMode>,
     getDaemonUrl: (): Promise<string> => ipcRenderer.invoke('app:getDaemonUrl') as Promise<string>,
+    onGpuProcessCrashed: (callback: () => void): (() => void) => {
+      const listener = (): void => callback();
+      ipcRenderer.on('app:gpu-process-crashed', listener);
+      return () => ipcRenderer.removeListener('app:gpu-process-crashed', listener);
+    },
   },
   profiles: {
     list: (): Promise<AgentProfile[]> => invoke('profiles:list'),

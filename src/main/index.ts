@@ -143,6 +143,21 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
+  // When the GPU process crashes, Chromium auto-restarts it (~100–500ms).
+  // After restart, WebGL contexts are gone and canvas 2D may be blank until
+  // xterm re-renders. Notify all renderer windows after a 1s delay (enough
+  // for the new GPU process to be ready) so they can recreate their surfaces.
+  app.on('child-process-gone', (_event, details) => {
+    if (details.type !== 'GPU') return;
+    setTimeout(() => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('app:gpu-process-crashed');
+        }
+      }
+    }, 1000);
+  });
+
   createLauncherWindow();
 
   app.on('activate', () => {

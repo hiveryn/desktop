@@ -171,6 +171,20 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     onResizeRef.current?.(term.cols, term.rows);
   }, [visible, readonly]);
 
+  // When the Electron GPU process crashes and restarts, WebGL contexts are
+  // destroyed and canvas 2D may have rendered blank during the crash window.
+  // The main process sends this event ~1s after the crash (enough time for
+  // Chromium to start a new GPU process). Recreate the WebGL addon and force
+  // a full repaint so the terminal content reappears without a manual reload.
+  React.useEffect(() => {
+    return window.hiveryn.app.onGpuProcessCrashed(() => {
+      if (disposedRef.current) return;
+      recreateWebglRef.current?.();
+      const term = termRef.current;
+      if (term) term.refresh(0, term.rows - 1);
+    });
+  }, []);
+
   // Drive xterm's DOM focus from the `focused` prop. When another pane has
   // logical keyboard focus, blur xterm so keystrokes don't reach the PTY.
   React.useEffect(() => {

@@ -294,6 +294,7 @@ interface HiverynAPI {
     getPlatform: () => Promise<string>;
     getMode: () => Promise<AppMode>;
     getDaemonUrl: () => Promise<string>;
+    onGpuProcessCrashed: (callback: () => void) => () => void;
   };
   profiles: {
     list: () => Promise<AgentProfile[]>;

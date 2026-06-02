@@ -99,7 +99,13 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
   }
 
   // Escape dismisses maximize (runs after dynamic handlers, so modals/dialogs take priority).
-  if (event.key === 'Escape' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+  if (
+    event.key === 'Escape' &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.shiftKey
+  ) {
     const { maximizedPane, setMaximizedPane } = useSessionStore.getState();
     if (maximizedPane !== null) {
       setMaximizedPane(null);

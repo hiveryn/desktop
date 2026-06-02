@@ -233,9 +233,9 @@ export default function ArchitectWindow() {
         />
       )}
 
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses maximize */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard dismiss handled by dispatcher Escape */}
       {maximizedPane !== null && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses maximize
+        // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard dismiss handled by dispatcher Escape
         <div className={styles.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
     </div>
