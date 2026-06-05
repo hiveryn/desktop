@@ -1,4 +1,4 @@
-import { ApiEnvelopeError, Button, Dialog } from '@components';
+import { Button, Dialog } from '@components';
 import { useState } from 'react';
 import styles from './ConcludeSessionDialog.module.css';
 
@@ -10,34 +10,34 @@ interface ConcludeSessionDialogProps {
 export default function ConcludeSessionDialog({ sessionId, onClose }: ConcludeSessionDialogProps) {
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<unknown | null>(null);
 
   async function handleConfirm(): Promise<void> {
     setSubmitting(true);
-    setError(null);
     try {
       await window.hiveryn.sessions.conclude(sessionId, body.trim());
       onClose();
-    } catch (err) {
-      setError(err);
-      setSubmitting(false);
+    } catch {
+      onClose();
     }
   }
 
   async function handleDiscard(): Promise<void> {
     setSubmitting(true);
-    setError(null);
     try {
       await window.hiveryn.sessions.conclude(sessionId, '');
       onClose();
-    } catch (err) {
-      setError(err);
-      setSubmitting(false);
+    } catch {
+      onClose();
     }
   }
 
   const discardButton = (
-    <Button theme="SECONDARY" intent="destructive" isDisabled={submitting} onClick={() => void handleDiscard()}>
+    <Button
+      theme="SECONDARY"
+      intent="destructive"
+      isDisabled={submitting}
+      onClick={() => void handleDiscard()}
+    >
       DISCARD
     </Button>
   );
@@ -58,7 +58,6 @@ export default function ConcludeSessionDialog({ sessionId, onClose }: ConcludeSe
         placeholder="Enter conclusion summary…"
         rows={5}
       />
-      {error ? <ApiEnvelopeError error={error} title="Conclude API Error" /> : null}
     </Dialog>
   );
 }
