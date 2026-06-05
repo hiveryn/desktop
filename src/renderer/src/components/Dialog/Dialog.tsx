@@ -14,6 +14,7 @@ interface DialogProps {
   cancelLabel?: string;
   confirmDisabled?: boolean;
   intent?: DialogIntent;
+  footerLeft?: React.ReactNode;
   // When set, the dialog portals into this element and the backdrop is
   // positioned absolutely (relative to the container) instead of covering the
   // whole viewport. Use to scope a modal to a single pane. Defaults to a
@@ -30,6 +31,7 @@ const Dialog: React.FC<DialogProps> = ({
   cancelLabel = 'CANCEL',
   confirmDisabled,
   intent = 'default',
+  footerLeft,
   container,
 }) => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
@@ -100,6 +102,7 @@ const Dialog: React.FC<DialogProps> = ({
         {title && <div className={styles.titleBar}>{title}</div>}
         <div className={styles.body}>{children}</div>
         <div className={styles.footer}>
+          {footerLeft && <div style={{ marginRight: 'auto' }}>{footerLeft}</div>}
           {onCancel && (
             <Button theme="SECONDARY" onClick={onCancel}>
               {cancelLabel}
