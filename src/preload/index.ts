@@ -4,6 +4,7 @@ import type {
   AppMode,
   Architect,
   ArchitectInfo,
+  ArchitectStatus,
   CreateTerminalBody,
   DaemonHealthState,
   DaemonResult,
@@ -54,6 +55,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
+  'architects:status': { method: 'GET', path: '/api/architects/status' },
+  'palette:focus-architect': { method: 'POST', path: '/architect/focus' },
   'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
   'sessions:createFreeform': { method: 'POST', path: '/api/sessions' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
@@ -149,6 +152,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
+    status: (): Promise<ArchitectStatus[]> => invoke('architects:status'),
     subscribeEvents: (
       key: string,
       callback: (event: WorkspaceChangedEvent) => void,
@@ -213,6 +217,16 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   launcher: {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
+  },
+  palette: {
+    focusArchitect: (key: string, sessionId?: string): Promise<void> =>
+      invoke('palette:focus-architect', key, sessionId),
+    onSwitchSession: (callback: (sessionId: string | null) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string | null): void =>
+        callback(sessionId);
+      ipcRenderer.on('palette:switch-session', listener);
+      return () => ipcRenderer.removeListener('palette:switch-session', listener);
+    },
   },
   sessions: {
     list: (): Promise<SessionIntent[]> => invoke('sessions:list'),

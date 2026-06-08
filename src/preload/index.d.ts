@@ -236,6 +236,21 @@ interface ArchitectInfo {
   path: string;
 }
 
+interface ArchitectStatusSession {
+  id: string;
+  title: string;
+  status: 'running' | 'completed' | 'failed';
+  agent_status: string;
+  started_at: string;
+}
+
+interface ArchitectStatus {
+  key: string;
+  path: string;
+  status: string | null;
+  sessions: ArchitectStatusSession[];
+}
+
 interface SystemRuntime {
   environment: string;
   home: string;
@@ -307,6 +322,7 @@ interface HiverynAPI {
   architects: {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
+    status: () => Promise<ArchitectStatus[]>;
     subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
   };
   session: {
@@ -323,6 +339,10 @@ interface HiverynAPI {
   };
   launcher: {
     openArchitect: (key: string) => Promise<void>;
+  };
+  palette: {
+    focusArchitect: (key: string, sessionId?: string) => Promise<void>;
+    onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;
   };
   sessions: {
     list: () => Promise<SessionIntent[]>;

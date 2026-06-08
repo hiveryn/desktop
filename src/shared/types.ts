@@ -219,6 +219,21 @@ export interface Architect {
   repos?: ArchitectRepo[];
 }
 
+export interface ArchitectStatusSession {
+  id: string;
+  title: string;
+  status: 'running' | 'completed' | 'failed';
+  agent_status: string;
+  started_at: string;
+}
+
+export interface ArchitectStatus {
+  key: string;
+  path: string;
+  status: string | null;
+  sessions: ArchitectStatusSession[];
+}
+
 export interface ArchitectInfo {
   name: string;
   path: string;

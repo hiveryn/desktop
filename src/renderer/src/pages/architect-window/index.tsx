@@ -3,6 +3,7 @@ import {
   BottomBar,
   Caption,
   Close,
+  CommandPalette,
   DevBadge,
   Glyph,
   IconButton,
@@ -11,9 +12,11 @@ import {
   Text,
   ThemeSwitcher,
 } from '@components';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Ticket, TicketSummary } from '../../../../shared/types';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
+import { registerDynamicHandler } from '../../keys/dispatcher';
+import { matchesShortcut } from '../../keys/matchers';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { useSessionStore } from '../../state/sessionStore';
 import ApprovalDialog from './components/ApprovalDialog';
@@ -25,6 +28,7 @@ import RightPane from './components/RightPane';
 import TicketWorkflow from './components/TicketWorkflow';
 import { useArchitectData } from './hooks/useArchitectData';
 import { useDaemonRecovery } from './hooks/useDaemonRecovery';
+import { usePaletteSessionSwitch } from './hooks/usePaletteSessionSwitch';
 import { useSessionEvents } from './hooks/useSessionEvents';
 import { useSessionRestore } from './hooks/useSessionRestore';
 import styles from './index.module.css';
@@ -49,9 +53,23 @@ export default function ArchitectWindow() {
   useSessionEvents();
   useDaemonRecovery(architectKey);
   useSessionRestore(architectKey);
+  usePaletteSessionSwitch();
 
   const { config: shortcutConfig, error: shortcutError } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const binding = shortcutConfig?.global?.['command-palette'];
+    if (!binding) return;
+    return registerDynamicHandler((e) => {
+      if (paletteOpen) return 'passthrough';
+      if (!matchesShortcut(e, binding)) return 'passthrough';
+      setPaletteOpen(true);
+      return 'consumed';
+    });
+  }, [shortcutConfig, paletteOpen]);
 
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
@@ -209,6 +227,8 @@ export default function ArchitectWindow() {
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
       />
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       {concludeDialogOpen && architectSessionId && (
         <ConcludeSessionDialog

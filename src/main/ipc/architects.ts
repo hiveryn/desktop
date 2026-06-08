@@ -1,11 +1,15 @@
 import { ipcMain } from 'electron';
-import type { Architect, DaemonResult } from '../../shared/types';
+import type { Architect, ArchitectStatus, DaemonResult } from '../../shared/types';
 import * as architectEvents from '../daemon/architect-events';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, ok, withData, withNullData } from './results';
 
 interface ArchitectListPayload {
   architects: Architect[];
+}
+
+interface ArchitectStatusPayload {
+  architects: ArchitectStatus[];
 }
 
 export function registerArchitectsIpc(): void {
@@ -16,6 +20,17 @@ export function registerArchitectsIpc(): void {
     }
     if (!Array.isArray(result.envelope.data?.architects)) {
       return invalidDaemonResponse('architects:list returned missing architects array');
+    }
+    return withData(result, result.envelope.data.architects);
+  });
+
+  ipcMain.handle('architects:status', async (): Promise<DaemonResult<ArchitectStatus[]>> => {
+    const result = await daemonFetch<ArchitectStatusPayload>('/api/architects/status');
+    if (result.envelope.error) {
+      return withNullData(result);
+    }
+    if (!Array.isArray(result.envelope.data?.architects)) {
+      return invalidDaemonResponse('architects:status returned missing architects array');
     }
     return withData(result, result.envelope.data.architects);
   });

@@ -45,6 +45,7 @@ src/
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       launcher.ts         launcher:open-architect handler
       daemon.ts           daemon:health:get handler
+      palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
   preload/
     index.ts              contextBridge — invoke() wrapper + daemon.onRequest listeners
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
@@ -61,13 +62,15 @@ src/
       matchers.ts                 matchesShortcut(), isTextInputFocused(), SHIFT_MAP, CODE_MAP
       dispatcher.ts               dispatch() — single routing function for all key events; registerDynamicHandler()
       useKeyDispatcher.ts         Single document-level keydown listener; calls setActiveShortcutConfig + dispatch
+    lib/
+      formatElapsed.ts            formatElapsed(startedAt, now) — "Xh Ym" / "Ym SSs" duration formatting
     pages/
       launcher.tsx        Launcher page — architect list, variant selection on click
       architect-window/
         index.tsx                Thin shell — composes hooks + view components
         SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalId)
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
-                                 useDaemonRecovery, sessionSnapshot
+                                 useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketPane, TicketWorkflow, ConcludeSessionDialog,
                                  FreeformSessionDialog, ApprovalDialog
@@ -255,6 +258,7 @@ The dispatcher runs handlers in two stages:
 
 - **Pane-local shortcuts** (kanban `h/l/j/k/o/s/r`, event-log `j/k/o/c`) use `registerDynamicHandler` inside `RightPane`, gated on `focusedPane`. `isTextInputFocused()` guards them so modal inputs are never stolen.
 - **`quit`** (`q`) uses `registerDynamicHandler` inside `TicketWorkflow`, active only while a dialog is open.
+- **`command-palette`** (`Cmd+P`) uses `registerDynamicHandler` in both `Launcher` and `ArchitectWindow` to open `CommandPalette` — a top-anchored quick-search overlay (mirrors `ProfileSelector`'s layout/keyboard pattern: arrows/Enter/Escape, no dynamic handler while open) listing every architect and its running worker sessions via `architects:status`. Selecting a row calls `palette:focus-architect` (focus-or-create the target `BrowserWindow`, then `palette:switch-session` to land on the chosen session — or the architect's own session when `null` — handled by `usePaletteSessionSwitch`, which retries `setActiveSession` until the target session appears in a freshly created window's store).
 
 ### Focus model
 
