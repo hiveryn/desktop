@@ -18,8 +18,9 @@ Desktop writes `desktop.jsonl` (main process) and `renderer.jsonl` (forwarded re
 ## Requirements
 
 - [Hiveryn daemon](../daemon) running on `http://127.0.0.1:4200` (configurable via `HIVERYN_DAEMON_URL`)
-- `@hiveryn/shared` (file:../shared) and `@hiveryn/tabplugin` (file:../tabplugin) — early-dev
-  packages providing domain types and the pluggable tab contract
+- `@hiveryn/shared` (file:../shared), `@hiveryn/tabplugin` (file:../tabplugin), and
+  `@hiveryn/git-diff` (file:../git-diff) — early-dev packages providing domain types,
+  the pluggable tab contract, and the git-diff pluggable tab
 
 ## Running locally
 

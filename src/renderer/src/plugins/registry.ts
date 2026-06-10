@@ -1,8 +1,10 @@
-import { Activity, EventLog, Kanban, KanbanBoard, Terminal } from '@components';
+import { Activity, EventLog, GitDiff, Kanban, KanbanBoard, Terminal } from '@components';
+import { GitDiffTab } from '@hiveryn/git-diff';
+import type { Response } from '@hiveryn/tabplugin';
 import type { ComponentType } from 'react';
 import TicketWorkflow from '../pages/architect-window/components/TicketWorkflow';
 import SessionTerminal from '../pages/architect-window/SessionTerminal';
-import type { PluginCallResult, TabPluginComponent } from './types';
+import type { TabPluginComponent } from './types';
 
 interface RegisteredTab {
   // biome-ignore lint/suspicious/noExplicitAny: icon and content components have type-specific props
@@ -40,6 +42,12 @@ tabRegistry.set('terminal', {
   isBuiltin: true,
 });
 
+tabRegistry.set('git-diff', {
+  icon: GitDiff,
+  content: GitDiffTab,
+  isBuiltin: true,
+});
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function registerTabPlugin(type: string, plugin: TabPluginComponent): void {
@@ -63,22 +71,10 @@ export function isBuiltin(type: string): boolean {
 
 // ── Plugin IPC ──────────────────────────────────────────────────────────────
 
-export async function pluginCall(
-  pluginName: string,
-  fn: string,
-  args: Record<string, unknown>,
-): Promise<PluginCallResult> {
-  try {
-    const result = await window.hiveryn.plugins.call(pluginName, fn, args);
-    return {
-      ok: true,
-      data: result,
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      data: null,
-      error: err instanceof Error ? err.message : String(err),
-    };
-  }
+export function createPluginCall(
+  sessionId: string,
+  pluginType: string,
+): (fn: string, args: Record<string, unknown>) => Promise<Response> {
+  return (fn, args) =>
+    window.hiveryn.plugins.call(sessionId, pluginType, fn, args) as Promise<Response>;
 }

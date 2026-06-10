@@ -43,7 +43,7 @@ src/
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
-      plugins.ts          plugins:call handler → daemon HTTP (stub, routes to tabplugin)
+      plugins.ts          plugins:call handler → POST /api/sessions/:id/plugins/call (routes to tabplugin)
       launcher.ts         launcher:open-architect handler
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
@@ -85,8 +85,9 @@ src/
        global.css          Renderer global styles imported through @styles/global.css
        reset.css           Shared reset imported by global.css
      plugins/
-       registry.ts         Tab plugin registry — maps tab type → component; built-ins registered
-       types.ts            TabPluginComponent, PluginCallResult types
+       registry.ts         Tab plugin registry — maps tab type → component; built-ins registered (incl. git-diff)
+       types.ts            TabPluginComponent type
+       sessionContext.ts   buildSessionContext() — SessionContext for plugin tab components
    shared/
      types.ts              Desktop-specific types and @hiveryn/shared/domain re-exports (Envelope, Architect, SystemRuntime…)
 ```
@@ -188,11 +189,11 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 ## Pluggable tab component system
 
-Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal) are registered at startup; plugin tabs can be added via `registerTabPlugin()`.
+Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff) are registered at startup; plugin tabs can be added via `registerTabPlugin()`.
 
-**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar).
+**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
 
-**Plugin IPC** (`plugins:call`) forwards `(pluginName, fn, args)` to the daemon, which routes to the appropriate tabplugin. The IPC handler is stubbed until the daemon-side routing is in place — it returns a placeholder `{ acknowledged: true }` response.
+**Plugin IPC** (`plugins:call`) forwards `(sessionId, pluginType, fn, args)` to `POST /api/sessions/:id/plugins/call` (body `{ type, fn, args }`), which the daemon routes to the registered tabplugin. The daemon returns the plugin's `tabplugin.Response` envelope (`data`/`error`/`logs`/`commands`/`meta`) with HTTP 200 even when the plugin itself reports an error — only a non-2xx status (unknown session/plugin) is thrown as a transport error. The preload's `invokePluginCall()` reflects this: it returns the full envelope on 2xx (so callers can inspect `response.error`) and only throws on non-2xx.
 
 **Registry API:**
 | Function | Returns |
@@ -201,7 +202,7 @@ Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/rend
 | `getTabPlugin(type)` | `{icon, content} \| undefined` |
 | `listRegisteredTabs()` | `string[]` |
 | `isBuiltin(type)` | `boolean` |
-| `pluginCall(pluginName, fn, args)` | `Promise<PluginCallResult>` |
+| `createPluginCall(sessionId, pluginType)` | `(fn, args) => Promise<Response>` |
 
 ## Architect session lifecycle
 

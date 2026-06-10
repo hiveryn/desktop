@@ -77,7 +77,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
-  'plugins:call': { method: 'POST', path: '/plugins/call' },
+  'plugins:call': { method: 'POST', path: '/api/sessions/:id/plugins/call' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -117,6 +117,52 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   }
 
   return envelope.data as T;
+}
+
+// Like invoke(), but for plugin calls: the daemon returns the plugin's tabplugin.Response
+// envelope (data/error/logs/commands/meta) with HTTP 200 even when the plugin itself
+// reports an error. Only a non-2xx HTTP status (transport/routing failure, e.g. unknown
+// session or plugin) is thrown — a plugin-level `error` is returned as part of the
+// envelope so callers can render it inline (matching the TabPlugin `call` contract).
+async function invokePluginCall(channel: string, ...args: unknown[]): Promise<unknown> {
+  const start = Date.now();
+  let result: DaemonResult<unknown>;
+  try {
+    result = await ipcRenderer.invoke(channel, ...args);
+  } catch (err) {
+    const raw = (err as Error).message ?? String(err);
+    throw new Error(raw.replace(/^Error invoking remote method '[^']+': Error: /, ''));
+  }
+
+  const { envelope, httpStatus } = result;
+  const info = CHANNEL_INFO[channel];
+
+  const entry: RequestLogEntry = {
+    id: envelope.meta?.request_id || `local-${Date.now()}`,
+    channel,
+    method: info?.method ?? channel,
+    path: info?.path ?? channel,
+    httpStatus,
+    durationMs: Date.now() - start,
+    ts: Date.now(),
+    envelope,
+  };
+
+  for (const cb of requestListeners) cb(entry);
+
+  if (httpStatus < 200 || httpStatus >= 300) {
+    throw Object.assign(
+      new Error(envelope.error?.message ?? `plugin call failed (HTTP ${httpStatus})`),
+      {
+        status: httpStatus,
+        code: envelope.error?.code,
+        details: envelope.error?.details,
+        stacktrace: envelope.error?.stacktrace,
+      },
+    );
+  }
+
+  return envelope;
 }
 
 contextBridge.exposeInMainWorld('hiveryn', {
@@ -291,8 +337,12 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (sessionId: string): Promise<SessionTab[]> => invoke('tabs:list', sessionId),
   },
   plugins: {
-    call: (pluginName: string, fn: string, args: Record<string, unknown>): Promise<unknown> =>
-      invoke('plugins:call', pluginName, fn, args),
+    call: (
+      sessionId: string,
+      pluginName: string,
+      fn: string,
+      args: Record<string, unknown>,
+    ): Promise<unknown> => invokePluginCall('plugins:call', sessionId, pluginName, fn, args),
   },
   daemon: {
     getHealthStatus: (): Promise<DaemonHealthState> => ipcRenderer.invoke('daemon:health:get'),

@@ -200,6 +200,7 @@ export default function ArchitectWindow() {
               >
                 <RightPane
                   architectKey={architectKey}
+                  architect={architect}
                   board={board}
                   boardLoading={boardLoading}
                   boardError={boardError}

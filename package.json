@@ -25,6 +25,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@fontsource-variable/geist-mono": "^5.1.1",
+    "@hiveryn/git-diff": "file:../git-diff",
     "@hiveryn/shared": "file:../shared",
     "@hiveryn/tabplugin": "file:../tabplugin",
     "@xterm/addon-fit": "^0.10.0",

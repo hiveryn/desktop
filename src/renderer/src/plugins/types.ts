@@ -6,9 +6,3 @@ export interface TabPluginComponent {
   // biome-ignore lint/suspicious/noExplicitAny: plugin components accept arbitrary props by tab type
   content: ComponentType<any>;
 }
-
-export interface PluginCallResult {
-  ok: boolean;
-  data: unknown;
-  error?: string;
-}

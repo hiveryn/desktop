@@ -408,7 +408,12 @@ interface HiverynAPI {
     list: (sessionId: string) => Promise<SessionTab[]>;
   };
   plugins: {
-    call: (pluginName: string, fn: string, args: Record<string, unknown>) => Promise<unknown>;
+    call: (
+      sessionId: string,
+      pluginName: string,
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<unknown>;
   };
   daemon: {
     getHealthStatus: () => Promise<DaemonHealthState>;

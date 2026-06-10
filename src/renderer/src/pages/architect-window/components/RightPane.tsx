@@ -10,11 +10,20 @@ import {
   TabBar,
   type TabBarTab,
 } from '@components';
-import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
+import type {
+  SessionEvent,
+  SessionTab,
+  Ticket,
+  TicketBoard,
+  TicketSummary,
+} from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Architect } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
+import { createPluginCall, getTabPlugin } from '../../../plugins/registry';
+import { buildSessionContext } from '../../../plugins/sessionContext';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -62,6 +71,7 @@ function tabIdToFocusId(tabId: string): string {
 
 interface Props {
   architectKey: string;
+  architect: Architect | null;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
@@ -75,6 +85,7 @@ interface Props {
 
 export default function RightPane({
   architectKey: _architectKey,
+  architect,
   board,
   boardLoading,
   boardError,
@@ -99,6 +110,41 @@ export default function RightPane({
       events.map(toEventLogEvent).filter((event): event is EventLogSessionEvent => event !== null),
     [events],
   );
+
+  // ── Plugin tab session context ──────────────────────────────────────────
+  const [sessionTicket, setSessionTicket] = useState<Ticket | null>(null);
+
+  useEffect(() => {
+    if (activeSession?.type !== 'ticket') {
+      setSessionTicket(null);
+      return;
+    }
+    let cancelled = false;
+    setSessionTicket(null);
+    window.hiveryn.sessions.getTicket(activeSession.id).then(
+      (t) => {
+        if (!cancelled) setSessionTicket(t);
+      },
+      () => {
+        // Ticket fetch errors are surfaced by TicketPane; the plugin tab simply
+        // renders without ticket context until it succeeds.
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSession?.id, activeSession?.type]);
+
+  const sessionContext = useMemo(() => {
+    if (!activeSession || !architect) return null;
+    return buildSessionContext(activeSession, architect, sessionTicket);
+  }, [activeSession, architect, sessionTicket]);
+
+  const pluginTabs = useMemo(() => {
+    if (!activeSession) return [];
+    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal']);
+    return activeSession.tabs.filter((tab) => !reserved.has(tab.type) && getTabPlugin(tab.type));
+  }, [activeSession]);
 
   const tabs = useMemo<TabBarTab[]>(() => {
     const result: TabBarTab[] = [];
@@ -322,6 +368,30 @@ export default function RightPane({
           {activeSession && <TicketPane sessionId={activeSession.id} />}
         </div>
 
+        {activeSession &&
+          sessionContext &&
+          pluginTabs.map((tab) => {
+            const plugin = getTabPlugin(tab.type);
+            if (!plugin) return null;
+            const Content = plugin.content;
+            return (
+              <div
+                key={tab.type}
+                style={{
+                  display: effectiveTab === tab.type ? 'flex' : 'none',
+                  flex: 1,
+                  minHeight: 0,
+                  flexDirection: 'column',
+                }}
+              >
+                <Content
+                  session={sessionContext}
+                  call={createPluginCall(activeSession.id, tab.type)}
+                />
+              </div>
+            );
+          })}
+
         <ExtraTerminalStack
           onCloseTerminal={(sessionId, terminalId) =>
             void handleCloseTerminal(sessionId, terminalId)
@@ -361,10 +431,6 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
   useSessionStore.getState().setActiveRightTab(created.terminal_id);
   useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
 }
-
-import { getTabPlugin } from '../../../plugins/registry';
-
-// ...
 
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
   const plugin = getTabPlugin(tab.type);

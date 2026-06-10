@@ -17,6 +17,9 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.1.1
         version: 5.2.7
+      '@hiveryn/git-diff':
+        specifier: file:../git-diff
+        version: file:../git-diff(react@19.2.5)
       '@hiveryn/shared':
         specifier: file:../shared
         version: file:../shared
@@ -615,6 +618,11 @@ packages:
 
   '@fontsource-variable/geist-mono@5.2.7':
     resolution: {integrity: sha512-ZKlZ5sjtalb2TwXKs400mAGDlt/+2ENLNySPx0wTz3bP3mWARCsUW+rpxzZc7e05d2qGch70pItt3K4qttbIYA==}
+
+  '@hiveryn/git-diff@file:../git-diff':
+    resolution: {directory: ../git-diff, type: directory}
+    peerDependencies:
+      react: ^19.0.0
 
   '@hiveryn/shared@file:../shared':
     resolution: {directory: ../shared, type: directory}
@@ -2788,6 +2796,12 @@ snapshots:
     optional: true
 
   '@fontsource-variable/geist-mono@5.2.7': {}
+
+  '@hiveryn/git-diff@file:../git-diff(react@19.2.5)':
+    dependencies:
+      '@hiveryn/shared': file:../shared
+      '@hiveryn/tabplugin': file:../tabplugin
+      react: 19.2.5
 
   '@hiveryn/shared@file:../shared': {}
 
