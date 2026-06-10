@@ -71,14 +71,17 @@ const initialState: SessionState = {
   pendingApprovals: {},
 };
 
+// Terminals are the only multi-instance tab and are keyed by their unique id.
+// Every other tab type — builtin (kanban/event-log/ticket) or plugin (e.g.
+// git-diff) — is single-instance and keyed by its type.
 function tabId(tab: SessionTab): string {
-  if (tab.type === 'kanban') return 'kanban';
-  if (tab.type === 'event-log') return 'event-log';
-  if (tab.type === 'ticket') return 'ticket';
-  if (!tab.id) {
-    throw new Error(`Terminal tab is missing id: ${JSON.stringify(tab)}`);
+  if (tab.type === 'terminal') {
+    if (!tab.id) {
+      throw new Error(`Terminal tab is missing id: ${JSON.stringify(tab)}`);
+    }
+    return tab.id;
   }
-  return tab.id;
+  return tab.type;
 }
 
 function tabIds(session: SessionRecord): string[] {

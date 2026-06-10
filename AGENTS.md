@@ -131,6 +131,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
+- Local sibling packages (`@hiveryn/git-diff`, `@hiveryn/shared/domain`, `@hiveryn/tabplugin`) are aliased to their source in `electron.vite.config.ts` so renderer edits hot-reload. Without this, pnpm's `node-linker=hoisted` (`.npmrc`) copies `file:../` deps into `node_modules` as stale snapshots, and source edits would not appear until reinstall.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
 
