@@ -1,26 +1,17 @@
 import {
-  Activity,
   ApiEnvelopeError,
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
   Glyph,
   IconButton,
-  Kanban,
   KanbanBoard,
   Plus,
   TabBar,
   type TabBarTab,
-  Terminal,
-  TicketIcon,
 } from '@components';
+import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  SessionEvent,
-  SessionTab,
-  TicketBoard,
-  TicketSummary,
-} from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
@@ -371,17 +362,14 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
   useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
 }
 
+import { getTabPlugin } from '../../../plugins/registry';
+
+// ...
+
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
-  switch (tab.type) {
-    case 'kanban':
-      return { id: 'kanban', icon: Kanban };
-    case 'event-log':
-      return { id: 'event-log', icon: Activity };
-    case 'ticket':
-      return { id: 'ticket', icon: TicketIcon };
-    case 'terminal':
-      return tab.id ? { id: tab.id, icon: Terminal } : null;
-    default:
-      return null;
-  }
+  const plugin = getTabPlugin(tab.type);
+  if (!plugin) return null;
+  const tabId = tab.type === 'terminal' ? tab.id : tab.type;
+  if (!tabId) return null;
+  return { id: tabId, icon: plugin.icon };
 }

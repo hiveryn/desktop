@@ -6,6 +6,7 @@ import { registerDaemonIpc } from './daemon';
 import { registerLauncherIpc } from './launcher';
 import { registerLogsIpc } from './logs';
 import { registerPaletteIpc } from './palette';
+import { registerPluginsIpc } from './plugins';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
 import { registerSessionIpc } from './session';
@@ -37,4 +38,5 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerTerminalsIpc();
   registerTicketsIpc();
   registerSystemIpc();
+  registerPluginsIpc();
 }

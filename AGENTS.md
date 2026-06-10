@@ -43,6 +43,7 @@ src/
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
+      plugins.ts          plugins:call handler → daemon HTTP (stub, routes to tabplugin)
       launcher.ts         launcher:open-architect handler
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
@@ -80,11 +81,14 @@ src/
       index.ts            Renderer component barrel exported through @components
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
-    styles/
-      global.css          Renderer global styles imported through @styles/global.css
-      reset.css           Shared reset imported by global.css
-  shared/
-    types.ts              Types shared across main, preload, and renderer modules (Envelope, AgentProfile, Session…)
+     styles/
+       global.css          Renderer global styles imported through @styles/global.css
+       reset.css           Shared reset imported by global.css
+     plugins/
+       registry.ts         Tab plugin registry — maps tab type → component; built-ins registered
+       types.ts            TabPluginComponent, PluginCallResult types
+   shared/
+     types.ts              Desktop-specific types and @hiveryn/shared/domain re-exports (Envelope, Architect, SystemRuntime…)
 ```
 
 ## IPC and envelope pattern
@@ -111,7 +115,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 2. **`src/main/ipc/index.ts`** — call the new registrar in `registerIpc()`.
 3. **`src/preload/index.ts`** — add the new namespace to `contextBridge.exposeInMainWorld`. Add its channels to `CHANNEL_INFO` for the request log display.
 4. **`src/preload/index.d.ts`** — extend `HiverynAPI` with the new namespace's types. Add any new domain types as global interfaces.
-5. **`src/shared/types.ts`** — add domain types used by both main and preload.
+5. **`src/shared/types.ts`** — add desktop-specific types (envelope wrappers, IPC-only structs). Domain types (SessionIntent, Ticket, …) come from `@hiveryn/shared/domain` — import them from there, not from `src/shared/types`.
 
 ## Adding a new page
 
@@ -122,7 +126,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 ## Design rules
 
 - Renderer code never imports from `electron`, `node:*`, or `src/main`. Only `window.hiveryn.*`.
-- `src/shared/types.ts` is the only cross-boundary module. Main and preload import from it, and renderer may import from it when a module export is needed; ambient renderer globals still come from `index.d.ts`.
+- Domain types (SessionIntent, Ticket, SessionTab, …) come from `@hiveryn/shared/domain`. Desktop-specific types (Envelope, DaemonResult, Architect, …) live in `src/shared/types.ts`. Main and preload import from both; renderer imports domain types from `@hiveryn/shared/domain` and gets Electron-boundary types via ambient globals in `preload/index.d.ts`.
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
@@ -181,6 +185,23 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 | `terminals:create` | POST | `/api/sessions/:id/terminals` |
 | `terminals:kill` | DELETE | `/api/sessions/:id/terminals/:uuid` |
 | `tabs:list` | GET | `/api/sessions/:id/tabs` |
+
+## Pluggable tab component system
+
+Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal) are registered at startup; plugin tabs can be added via `registerTabPlugin()`.
+
+**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar).
+
+**Plugin IPC** (`plugins:call`) forwards `(pluginName, fn, args)` to the daemon, which routes to the appropriate tabplugin. The IPC handler is stubbed until the daemon-side routing is in place — it returns a placeholder `{ acknowledged: true }` response.
+
+**Registry API:**
+| Function | Returns |
+|---|---|
+| `registerTabPlugin(type, {icon, content})` | void (throws on duplicate) |
+| `getTabPlugin(type)` | `{icon, content} \| undefined` |
+| `listRegisteredTabs()` | `string[]` |
+| `isBuiltin(type)` | `boolean` |
+| `pluginCall(pluginName, fn, args)` | `Promise<PluginCallResult>` |
 
 ## Architect session lifecycle
 

@@ -1,13 +1,11 @@
+import type { Ticket, TicketBoard, TicketStatus } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
 import type {
   DaemonResult,
-  Ticket,
-  TicketBoard,
   TicketCreateInput,
   TicketDeleteResult,
   TicketEditInput,
   TicketMetadataInput,
-  TicketStatus,
 } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 

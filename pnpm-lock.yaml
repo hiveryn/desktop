@@ -17,6 +17,12 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.1.1
         version: 5.2.7
+      '@hiveryn/shared':
+        specifier: file:../shared
+        version: file:../shared
+      '@hiveryn/tabplugin':
+        specifier: file:../tabplugin
+        version: file:../tabplugin
       '@xterm/addon-fit':
         specifier: ^0.10.0
         version: 0.10.0(@xterm/xterm@5.5.0)
@@ -609,6 +615,12 @@ packages:
 
   '@fontsource-variable/geist-mono@5.2.7':
     resolution: {integrity: sha512-ZKlZ5sjtalb2TwXKs400mAGDlt/+2ENLNySPx0wTz3bP3mWARCsUW+rpxzZc7e05d2qGch70pItt3K4qttbIYA==}
+
+  '@hiveryn/shared@file:../shared':
+    resolution: {directory: ../shared, type: directory}
+
+  '@hiveryn/tabplugin@file:../tabplugin':
+    resolution: {directory: ../tabplugin, type: directory}
 
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
@@ -2776,6 +2788,12 @@ snapshots:
     optional: true
 
   '@fontsource-variable/geist-mono@5.2.7': {}
+
+  '@hiveryn/shared@file:../shared': {}
+
+  '@hiveryn/tabplugin@file:../tabplugin':
+    dependencies:
+      '@hiveryn/shared': file:../shared
 
   '@isaacs/fs-minipass@4.0.1':
     dependencies:

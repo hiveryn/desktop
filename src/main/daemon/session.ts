@@ -1,5 +1,5 @@
+import type { SessionEvent } from '@hiveryn/shared/domain';
 import type { WebContents } from 'electron';
-import type { SessionEvent } from '../../shared/types';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
 

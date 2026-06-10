@@ -34,13 +34,13 @@ const TicketTab: React.FC<{ ticket: Ticket }> = ({ ticket }) => (
       <span className={styles.fieldLabel}>id</span>
       <span className={styles.fieldValue}>{ticket.id}</span>
       <span className={styles.fieldLabel}>repo</span>
-      <span className={styles.fieldValue}>{ticket.repo}</span>
+      <span className={styles.fieldValue}>{ticket.repo ?? ''}</span>
       <span className={styles.fieldLabel}>status</span>
       <span className={styles.fieldValue}>{ticket.status}</span>
       <span className={styles.fieldLabel}>created</span>
-      <span className={styles.fieldValue}>{fmt(ticket.created)}</span>
+      <span className={styles.fieldValue}>{ticket.created ? fmt(ticket.created) : ''}</span>
       <span className={styles.fieldLabel}>updated</span>
-      <span className={styles.fieldValue}>{fmt(ticket.updated)}</span>
+      <span className={styles.fieldValue}>{ticket.updated ? fmt(ticket.updated) : ''}</span>
     </div>
 
     {ticket.warnings.length > 0 && (
@@ -80,7 +80,7 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
   <>
     <div className={styles.fieldGrid}>
       <span className={styles.fieldLabel}>agent</span>
-      <span className={styles.fieldValue}>{conclusion.agent} / {conclusion.profile}</span>
+      <span className={styles.fieldValue}>{conclusion.agent ?? 'unknown'} / {conclusion.profile ?? 'unknown'}</span>
       <span className={styles.fieldLabel}>concluded</span>
       <span className={styles.fieldValue}>{fmt(conclusion.concluded_at)}</span>
       {conclusion.commits.length > 0 && <>

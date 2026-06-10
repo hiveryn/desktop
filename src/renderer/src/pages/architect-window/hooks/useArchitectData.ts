@@ -1,5 +1,6 @@
+import type { TicketBoard } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useState } from 'react';
-import type { Architect, SystemRuntime, TicketBoard } from '../../../../../shared/types';
+import type { Architect, SystemRuntime } from '../../../../../shared/types';
 
 const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 

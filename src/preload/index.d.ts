@@ -38,7 +38,7 @@ interface RequestLogEntry {
   envelope: Envelope;
 }
 
-// ── Structured logging ──────────────────────────────────────────────────────
+// ── Structured logging ─────────────────────────────────────────────────────
 
 type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -79,19 +79,30 @@ interface AgentProfile {
   env: Record<string, string>;
 }
 
-// ── Sessions & tickets ─────────────────────────────────────────────────────
+// ── Shared domain types (mirrors @hiveryn/shared/domain) ──────────────────
 
-type SessionKind = 'architect' | 'ticket' | 'freeform';
+type SessionType = 'architect' | 'ticket' | 'freeform';
+
+type SessionCreatedBy = 'desktop' | 'architect_mcp';
+
+type SessionRunStatus = 'running' | 'completed' | 'failed';
+
+type SessionRunFailureReason =
+  | 'launch_failed'
+  | 'process_exited'
+  | 'restore_failed'
+  | 'user_cancelled';
 
 interface SessionRun {
   id: string;
   session_intent_id: string;
-  status: 'running' | 'completed' | 'failed';
+  status: SessionRunStatus;
+  agent_status?: string;
   profile_name: string;
   profile_snapshot?: { agent: string; args: string[]; env: Record<string, string> };
   workdir: string;
   native_id?: string;
-  failure_reason?: 'launch_failed' | 'process_exited' | 'restore_failed' | 'user_cancelled';
+  failure_reason?: SessionRunFailureReason;
   main_terminal_id?: string;
   started_at?: string;
   ended_at?: string;
@@ -102,11 +113,12 @@ interface SessionRun {
 interface SessionIntent {
   id: string;
   architect_key: string;
-  session_type: SessionKind;
+  session_type: SessionType;
   context_id: string;
-  prompt?: string;
+  prompt: string;
+  workdir: string;
   instructions?: string;
-  created_by?: 'desktop' | 'architect_mcp';
+  created_by?: SessionCreatedBy;
   created_at: string;
   updated_at: string;
   current_run?: SessionRun;
@@ -121,6 +133,7 @@ interface SessionRunResult {
 interface SessionEvent {
   id: string;
   session_intent_id: string;
+  run_id?: string;
   seq: number;
   type: string;
   status?: string;
@@ -134,6 +147,8 @@ interface SessionEvent {
   at: string;
 }
 
+// ── Tickets ────────────────────────────────────────────────────────────────
+
 type TicketStatus = 'backlog' | 'progress' | 'done';
 
 interface TicketWarning {
@@ -141,7 +156,7 @@ interface TicketWarning {
   message: string;
 }
 
-interface TicketCommit {
+interface CommitRef {
   sha: string;
   repo: string;
 }
@@ -149,11 +164,11 @@ interface TicketCommit {
 interface TicketConclusion {
   started_at: string;
   concluded_at: string;
-  agent: string;
-  profile: string;
+  agent?: string;
+  profile?: string;
   rejected: boolean;
-  rejection_reason: string;
-  commits: TicketCommit[];
+  rejection_reason?: string;
+  commits: CommitRef[];
   body: string;
 }
 
@@ -161,15 +176,15 @@ interface TicketSummary {
   id: string;
   status: TicketStatus;
   title: string;
-  repo: string;
-  created: string;
-  updated: string;
+  repo?: string;
+  created?: string;
+  updated?: string;
   references: string[];
   has_conclusion: boolean;
+  warnings: TicketWarning[];
 }
 
 interface Ticket extends TicketSummary {
-  warnings: TicketWarning[];
   body: string;
   conclusion: TicketConclusion | null;
 }
@@ -211,7 +226,7 @@ interface SessionDataEvent {
   data: Uint8Array | string;
 }
 
-// ── Multi-terminal ──────────────────────────────────────────────────────────
+// ── Multi-terminal ─────────────────────────────────────────────────────────
 
 interface TerminalInfo {
   terminal_id: string;
@@ -220,10 +235,10 @@ interface TerminalInfo {
   status: string;
 }
 
-type CreateTerminalBody = Record<string, never>;
+type CreateTerminalParams = Record<string, never>;
 
 interface SessionTab {
-  type: 'kanban' | 'event-log' | 'terminal' | 'ticket';
+  type: string;
   id?: string;
   command?: string;
   status?: string;
@@ -347,7 +362,7 @@ interface HiverynAPI {
   sessions: {
     list: () => Promise<SessionIntent[]>;
     create: (
-      sessionType: SessionKind,
+      sessionType: SessionType,
       architectKey: string,
       ticketId?: string,
     ) => Promise<SessionIntent>;
@@ -386,11 +401,14 @@ interface HiverynAPI {
   };
   terminals: {
     list: (sessionId: string) => Promise<TerminalInfo[]>;
-    create: (sessionId: string, body: CreateTerminalBody) => Promise<TerminalInfo>;
+    create: (sessionId: string, body: CreateTerminalParams) => Promise<TerminalInfo>;
     kill: (sessionId: string, terminalId: string) => Promise<void>;
   };
   tabs: {
     list: (sessionId: string) => Promise<SessionTab[]>;
+  };
+  plugins: {
+    call: (pluginName: string, fn: string, args: Record<string, unknown>) => Promise<unknown>;
   };
   daemon: {
     getHealthStatus: () => Promise<DaemonHealthState>;

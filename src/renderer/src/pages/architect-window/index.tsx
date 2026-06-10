@@ -12,8 +12,8 @@ import {
   Text,
   ThemeSwitcher,
 } from '@components';
+import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Ticket, TicketSummary } from '../../../../shared/types';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../keys/dispatcher';
 import { matchesShortcut } from '../../keys/matchers';

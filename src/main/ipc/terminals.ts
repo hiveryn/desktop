@@ -1,5 +1,6 @@
+import type { CreateTerminalParams, TerminalInfo } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
-import type { CreateTerminalBody, DaemonResult, TerminalInfo } from '../../shared/types';
+import type { DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
@@ -30,7 +31,7 @@ export function registerTerminalsIpc(): void {
     async (
       _event,
       sessionId: string,
-      body: CreateTerminalBody,
+      body: CreateTerminalParams,
     ): Promise<DaemonResult<TerminalInfo>> => {
       return daemonFetch<TerminalInfo>(`/api/sessions/${encodeURIComponent(sessionId)}/terminals`, {
         method: 'POST',

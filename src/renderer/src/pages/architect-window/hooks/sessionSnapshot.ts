@@ -1,4 +1,4 @@
-import type { SessionIntent, SessionTab } from '../../../../../shared/types';
+import type { SessionIntent, SessionTab } from '@hiveryn/shared/domain';
 import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 
 function sessionLabel(intent: SessionIntent): string {

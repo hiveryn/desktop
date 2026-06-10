@@ -1,6 +1,6 @@
 import { Close } from '@components';
+import type { SessionTab } from '@hiveryn/shared/domain';
 import { useMemo } from 'react';
-import type { SessionTab } from '../../../../../shared/types';
 import { useSessionStore } from '../../../state/sessionStore';
 import { refreshSessionFromDaemon } from '../hooks/sessionSnapshot';
 import SessionTerminal from '../SessionTerminal';

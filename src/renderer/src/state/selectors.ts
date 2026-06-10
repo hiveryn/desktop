@@ -1,5 +1,5 @@
+import type { SessionEvent } from '@hiveryn/shared/domain';
 import { useShallow } from 'zustand/react/shallow';
-import type { SessionEvent } from '../../../shared/types';
 import { type SessionRecord, type SessionStore, useSessionStore } from './sessionStore';
 
 // Stable empty references — returned when there's no matching data so the

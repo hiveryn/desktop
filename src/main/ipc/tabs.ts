@@ -1,5 +1,6 @@
+import type { SessionTab } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
-import type { DaemonResult, SessionTab } from '../../shared/types';
+import type { DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 

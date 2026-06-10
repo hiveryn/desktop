@@ -1,3 +1,51 @@
+// ── Re-exports from @hiveryn/shared/domain ────────────────────────────────
+// Re-export CreateTerminalParams as the wire-compatible equivalent of the
+// old CreateTerminalBody (which was Record<string, never>).
+export type {
+  AgentProfileSnapshot,
+  AppendSessionEventParams,
+  ArchitectConclusion,
+  CommitRef,
+  ConcludeSessionParams,
+  ConcludeSessionResult,
+  ConclusionSummary,
+  ConflictError,
+  CreateSessionIntentRequest,
+  CreateSessionRunRequest,
+  CreateSessionRunResult,
+  CreateTerminalParams as CreateTerminalBody,
+  CreateTicketParams,
+  EditTicketParams,
+  InternalError,
+  MoveTicketParams,
+  MoveTicketToDoneParams,
+  MoveTicketToDoneResult,
+  NotFoundError,
+  SessionCreatedBy,
+  SessionEvent,
+  SessionIntent,
+  SessionRun,
+  SessionRunFailureReason,
+  SessionRunStatus,
+  SessionTab,
+  SessionType,
+  TerminalInfo,
+  Ticket,
+  TicketBoard,
+  TicketConclusion,
+  TicketStatus,
+  TicketSummary,
+  TicketWarning,
+  UpdateTicketMetadataParams,
+  ValidationError,
+} from '@hiveryn/shared/domain';
+
+// ── Backward-compat aliases (gradual rename targets) ───────────────────────
+export type SessionKind = import('@hiveryn/shared/domain').SessionType;
+export type TicketCommit = import('@hiveryn/shared/domain').CommitRef;
+
+// ── Desktop-specific types ─────────────────────────────────────────────────
+
 export type Theme = 'dark' | 'light' | 'system';
 
 export interface UserProfile {
@@ -49,7 +97,7 @@ export interface DaemonResult<T = unknown> {
   httpStatus: number;
 }
 
-// ── Structured logging ──────────────────────────────────────────────────────
+// ── Structured logging ─────────────────────────────────────────────────────
 
 export type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -83,38 +131,9 @@ export interface RendererLogPayload {
   body?: unknown;
 }
 
-// ── Sessions & tickets ─────────────────────────────────────────────────────
+// ── Session run result (desktop extension of shared) ───────────────────────
 
-export type SessionKind = 'architect' | 'ticket' | 'freeform';
-
-export interface SessionRun {
-  id: string;
-  session_intent_id: string;
-  status: 'running' | 'completed' | 'failed';
-  profile_name: string;
-  profile_snapshot?: { agent: string; args: string[]; env: Record<string, string> };
-  workdir: string;
-  native_id?: string;
-  failure_reason?: 'launch_failed' | 'process_exited' | 'restore_failed' | 'user_cancelled';
-  main_terminal_id?: string;
-  started_at?: string;
-  ended_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SessionIntent {
-  id: string;
-  architect_key: string;
-  session_type: SessionKind;
-  context_id: string;
-  prompt?: string;
-  instructions?: string;
-  created_by?: 'desktop' | 'architect_mcp';
-  created_at: string;
-  updated_at: string;
-  current_run?: SessionRun;
-}
+import type { SessionRun } from '@hiveryn/shared/domain';
 
 export interface SessionRunResult {
   run: SessionRun;
@@ -122,67 +141,7 @@ export interface SessionRunResult {
   ws_url: string;
 }
 
-export interface SessionEvent {
-  id: string;
-  session_intent_id: string;
-  seq: number;
-  type: string;
-  status?: string;
-  tool?: string;
-  message?: string;
-  native_id?: string;
-  primary_native_id?: string;
-  native_session_role?: string;
-  metadata?: Record<string, string>;
-  raw?: Record<string, unknown>;
-  at: string;
-}
-
-export type TicketStatus = 'backlog' | 'progress' | 'done';
-
-export interface TicketWarning {
-  code: string;
-  message: string;
-}
-
-export interface TicketCommit {
-  sha: string;
-  repo: string;
-}
-
-export interface TicketConclusion {
-  started_at: string;
-  concluded_at: string;
-  agent: string;
-  profile: string;
-  rejected: boolean;
-  rejection_reason: string;
-  commits: TicketCommit[];
-  body: string;
-}
-
-export interface TicketSummary {
-  id: string;
-  status: TicketStatus;
-  title: string;
-  repo: string;
-  created: string;
-  updated: string;
-  references: string[];
-  has_conclusion: boolean;
-}
-
-export interface Ticket extends TicketSummary {
-  warnings: TicketWarning[];
-  body: string;
-  conclusion: TicketConclusion | null;
-}
-
-export interface TicketBoard {
-  backlog: TicketSummary[];
-  progress: TicketSummary[];
-  done: TicketSummary[];
-}
+// ── Ticket CRUD inputs (desktop-side, daemon adds server-side fields) ──────
 
 export interface TicketEditInput {
   oldString: string;
@@ -206,6 +165,8 @@ export interface TicketCreateInput {
 export interface TicketDeleteResult {
   deleted: boolean;
 }
+
+// ── Architects ─────────────────────────────────────────────────────────────
 
 export interface ArchitectRepo {
   key: string;
@@ -239,22 +200,6 @@ export interface ArchitectInfo {
   path: string;
 }
 
-export interface TerminalInfo {
-  terminal_id: string;
-  session_id: string;
-  command: string;
-  status: string;
-}
-
-export type CreateTerminalBody = Record<string, never>;
-
-export interface SessionTab {
-  type: 'kanban' | 'event-log' | 'terminal' | 'ticket';
-  id?: string;
-  command?: string;
-  status?: string;
-}
-
 export interface WorkspaceChangedEvent {
   type: string;
   architect_key: string;
@@ -262,6 +207,8 @@ export interface WorkspaceChangedEvent {
   ticket_id: string;
   at: string;
 }
+
+// ── System / daemon ────────────────────────────────────────────────────────
 
 export interface SystemRuntime {
   environment: string;

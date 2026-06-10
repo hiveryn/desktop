@@ -1,8 +1,8 @@
 import { ApiEnvelopeError } from '@components';
+import type { Ticket, TicketConclusion } from '@hiveryn/shared/domain';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Ticket, TicketConclusion } from '../../../../../shared/types';
 import styles from './TicketPane.module.css';
 
 function fmt(iso: string): string {
@@ -27,7 +27,7 @@ const ConclusionSection: React.FC<{ conclusion: TicketConclusion }> = ({ conclus
     <div className={styles.fieldGrid}>
       <span className={styles.fieldLabel}>agent</span>
       <span className={styles.fieldValue}>
-        {conclusion.agent} / {conclusion.profile}
+        {conclusion.agent ?? 'unknown'} / {conclusion.profile ?? 'unknown'}
       </span>
       <span className={styles.fieldLabel}>concluded</span>
       <span className={styles.fieldValue}>{fmt(conclusion.concluded_at)}</span>
@@ -110,11 +110,11 @@ export default function TicketPane({ sessionId }: Props) {
         <span className={styles.fieldLabel}>id</span>
         <span className={styles.fieldValue}>{ticket.id}</span>
         <span className={styles.fieldLabel}>repo</span>
-        <span className={styles.fieldValue}>{ticket.repo}</span>
+        <span className={styles.fieldValue}>{ticket.repo ?? ''}</span>
         <span className={styles.fieldLabel}>created</span>
-        <span className={styles.fieldValue}>{fmt(ticket.created)}</span>
+        <span className={styles.fieldValue}>{ticket.created ? fmt(ticket.created) : ''}</span>
         <span className={styles.fieldLabel}>updated</span>
-        <span className={styles.fieldValue}>{fmt(ticket.updated)}</span>
+        <span className={styles.fieldValue}>{ticket.updated ? fmt(ticket.updated) : ''}</span>
       </div>
 
       {ticket.warnings.length > 0 && (

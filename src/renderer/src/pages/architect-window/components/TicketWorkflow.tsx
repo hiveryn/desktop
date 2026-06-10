@@ -1,7 +1,7 @@
 import type { AgentProfile } from '@components';
 import { ApiEnvelopeError, ProfileSelector, TicketDetail } from '@components';
+import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Ticket, TicketSummary } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { matchesShortcut } from '../../../keys/matchers';

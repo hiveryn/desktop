@@ -1,3 +1,14 @@
+import type {
+  CreateTerminalParams,
+  SessionEvent,
+  SessionIntent,
+  SessionTab,
+  SessionType,
+  TerminalInfo,
+  Ticket,
+  TicketBoard,
+  TicketStatus,
+} from '@hiveryn/shared/domain';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AgentProfile,
@@ -5,26 +16,17 @@ import type {
   Architect,
   ArchitectInfo,
   ArchitectStatus,
-  CreateTerminalBody,
   DaemonHealthState,
   DaemonResult,
   DesktopConfig,
   RendererLogPayload,
   RequestLogEntry,
-  SessionEvent,
-  SessionIntent,
-  SessionKind,
   SessionRunResult,
-  SessionTab,
   SystemRuntime,
-  TerminalInfo,
-  Ticket,
-  TicketBoard,
   TicketCreateInput,
   TicketDeleteResult,
   TicketEditInput,
   TicketMetadataInput,
-  TicketStatus,
   WorkspaceChangedEvent,
 } from '../shared/types';
 
@@ -75,6 +77,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
+  'plugins:call': { method: 'POST', path: '/plugins/call' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -231,7 +234,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   sessions: {
     list: (): Promise<SessionIntent[]> => invoke('sessions:list'),
     create: (
-      sessionType: SessionKind,
+      sessionType: SessionType,
       architectKey: string,
       ticketId?: string,
     ): Promise<SessionIntent> => invoke('sessions:create', sessionType, architectKey, ticketId),
@@ -279,13 +282,17 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   terminals: {
     list: (sessionId: string): Promise<TerminalInfo[]> => invoke('terminals:list', sessionId),
-    create: (sessionId: string, body: CreateTerminalBody): Promise<TerminalInfo> =>
+    create: (sessionId: string, body: CreateTerminalParams): Promise<TerminalInfo> =>
       invoke('terminals:create', sessionId, body),
     kill: (sessionId: string, terminalId: string): Promise<void> =>
       invoke('terminals:kill', sessionId, terminalId),
   },
   tabs: {
     list: (sessionId: string): Promise<SessionTab[]> => invoke('tabs:list', sessionId),
+  },
+  plugins: {
+    call: (pluginName: string, fn: string, args: Record<string, unknown>): Promise<unknown> =>
+      invoke('plugins:call', pluginName, fn, args),
   },
   daemon: {
     getHealthStatus: (): Promise<DaemonHealthState> => ipcRenderer.invoke('daemon:health:get'),

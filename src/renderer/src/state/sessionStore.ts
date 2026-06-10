@@ -1,11 +1,11 @@
+import type { CommitRef, SessionEvent, SessionTab } from '@hiveryn/shared/domain';
 import { create } from 'zustand';
-import type { SessionEvent, SessionTab, TicketCommit } from '../../../shared/types';
 
 export interface PendingApproval {
   sessionId: string;
   body: string;
   timeoutSeconds: number;
-  commits: TicketCommit[];
+  commits: CommitRef[];
   rejected: boolean;
   rejectionReason: string;
 }

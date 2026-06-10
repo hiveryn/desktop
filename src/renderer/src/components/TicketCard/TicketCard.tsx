@@ -25,8 +25,8 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, selected, className, ..
     <div className={classes} {...rest}>
       <div className={styles.title}>{ticket.title}</div>
       <div className={styles.meta}>
-        <span className={styles.repo}>{ticket.repo}</span>
-        <span className={styles.time}>{formatTime(ticket.updated)}</span>
+        <span className={styles.repo}>{ticket.repo ?? ''}</span>
+        <span className={styles.time}>{formatTime(ticket.updated ?? '')}</span>
       </div>
     </div>
   );

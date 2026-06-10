@@ -1,8 +1,8 @@
 export type {
   Ticket,
   TicketBoard,
-  TicketCommit,
+  CommitRef as TicketCommit,
   TicketConclusion,
   TicketSummary,
   TicketWarning,
-} from '../../../../shared/types';
+} from '@hiveryn/shared/domain';

@@ -1,8 +1,8 @@
+import type { CommitRef } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
-import type { TicketCommit } from '../../../../../shared/types';
 import { useSessionStore } from '../../../state/sessionStore';
 
-function parseApprovalCommits(event: { raw?: Record<string, unknown> }): TicketCommit[] {
+function parseApprovalCommits(event: { raw?: Record<string, unknown> }): CommitRef[] {
   const commits = event.raw?.commits;
   if (commits === undefined) return [];
   if (!Array.isArray(commits)) {

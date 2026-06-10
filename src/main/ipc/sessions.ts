@@ -1,11 +1,6 @@
+import type { SessionIntent, SessionType, Ticket } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
-import type {
-  DaemonResult,
-  SessionIntent,
-  SessionKind,
-  SessionRunResult,
-  Ticket,
-} from '../../shared/types';
+import type { DaemonResult, SessionRunResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
@@ -28,7 +23,7 @@ export function registerSessionsIpc(): void {
     'sessions:create',
     async (
       _event,
-      sessionType: SessionKind,
+      sessionType: SessionType,
       architectKey: string,
       ticketId?: string,
     ): Promise<DaemonResult<SessionIntent>> => {
