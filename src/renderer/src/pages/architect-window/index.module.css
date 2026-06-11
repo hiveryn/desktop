@@ -79,7 +79,7 @@
    are exempt — the backdrop already separates them. */
 .leftPane:not([data-focused]):not([data-maximized]),
 .rightPane:not([data-focused]):not([data-maximized]) {
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 .leftPane,
