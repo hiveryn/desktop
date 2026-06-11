@@ -47,6 +47,7 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     },
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: [
         // Local sibling packages — alias to source so renderer edits are live
         // (HMR) instead of resolving the stale copy pnpm's hoisted linker drops

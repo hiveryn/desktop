@@ -132,6 +132,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
 - Local sibling packages (`@hiveryn/git-diff`, `@hiveryn/shared/domain`, `@hiveryn/tabplugin`) are aliased to their source in `electron.vite.config.ts` so renderer edits hot-reload. Without this, pnpm's `node-linker=hoisted` (`.npmrc`) copies `file:../` deps into `node_modules` as stale snapshots, and source edits would not appear until reinstall.
+- Tab plugins (git-diff and future ones) must declare `react` only as a `peerDependency` (never in `dependencies` or `devDependencies`). Desktop provides the single React copy; renderer `resolve.dedupe: ['react', 'react-dom']` + Vite aliases guarantee one instance. Dual React copies cause "Cannot read properties of null (reading 'useState')" at hook call sites.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
 
@@ -190,7 +191,7 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 ## Pluggable tab component system
 
-Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff) are registered at startup; plugin tabs can be added via `registerTabPlugin()`.
+Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff) are registered at startup; plugin tabs can be added via `registerTabPlugin()`. All pluggable tab components share desktop's single React instance (peerDep contract + dedupe in `electron.vite.config.ts`).
 
 **`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
 
