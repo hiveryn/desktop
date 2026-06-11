@@ -8,10 +8,17 @@
   background: var(--theme-background);
 }
 
+/* Absolutely positioned so the xterm DOM (whose screen element carries a
+   fixed pixel width/height of cols×cellWidth / rows×cellHeight) can NEVER
+   influence the size of the box FitAddon measures. With a flex/static child
+   here, a too-large grid props up its own container via the flex item's
+   automatic minimum size (min-width: auto), and fit() re-derives the same
+   too-large cols/rows from the propped-up container forever — the terminal
+   visibly overflows the pane and can't shrink back. inset: 0 ties this box
+   to .root alone, so fit always measures the pane, not the canvas. */
 .terminal {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   z-index: 1;
 }
 

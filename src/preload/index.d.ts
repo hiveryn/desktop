@@ -337,7 +337,11 @@ interface HiverynAPI {
   };
   session: {
     subscribe: (sessionId: string) => Promise<void>;
-    connect: (sessionId: string, terminalId: string) => Promise<void>;
+    connect: (
+      sessionId: string,
+      terminalId: string,
+      size?: { cols: number; rows: number },
+    ) => Promise<void>;
     disconnect: (sessionId?: string, terminalId?: string) => Promise<void>;
     send: (sessionId: string, terminalId: string, data: string) => void;
     resize: (sessionId: string, terminalId: string, cols: number, rows: number) => void;

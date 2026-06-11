@@ -6,6 +6,15 @@ import { consumeSseBuffer, dispatchSseBlock } from './sse';
 interface TerminalConnection {
   ws: WebSocket;
   terminalId: string;
+  // Latest resize that arrived while the WS was still CONNECTING. Flushed on
+  // open so a resize during the connect window isn't silently lost (the
+  // attach-time handshake only carries the size known at connect() call time).
+  pendingSize: TerminalSize | null;
+}
+
+export interface TerminalSize {
+  cols: number;
+  rows: number;
 }
 
 interface ActiveSession {
@@ -69,9 +78,14 @@ function connectKey(wcId: number, sessionId: string, terminalId: string): string
   return `${wcId}:${sessionId}:${terminalId}`;
 }
 
-function terminalWsUrl(sessionId: string, terminalId: string): string {
+function terminalWsUrl(sessionId: string, terminalId: string, size?: TerminalSize): string {
   const wsBase = DAEMON_URL.replace(/^http/, 'ws');
-  return `${wsBase}/ws/session/${encodeURIComponent(sessionId)}/terminal/${encodeURIComponent(terminalId)}`;
+  const base = `${wsBase}/ws/session/${encodeURIComponent(sessionId)}/terminal/${encodeURIComponent(terminalId)}`;
+  // Attach-time size handshake: the daemon resizes the PTY to the client's
+  // grid before streaming, so every (re)connect reconciles PTY ↔ xterm size
+  // (daemon restarts restore PTYs at 80×24; without this, a missed resize
+  // edge left them divergent until the next window resize).
+  return size ? `${base}?cols=${size.cols}&rows=${size.rows}` : base;
 }
 
 export interface ConnectResult {
@@ -157,9 +171,10 @@ export function connect(
   sender: WebContents,
   sessionId: string,
   terminalId: string,
+  size?: TerminalSize,
 ): Promise<ConnectResult | ConnectError> {
   const wcId = sender.id;
-  const wsUrl = terminalWsUrl(sessionId, terminalId);
+  const wsUrl = terminalWsUrl(sessionId, terminalId, size);
   const key = connectKey(wcId, sessionId, terminalId);
 
   // If this terminal's WS is already open, return success immediately.
@@ -248,7 +263,7 @@ export function connect(
       oldConn.ws.close();
     }
 
-    const conn: TerminalConnection = { ws, terminalId };
+    const conn: TerminalConnection = { ws, terminalId, pendingSize: null };
     session.terminals.set(terminalId, conn);
 
     ws.addEventListener('open', () => {
@@ -262,6 +277,11 @@ export function connect(
         return;
       }
       console.log('[main:session] open ✓', { wcId, sessionId, terminalId });
+      if (conn.pendingSize) {
+        const { cols, rows } = conn.pendingSize;
+        conn.pendingSize = null;
+        ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+      }
       settle({ ok: true });
     });
 
@@ -381,6 +401,14 @@ export function resize(
   if (cols <= 0 || rows <= 0) return;
   const session = sessionsByWcId.get(wcId)?.get(sessionId);
   const conn = session?.terminals.get(terminalId);
-  if (!conn || conn.ws.readyState !== WebSocket.OPEN) return;
+  if (!conn) return;
+  if (conn.ws.readyState === WebSocket.CONNECTING) {
+    // Queue the latest size; the open handler flushes it. Dropping it here
+    // would leave the PTY at the size from the attach handshake while xterm
+    // has already moved on — a divergence with no reconciliation point.
+    conn.pendingSize = { cols, rows };
+    return;
+  }
+  if (conn.ws.readyState !== WebSocket.OPEN) return;
   conn.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
 }

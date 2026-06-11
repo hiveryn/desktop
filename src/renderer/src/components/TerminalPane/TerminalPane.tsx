@@ -398,14 +398,32 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       dataDispose = term.onData(data => onDataRef.current?.(data));
     }
 
+    // Fit SYNCHRONOUSLY on every size change, but debounce only the daemon
+    // resize notification.
+    //
+    // xterm renders its screen at exactly rows×cellHeight pixels, and our
+    // viewport scrollbar is hidden via CSS (see TerminalPane.module.css). So
+    // any frame where xterm holds a stale, larger row count than the container
+    // now fits renders the bottom rows below the fold, where `.root`'s
+    // overflow:hidden silently clips them — content vanishes with no scrollbar.
+    //
+    // The previous resize ticket debounced this whole callback 100ms to avoid
+    // flooding the PTY with SIGWINCH. That also delayed fit() itself, leaving
+    // exactly that stale-grid clip window open during (and 100ms after) every
+    // resize. ResizeObserver fires after layout but before paint, so fitting
+    // here keeps xterm's grid matched to the container pixel dimensions every
+    // frame, with no overflow flash. Only onResize (the WS message the prior
+    // ticket actually wanted to throttle) stays debounced. fit() resizing the
+    // xterm canvas does not change the observed container box, so there is no
+    // observer feedback loop.
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
+      if (disposedRef.current || !visibleRef.current) return;
+      fitAddon.fit();
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         resizeTimer = null;
         if (disposedRef.current) return;
-        if (!visibleRef.current) return;
-        fitAddon.fit();
         onResizeRef.current?.(term.cols, term.rows);
       }, 100);
     });

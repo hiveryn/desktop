@@ -11,8 +11,13 @@ export function registerSessionIpc(): void {
 
   ipcMain.handle(
     'session:connect',
-    async (event, sessionId: string, terminalId: string): Promise<DaemonResult<null>> => {
-      const result = await sessionManager.connect(event.sender, sessionId, terminalId);
+    async (
+      event,
+      sessionId: string,
+      terminalId: string,
+      size?: sessionManager.TerminalSize,
+    ): Promise<DaemonResult<null>> => {
+      const result = await sessionManager.connect(event.sender, sessionId, terminalId, size);
       return result.ok ? ok(null) : errorResult('SESSION_ERROR', result.message);
     },
   );

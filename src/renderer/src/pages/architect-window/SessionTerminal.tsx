@@ -57,16 +57,18 @@ export default function SessionTerminal({
 
     async function connect() {
       try {
-        await window.hiveryn.session.connect(sessionId, terminalId);
+        // Attach-time size handshake: the daemon resizes the PTY to our grid
+        // before streaming starts, so PTY ↔ xterm reconcile on every connect.
+        // lastSizeRef is set by TerminalPane's mount fit (child effects run
+        // before parent effects), so it's populated here whenever the pane is
+        // visible. Hidden panes connect without a size; the visibility fit
+        // sends a resize when they're first shown.
+        await window.hiveryn.session.connect(
+          sessionId,
+          terminalId,
+          lastSizeRef.current ?? undefined,
+        );
         if (cancelled) return;
-        if (lastSizeRef.current) {
-          window.hiveryn.session.resize(
-            sessionId,
-            terminalId,
-            lastSizeRef.current.cols,
-            lastSizeRef.current.rows,
-          );
-        }
         onConnectedRef.current?.(sessionId);
       } catch (err: unknown) {
         if (cancelled) return;
@@ -108,26 +110,25 @@ export default function SessionTerminal({
 
       void (async () => {
         try {
-          await window.hiveryn.session.connect(sessionId, terminalId);
-          if (lastSizeRef.current) {
-            window.hiveryn.session.resize(
-              sessionId,
-              terminalId,
-              lastSizeRef.current.cols,
-              lastSizeRef.current.rows,
-            );
-          }
+          // Same attach-time size handshake as the initial connect — critical
+          // here because daemon restarts restore PTYs at the 80×24 default;
+          // reconnecting with our grid reconciles the size immediately.
+          await window.hiveryn.session.connect(
+            sessionId,
+            terminalId,
+            lastSizeRef.current ?? undefined,
+          );
           onConnectedRef.current?.(sessionId);
         } catch (err: unknown) {
-          // "terminal not running" means the process exited normally;
-          // main_terminal_resumed handles that case, so don't surface an error.
-          const message = err instanceof Error ? err.message : String(err);
-          if (
-            !message.toLowerCase().includes('terminal is not running') &&
-            !message.toLowerCase().includes('terminal not found')
-          ) {
-            console.error('[SessionTerminal] reconnect failed', { sessionId, terminalId, err });
-          }
+          // Surface the failure instead of leaving a silently-frozen pane
+          // showing stale content over a dead WS. When a main terminal
+          // process exited normally, the daemon fires main_terminal_resumed
+          // which remounts this component under a new terminal ID, replacing
+          // the error pane; a closed aux terminal is removed from the tab
+          // list, unmounting it. Anything else is a real failure the
+          // developer must see.
+          console.error('[SessionTerminal] reconnect failed', { sessionId, terminalId, err });
+          setError(err);
         } finally {
           reconnectingRef.current = false;
         }

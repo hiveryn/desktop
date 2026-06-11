@@ -3,7 +3,9 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .disconnectedPane {
@@ -16,11 +18,18 @@
   padding: 2rem;
 }
 
+/* min-width/min-height: 0 + overflow: hidden so a too-large xterm canvas can
+   never prop up this flex item's automatic minimum size — without these, an
+   oversized grid (e.g. fitted while the pane was maximized) holds the slot at
+   the old width and FitAddon keeps re-measuring the propped-up box, so the
+   terminal can never shrink back to the real pane size. */
 .extraSlot {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Floating close button — anchored to the top-right of the terminal pane.

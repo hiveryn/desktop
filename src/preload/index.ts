@@ -212,8 +212,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   session: {
     subscribe: (sessionId: string): Promise<void> => invoke('session:subscribe', sessionId),
-    connect: (sessionId: string, terminalId: string): Promise<void> =>
-      invoke('session:connect', sessionId, terminalId),
+    connect: (
+      sessionId: string,
+      terminalId: string,
+      size?: { cols: number; rows: number },
+    ): Promise<void> => invoke('session:connect', sessionId, terminalId, size),
     disconnect: (sessionId?: string, terminalId?: string): Promise<void> =>
       invoke('session:disconnect', sessionId, terminalId),
     send: (sessionId: string, terminalId: string, data: string): void => {
