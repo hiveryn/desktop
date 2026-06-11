@@ -6,9 +6,12 @@
   font-family: var(--font-family-mono);
 }
 
+/* No column-wide left divider — only the active tab shows a left accent (see
+   .right .active). The right pane's content panel carries its own border, so a
+   continuous rail border here just doubled up. */
 .right {
   border-right: none;
-  border-left: 1px solid var(--theme-border);
+  border-left: none;
 }
 
 /* Bottom bar draws no border of its own — the hosting BottomBar already has a

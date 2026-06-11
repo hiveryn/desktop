@@ -70,7 +70,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid var(--theme-border);
   overflow: hidden;
 }
 
@@ -87,23 +86,14 @@
   transition: opacity 150ms ease;
 }
 
-/* Pane focus indicator — a 2px accent strip along the top edge, matching the
-   active-tab indicator language. Drawn via an overlay pseudo-element so it
-   sits ABOVE the xterm canvas; pointer-events: none keeps clicks passing
-   through to the terminal. */
-.leftPane[data-focused="true"]::after,
-.rightPane[data-focused="true"]::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  pointer-events: none;
-  background: var(--theme-focused-foreground);
-  z-index: var(--z-index-pane-focus);
-}
+/* Right-pane focus indicator — the inset content card lights up its full
+   border when focused (see .rightPaneContent below). The left pane (the
+   full-bleed agent) signals focus purely via the opacity dimming above. */
 
+/* No overflow:hidden here so the inset content card's drop shadow / focus glow
+   can render into the surrounding gap. Clipping of actual content is handled by
+   the inner elements (.rightPaneInner, .rightPaneContent, .extraSlot, .root),
+   which all clip independently — this clip was redundant. */
 .rightPane {
   position: relative;
   flex: 1 1 60%;
@@ -111,15 +101,16 @@
   display: flex;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
+/* No overflow:hidden — the inset content panel's glow renders into the gap
+   here. Content clipping is handled downstream (.rightPaneContent, .extraSlot,
+   .root all clip with min-width/height: 0), so this clip was redundant. */
 .rightPaneInner {
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
 .rightPaneTabs {
@@ -132,12 +123,17 @@
   flex-shrink: 0;
 }
 
+/* The content panel fills the right pane, offset by a small left margin and a
+   thin left border so there's a clear seam between it and the agent on the
+   left. Focus is conveyed by the pane opacity dimming above. */
 .rightPaneContent {
   flex: 1;
   display: flex;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  margin-left: var(--space-3);
+  box-shadow: -10px 0 24px -6px rgba(255, 255, 255, 0.14);
 }
 
 /* Right-pane tab panels stay mounted (terminal scrollback, kanban cursor);
@@ -189,8 +185,11 @@
   }
 }
 
+/* The architect window is a flex column (nav / content / bottom bar); the bar
+   stays in flow at its natural height so the content above it gets exactly the
+   remaining space. BottomBar is in-flow by default now, so this is just an
+   explicit guard against the bar being squeezed. */
 .bottomBar {
-  position: static;
   flex-shrink: 0;
 }
 

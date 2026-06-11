@@ -201,7 +201,7 @@ export default function Launcher() {
         )}
       </main>
 
-      <BottomBar />
+      <BottomBar className={styles.bottomBarFixed} />
 
       <ProfileSelector
         profiles={profiles}

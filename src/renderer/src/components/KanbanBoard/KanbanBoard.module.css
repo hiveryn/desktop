@@ -1,7 +1,6 @@
 .root {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--theme-border);
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
   overflow: hidden;

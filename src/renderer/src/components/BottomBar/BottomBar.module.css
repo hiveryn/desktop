@@ -1,16 +1,20 @@
+/* In-flow flex bar by default — page-level positioning (e.g. pinning to a
+   scrolling viewport) is the consuming page's concern, opted into via a
+   className. A hardcoded `position: fixed` here previously fought the
+   architect window's flex layout: both rules were equal-specificity single
+   classes, so whichever stylesheet loaded last won. When `fixed` won, the bar
+   left the flow, the flex content grew to the full window height, and its
+   bottom strip hid behind the bar — clipping terminals and the event log
+   alike. flex-shrink: 0 keeps the bar at its natural height in a flex column. */
 .root {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
   background: var(--theme-surface-1);
   border-top: 1px solid var(--theme-border);
   font-family: var(--font-family-mono);
   font-size: var(--font-size);
-  z-index: var(--z-index-page-select);
 }
 
 .slot {

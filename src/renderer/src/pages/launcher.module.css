@@ -1,8 +1,18 @@
+/* The launcher is a scrolling page: it pins the bottom bar to the viewport and
+   reserves space for it with padding-bottom so cards never hide behind it. */
 .window {
   min-height: 100vh;
   background: var(--theme-background);
   color: var(--theme-text);
   padding-bottom: 3.25rem;
+}
+
+.bottomBarFixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-index-page-select);
 }
 
 .navTitle {
