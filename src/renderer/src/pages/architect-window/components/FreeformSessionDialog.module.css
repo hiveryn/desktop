@@ -1,9 +1,17 @@
-.wrapper {
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 48ch;
+}
+
+.field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+/* Mirrors the label styling of the Input component so mixed fields align. */
 .label {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
@@ -14,7 +22,8 @@
   line-height: calc(var(--line-height-base) * 1em);
 }
 
-.root {
+/* Mirrors Input's field styling. */
+.textarea {
   display: block;
   width: 100%;
   font-family: var(--font-family-mono);
@@ -25,6 +34,7 @@
   padding: var(--space-2) var(--space-h-2);
   line-height: calc(var(--line-height-base) * 1rem);
   outline: none;
+  resize: vertical;
 
   &::placeholder {
     color: var(--theme-text-muted);
@@ -33,9 +43,15 @@
   &:focus {
     border-color: var(--theme-focused-foreground);
   }
+}
 
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+.variantRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+}
+
+.variantName {
+  font-size: var(--font-size);
+  color: var(--theme-text);
 }

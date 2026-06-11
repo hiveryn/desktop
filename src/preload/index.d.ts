@@ -312,11 +312,6 @@ interface WorkspaceChangedEvent {
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
-  preferences: {
-    getTheme: () => Promise<'dark' | 'light' | 'system'>;
-    setTheme: (value: 'dark' | 'light' | 'system') => Promise<void>;
-    onThemeChange: (callback: (value: 'dark' | 'light') => void) => () => void;
-  };
   user: {
     getProfile: () => Promise<{ data: { name: string } }>;
   };
@@ -398,6 +393,7 @@ interface HiverynAPI {
   };
   system: {
     getRuntime: () => Promise<SystemRuntime>;
+    getUserHome: () => Promise<string>;
   };
   terminals: {
     list: (sessionId: string) => Promise<TerminalInfo[]>;

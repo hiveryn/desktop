@@ -3,10 +3,7 @@ import {
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
-  Glyph,
-  IconButton,
   KanbanBoard,
-  Plus,
   TabBar,
   type TabBarTab,
 } from '@components';
@@ -80,7 +77,6 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
-  onNewFreeform(): void;
 }
 
 export default function RightPane({
@@ -94,7 +90,6 @@ export default function RightPane({
   onTicketSelect,
   onSpawnTicket,
   onRefreshBoard,
-  onNewFreeform,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -316,14 +311,7 @@ export default function RightPane({
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
     <div className={styles.rightPaneInner} onClick={handlePaneClick}>
       <div className={styles.rightPaneContent}>
-        <div
-          style={{
-            display: effectiveTab === 'kanban' ? 'flex' : 'none',
-            flex: 1,
-            minHeight: 0,
-            flexDirection: 'column',
-          }}
-        >
+        <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
           <div className={styles.kanbanPane}>
             {boardError ? <ApiEnvelopeError error={boardError} title="Tickets API Error" /> : null}
             {ticketError ? <ApiEnvelopeError error={ticketError} title="Ticket API Error" /> : null}
@@ -341,14 +329,7 @@ export default function RightPane({
           </div>
         </div>
 
-        <div
-          style={{
-            display: effectiveTab === 'event-log' ? 'flex' : 'none',
-            flex: 1,
-            minHeight: 0,
-            flexDirection: 'column',
-          }}
-        >
+        <div className={styles.tabPanel} data-active={effectiveTab === 'event-log'}>
           <EventLog
             className={styles.eventLog}
             events={eventLogEvents}
@@ -357,14 +338,7 @@ export default function RightPane({
           />
         </div>
 
-        <div
-          style={{
-            display: effectiveTab === 'ticket' ? 'flex' : 'none',
-            flex: 1,
-            minHeight: 0,
-            flexDirection: 'column',
-          }}
-        >
+        <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
           {activeSession && <TicketPane sessionId={activeSession.id} />}
         </div>
 
@@ -377,12 +351,8 @@ export default function RightPane({
             return (
               <div
                 key={tab.type}
-                style={{
-                  display: effectiveTab === tab.type ? 'flex' : 'none',
-                  flex: 1,
-                  minHeight: 0,
-                  flexDirection: 'column',
-                }}
+                className={styles.tabPanel}
+                data-active={effectiveTab === tab.type}
               >
                 <Content
                   session={sessionContext}
@@ -411,12 +381,6 @@ export default function RightPane({
           addLabel="New terminal"
           side="right"
         />
-        <div className={styles.tabColumnSeparator} />
-        <IconButton onClick={onNewFreeform} aria-label="New freeform session">
-          <Glyph>
-            <Plus />
-          </Glyph>
-        </IconButton>
       </div>
     </div>
   );

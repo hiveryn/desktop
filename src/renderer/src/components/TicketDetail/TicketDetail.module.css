@@ -232,7 +232,7 @@
 
   & h1, & h2, & h3, & h4, & h5, & h6 {
     font-size: var(--font-size-sm);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
     letter-spacing: var(--letter-spacing-caps);
     color: var(--theme-text-muted);
@@ -241,7 +241,7 @@
     &:first-child { margin-top: 0; }
   }
 
-  & strong { font-weight: 600; }
+  & strong { font-weight: var(--font-weight-semibold); }
   & em { font-style: italic; }
 
   & code {

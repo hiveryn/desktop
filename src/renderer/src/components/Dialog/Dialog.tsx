@@ -37,6 +37,12 @@ const Dialog: React.FC<DialogProps> = ({
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
 
+  // Handlers live in a ref so the focus-trap effect can run once on mount.
+  // Depending on `onCancel` re-ran the effect (parents pass a fresh closure
+  // every render), which re-focused the first field on each keystroke.
+  const onCancelRef = React.useRef(onCancel);
+  onCancelRef.current = onCancel;
+
   React.useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
   }, []);
@@ -45,21 +51,26 @@ const Dialog: React.FC<DialogProps> = ({
     const el = dialogRef.current;
     if (!el) return;
 
-    const focusable = el.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    const getFocusable = () =>
+      el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
 
-    first?.focus();
+    // Initial focus — once, on mount.
+    getFocusable()[0]?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onCancel?.();
+        onCancelRef.current?.();
         return;
       }
 
       if (e.key === 'Tab') {
+        // Re-query on each Tab: the dialog's focusable children can change
+        // after mount (e.g. buttons enabling once the form is valid).
+        const focusable = getFocusable();
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
         if (e.shiftKey) {
           if (document.activeElement === first) {
             e.preventDefault();
@@ -76,7 +87,7 @@ const Dialog: React.FC<DialogProps> = ({
 
     el.addEventListener('keydown', handleKeyDown);
     return () => el.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
+  }, []);
 
   React.useEffect(() => {
     return () => {

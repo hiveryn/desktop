@@ -9,7 +9,6 @@ import {
   Navigation,
   ProfileSelector,
   Text,
-  ThemeSwitcher,
 } from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShortcutConfig } from '../hooks/useShortcutConfig';
@@ -42,7 +41,7 @@ export default function Launcher() {
   }, [shortcutConfig, paletteOpen]);
 
   const [architects, setArchitects] = useState<Architect[]>([]);
-  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
+  const [userHome, setUserHome] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown | null>(null);
 
@@ -67,10 +66,10 @@ export default function Launcher() {
       setIsLoading(true);
       setError(null);
       setProfilesError(null);
-      const [architectsResult, runtimeResult, sessionsResult, profilesResult] =
+      const [architectsResult, userHomeResult, sessionsResult, profilesResult] =
         await Promise.allSettled([
           window.hiveryn.architects.list(),
-          window.hiveryn.system.getRuntime(),
+          window.hiveryn.system.getUserHome(),
           window.hiveryn.sessions.list(),
           window.hiveryn.profiles.list(),
         ]);
@@ -83,10 +82,8 @@ export default function Launcher() {
         setError(architectsResult.reason);
       }
 
-      if (runtimeResult.status === 'fulfilled') {
-        setRuntime(runtimeResult.value);
-      } else {
-        setError(runtimeResult.reason);
+      if (userHomeResult.status === 'fulfilled') {
+        setUserHome(userHomeResult.value);
       }
 
       if (sessionsResult.status === 'fulfilled') {
@@ -193,7 +190,7 @@ export default function Launcher() {
                 key={architect.key}
                 architect={{
                   ...architect,
-                  path: shortenPath(architect.path, runtime?.home ?? null),
+                  path: shortenPath(architect.path, userHome),
                 }}
                 onOpen={handleOpenArchitect}
                 isLoading={isSpawning && pendingArchitectKey === architect.key}
@@ -204,7 +201,7 @@ export default function Launcher() {
         )}
       </main>
 
-      <BottomBar right={<ThemeSwitcher />} />
+      <BottomBar />
 
       <ProfileSelector
         profiles={profiles}

@@ -37,7 +37,7 @@ export interface TerminalPaneProps extends React.HTMLAttributes<HTMLDivElement> 
 }
 
 // Read theme tokens from CSS variables so xterm's palette tracks the global
-// design system. Re-reads on every theme change.
+// design system.
 function readTerminalTheme(): ITheme {
   const cs = getComputedStyle(document.documentElement);
   const v = (name: string) => cs.getPropertyValue(name).trim();
@@ -285,6 +285,20 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     term.open(containerRef.current);
 
+    // The viewport scrollbar is hidden via CSS (see the .xterm-viewport rules
+    // in TerminalPane.module.css), so xterm's own measurement
+    // (offsetWidth - scrollArea.offsetWidth) comes out 0 — which is falsy, so
+    // Viewport falls back to a phantom 15px scrollbar width. FitAddon then
+    // subtracts those 15px from every fit, leaving a permanent dead strip on
+    // the right edge of the pane. The scrollbar is genuinely zero-width here;
+    // tell xterm so.
+    try {
+      (term as unknown as { _core: { viewport: { scrollBarWidth: number } } })
+        ._core.viewport.scrollBarWidth = 0;
+    } catch {
+      // Private API drift — worst case the 15px right gap returns.
+    }
+
     // xterm calls this BEFORE its own _keyDown / _keyPress / _inputEvent.
     // Returning false short-circuits xterm's processing for that event.
     //
@@ -354,6 +368,24 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       }
     }
 
+    // Re-measure and re-fit once webfonts finish loading. xterm measures cell
+    // width at open(); if Geist Mono hasn't loaded yet, the measurement uses
+    // the (wider) fallback font, so cols comes out low and the terminal only
+    // occupies ~95% of the pane forever — the ResizeObserver never fires
+    // because the container itself didn't change size. Toggling fontFamily
+    // forces xterm's CharSizeService to re-measure against the real font.
+    void document.fonts.ready.then(() => {
+      if (disposedRef.current) return;
+      const families = term.options.fontFamily;
+      term.options.fontFamily = 'monospace';
+      term.options.fontFamily = families;
+      if (visibleRef.current) {
+        fitAddon.fit();
+        term.refresh(0, term.rows - 1);
+        onResizeRef.current?.(term.cols, term.rows);
+      }
+    });
+
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
@@ -379,26 +411,12 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     });
     observer.observe(containerRef.current);
 
-    // Theme reactivity: when the .dark class flips on <html>, re-read tokens
-    // and push a new theme into the live terminal. xterm picks it up
-    // synchronously, no remount needed.
-    const themeObserver = new MutationObserver(() => {
-      if (disposedRef.current) return;
-      term.options.theme = readTerminalTheme();
-      term.refresh(0, term.rows - 1);
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
     return () => {
       disposedRef.current = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       dataDispose?.dispose();
       textarea?.removeEventListener('focus', focusListener);
       observer.disconnect();
-      themeObserver.disconnect();
       // Detach xterm's DOM element before React tears down the container.
       // Without this, removing the container node fires a scroll event that hits
       // xterm's still-live scroll listener → crash.

@@ -11,10 +11,14 @@
   border-left: 1px solid var(--theme-border);
 }
 
+/* Bottom bar draws no border of its own — the hosting BottomBar already has a
+   top border; doubling it reads as a glitch. max-width keeps the strip from
+   ever pushing the window into horizontal scroll. */
 .bottom {
   flex-direction: row;
   border-right: none;
-  border-top: 1px solid var(--theme-border);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tab {
@@ -55,6 +59,9 @@
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-caps);
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notifyDot {
@@ -96,17 +103,26 @@
 .right .addBtn {
   width: 100%;
   aspect-ratio: 1;
-  padding: 0;
+  padding: 0.5em;
   border-right: none;
   border-left: 2px solid transparent;
 }
 
-/* Bottom horizontal bar — keeps room for labels. */
+/* Bottom horizontal bar — keeps room for labels, but caps each tab so long
+   session names ellipsize instead of overflowing the window. Icons never
+   shrink; only the label gives way. */
 .bottom .tab {
   border-right: none;
   border-top: 2px solid transparent;
-  padding: var(--space-1) var(--space-h-3);
+  padding: var(--space-1) var(--space-h-4);
   font-size: var(--font-size-lg);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 28ch;
+}
+
+.bottom .tab > svg {
+  flex: 0 0 auto;
 }
 
 .bottom .addBtn {

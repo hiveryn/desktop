@@ -8,7 +8,9 @@
   color: var(--theme-text);
   background: var(--theme-surface-1);
   border-bottom: 1px solid var(--theme-border);
-  padding: 0 var(--space-h-4);
+  /* Left padding only — the right slot's buttons sit flush with the window
+     edge, matching the bottom bar's corner button. */
+  padding: 0 0 0 var(--space-h-4);
   line-height: var(--line-height-base);
   height: calc(var(--line-height-base) * 1.5rem);
   -webkit-app-region: drag;
@@ -17,5 +19,6 @@
 .slot {
   display: flex;
   align-items: center;
+  gap: var(--space-h-2);
   -webkit-app-region: no-drag;
 }

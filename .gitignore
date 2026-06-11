@@ -6,3 +6,4 @@ out
 *.local
 .DS_Store
 .opencode/commands/commit.md
+.serena/

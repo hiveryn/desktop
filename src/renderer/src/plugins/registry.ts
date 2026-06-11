@@ -1,7 +1,15 @@
-import { Activity, EventLog, GitDiff, Kanban, KanbanBoard, Terminal } from '@components';
 import { GitDiffTab } from '@hiveryn/git-diff';
 import type { Response } from '@hiveryn/tabplugin';
 import type { ComponentType } from 'react';
+// Imported from concrete modules, NOT the @components barrel: this module
+// reads the icon/content bindings at eval time (tabRegistry.set below), and
+// it can be evaluated while the barrel is still mid-initialization
+// (barrel → TerminalPane → keys/dispatcher → this file). Barrel imports here
+// would hit the temporal dead zone ("Cannot access 'Kanban' before
+// initialization").
+import EventLog from '../components/EventLog/EventLog';
+import { Activity, GitDiff, Kanban, Terminal } from '../components/icons';
+import KanbanBoard from '../components/KanbanBoard/KanbanBoard';
 import TicketWorkflow from '../pages/architect-window/components/TicketWorkflow';
 import SessionTerminal from '../pages/architect-window/SessionTerminal';
 import type { TabPluginComponent } from './types';

@@ -166,17 +166,6 @@ async function invokePluginCall(channel: string, ...args: unknown[]): Promise<un
 }
 
 contextBridge.exposeInMainWorld('hiveryn', {
-  preferences: {
-    getTheme: (): Promise<'dark' | 'light' | 'system'> => invoke('preferences:getTheme'),
-    setTheme: (value: 'dark' | 'light' | 'system'): Promise<void> =>
-      invoke('preferences:setTheme', value),
-    onThemeChange: (callback: (value: 'dark' | 'light') => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, value: 'dark' | 'light'): void =>
-        callback(value);
-      ipcRenderer.on('preferences:theme-change', listener);
-      return () => ipcRenderer.removeListener('preferences:theme-change', listener);
-    },
-  },
   user: {
     getProfile: (): Promise<{ data: { name: string } }> => invoke('user:getProfile'),
   },
@@ -325,6 +314,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   system: {
     getRuntime: (): Promise<SystemRuntime> => invoke('system:getRuntime'),
+    getUserHome: (): Promise<string> => ipcRenderer.invoke('system:getUserHome') as Promise<string>,
   },
   terminals: {
     list: (sessionId: string): Promise<TerminalInfo[]> => invoke('terminals:list', sessionId),

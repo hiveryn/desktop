@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
-import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, Menu, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
@@ -49,6 +49,8 @@ function createLauncherWindow(): BrowserWindow {
     show: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: true,
+    // Matches --theme-background; prevents a white flash before the renderer paints.
+    backgroundColor: '#000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -82,6 +84,8 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
     show: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: true,
+    // Matches --theme-background; prevents a white flash before the renderer paints.
+    backgroundColor: '#000000',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -103,15 +107,6 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
 registerIpc({
   openArchitectWindow: createArchitectWindow,
   openLauncherWindow: createLauncherWindow,
-});
-
-nativeTheme.on('updated', () => {
-  const isDark = nativeTheme.shouldUseDarkColors;
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) {
-      window.webContents.send('preferences:theme-change', isDark ? 'dark' : 'light');
-    }
-  }
 });
 
 app.whenReady().then(() => {

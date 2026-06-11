@@ -1,12 +1,13 @@
 import type { TicketBoard } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useState } from 'react';
-import type { Architect, SystemRuntime } from '../../../../../shared/types';
+import type { Architect } from '../../../../../shared/types';
 
 const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
 export interface ArchitectData {
   architect: Architect | null;
-  runtime: SystemRuntime | null;
+  // The user's OS home dir — used for ~-shortening paths in the nav.
+  userHome: string | null;
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
@@ -17,7 +18,7 @@ export interface ArchitectData {
 
 export function useArchitectData(architectKey: string): ArchitectData {
   const [architect, setArchitect] = useState<Architect | null>(null);
-  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
+  const [userHome, setUserHome] = useState<string | null>(null);
   const [board, setBoard] = useState<TicketBoard>(EMPTY_TICKET_BOARD);
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError, setBoardError] = useState<unknown | null>(null);
@@ -54,9 +55,9 @@ export function useArchitectData(architectKey: string): ArchitectData {
       setBoardError(null);
       setBoardLoading(true);
 
-      const [architectResult, runtimeResult, boardResult] = await Promise.allSettled([
+      const [architectResult, userHomeResult, boardResult] = await Promise.allSettled([
         window.hiveryn.architects.get(architectKey),
-        window.hiveryn.system.getRuntime(),
+        window.hiveryn.system.getUserHome(),
         window.hiveryn.tickets.list(architectKey),
       ]);
 
@@ -68,10 +69,8 @@ export function useArchitectData(architectKey: string): ArchitectData {
         setLoadError(architectResult.reason);
       }
 
-      if (runtimeResult.status === 'fulfilled') {
-        setRuntime(runtimeResult.value);
-      } else {
-        setLoadError(runtimeResult.reason);
+      if (userHomeResult.status === 'fulfilled') {
+        setUserHome(userHomeResult.value);
       }
 
       if (boardResult.status === 'fulfilled') {
@@ -101,7 +100,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
 
   return {
     architect,
-    runtime,
+    userHome,
     board,
     boardLoading,
     boardError,

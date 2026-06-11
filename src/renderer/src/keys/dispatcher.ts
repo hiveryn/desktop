@@ -12,6 +12,7 @@
 // path continue: type into input / send to PTY).
 
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
+import { getTabPlugin } from '../plugins/registry';
 import { type SessionRecord, useSessionStore } from '../state/sessionStore';
 import { matchesShortcut } from './matchers';
 
@@ -126,15 +127,17 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
 
 // ── Right-pane tab inventory helpers ─────────────────────────────────────────
 
+// Mirrors RightPane's mapTabToBarTab: every registered tab type (built-in OR
+// plugin, e.g. git-diff) is cyclable; terminals are keyed by terminal id,
+// everything else by type. Keep the two in sync or keyboard cycling will skip
+// tabs that render fine with the mouse.
 function getRightTabIds(): string[] {
   const { sessions, activeSessionId } = useSessionStore.getState();
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
   return (activeSession?.tabs ?? []).flatMap((t) => {
-    if (t.type === 'kanban') return ['kanban'];
-    if (t.type === 'event-log') return ['event-log'];
-    if (t.type === 'ticket') return ['ticket'];
-    if (t.type === 'terminal' && t.id) return [t.id];
-    return [];
+    if (!getTabPlugin(t.type)) return [];
+    if (t.type === 'terminal') return t.id ? [t.id] : [];
+    return [t.type];
   });
 }
 

@@ -1,23 +1,15 @@
 import type { AgentProfile } from '@components';
-import { ApiEnvelopeError, Dialog, Input, ProfileSelector } from '@components';
+import { ApiEnvelopeError, Dialog, Input, LinkButton, ProfileSelector } from '@components';
 import { useEffect, useState } from 'react';
-import type { SystemRuntime } from '../../../../../shared/types';
 import { useSessionStore } from '../../../state/sessionStore';
 import { loadSessionRecord } from '../hooks/sessionSnapshot';
+import styles from './FreeformSessionDialog.module.css';
 
 interface Props {
   architectKey: string;
   open: boolean;
   onClose: () => void;
 }
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 'var(--font-size-xs)',
-  color: 'var(--theme-text-secondary)',
-  fontWeight: 'var(--font-weight-medium)',
-  textTransform: 'uppercase',
-  letterSpacing: 'var(--letter-spacing-caps)',
-};
 
 function generateSlug(prompt: string): string {
   return prompt
@@ -38,7 +30,7 @@ function expandHome(location: string, home: string): string {
 
 export default function FreeformSessionDialog({ architectKey, open, onClose }: Props) {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
-  const [runtime, setRuntime] = useState<SystemRuntime | null>(null);
+  const [userHome, setUserHome] = useState<string | null>(null);
   const [location, setLocation] = useState('');
   const [prompt, setPrompt] = useState('');
   const [slug, setSlug] = useState('');
@@ -51,11 +43,11 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void Promise.all([window.hiveryn.profiles.list(), window.hiveryn.system.getRuntime()])
-      .then(([profileList, runtimeResult]) => {
+    void Promise.all([window.hiveryn.profiles.list(), window.hiveryn.system.getUserHome()])
+      .then(([profileList, homeResult]) => {
         if (cancelled) return;
         setProfiles(profileList);
-        setRuntime(runtimeResult);
+        setUserHome(homeResult);
         setSelectedProfile((prev) =>
           prev === null && profileList.length > 0 ? profileList[0].name : prev,
         );
@@ -89,10 +81,10 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
     setError(null);
 
     try {
-      if (!runtime) {
-        throw new Error('Cannot create freeform session before daemon runtime is loaded');
+      if (!userHome) {
+        throw new Error('Cannot create freeform session before the home directory is resolved');
       }
-      const expandedWorkdir = expandHome(location.trim(), runtime.home);
+      const expandedWorkdir = expandHome(location.trim(), userHome);
       const intent = await window.hiveryn.sessions.createFreeform(
         architectKey,
         prompt.trim(),
@@ -140,7 +132,7 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
     prompt.trim() !== '' &&
     slug.trim() !== '' &&
     selectedProfile !== null &&
-    runtime !== null;
+    userHome !== null;
 
   return (
     <>
@@ -151,7 +143,7 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
         confirmLabel={submitting ? 'Starting…' : 'Start'}
         confirmDisabled={submitting || !isValid}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '360px' }}>
+        <div className={styles.form}>
           <Input
             label="Location"
             value={location}
@@ -159,28 +151,17 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
             placeholder="/path/to/workdir or ~/project"
             autoFocus
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label htmlFor="freeform-prompt" style={labelStyle}>
+          <div className={styles.field}>
+            <label htmlFor="freeform-prompt" className={styles.label}>
               Prompt
             </label>
             <textarea
               id="freeform-prompt"
+              className={styles.textarea}
               value={prompt}
               onChange={(e) => handlePromptChange(e.target.value)}
               placeholder="Describe what the agent should do…"
               rows={5}
-              style={{
-                background: 'var(--theme-input-background)',
-                border: '1px solid var(--theme-border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--theme-text)',
-                fontFamily: 'inherit',
-                fontSize: 'var(--font-size-sm)',
-                padding: '6px 8px',
-                resize: 'vertical',
-                width: '100%',
-                boxSizing: 'border-box',
-              }}
             />
           </div>
           <Input
@@ -189,27 +170,13 @@ export default function FreeformSessionDialog({ architectKey, open, onClose }: P
             onChange={(e) => handleSlugChange(e.target.value)}
             placeholder="auto-generated-from-prompt"
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={labelStyle}>Variant</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--theme-text)' }}>
-                {selectedProfile ?? 'None selected'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowProfileSelector(true)}
-                style={{
-                  background: 'none',
-                  border: '1px solid var(--theme-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--theme-text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: 'var(--font-size-xs)',
-                  padding: '2px 8px',
-                }}
-              >
+          <div className={styles.field}>
+            <div className={styles.label}>Variant</div>
+            <div className={styles.variantRow}>
+              <span className={styles.variantName}>{selectedProfile ?? 'None selected'}</span>
+              <LinkButton type="button" onClick={() => setShowProfileSelector(true)}>
                 Change
-              </button>
+              </LinkButton>
             </div>
           </div>
           {error ? <ApiEnvelopeError error={error} title="Session API Error" /> : null}

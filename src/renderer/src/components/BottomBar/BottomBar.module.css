@@ -16,4 +16,12 @@
 .slot {
   display: flex;
   align-items: center;
+  /* Allow tab strips with long labels to shrink instead of widening the bar
+     past the window (which produced an app-wide horizontal scrollbar). */
+  min-width: 0;
+}
+
+.slot:first-child {
+  flex: 1 1 auto;
+  overflow: hidden;
 }

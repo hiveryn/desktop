@@ -81,7 +81,7 @@
 }
 
 .architectRow {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .sessionRow {

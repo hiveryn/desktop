@@ -58,6 +58,7 @@ const TabBar: React.FC<TabBarProps> = ({
             aria-selected={isActive}
             className={tabClass}
             disabled={disabled}
+            title={label}
             onClick={() => onTabChange(id)}
           >
             <Icon />

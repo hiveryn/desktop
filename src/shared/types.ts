@@ -46,8 +46,6 @@ export type TicketCommit = import('@hiveryn/shared/domain').CommitRef;
 
 // ── Desktop-specific types ─────────────────────────────────────────────────
 
-export type Theme = 'dark' | 'light' | 'system';
-
 export interface UserProfile {
   name: string;
 }

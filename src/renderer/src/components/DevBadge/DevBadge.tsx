@@ -34,7 +34,10 @@ const DevBadge: React.FC = () => {
 
   if (runtime === null) return null;
 
-  const isDev = runtime.environment !== 'production';
+  // Production builds show no badge — environment/daemon details are
+  // diagnostics for non-production runs only.
+  if (runtime.environment === 'production') return null;
+
   const label = `${runtime.environment} · ${daemonUrl ?? (runtime.base_url || `:${runtime.port}`)}`;
   const title = [
     `environment: ${runtime.environment}`,
@@ -49,7 +52,7 @@ const DevBadge: React.FC = () => {
   ].join('\n');
 
   return (
-    <span className={isDev ? styles.badge : styles.badgeProd} title={title}>
+    <span className={styles.badge} title={title}>
       {label}
     </span>
   );

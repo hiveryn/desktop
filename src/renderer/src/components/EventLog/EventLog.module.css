@@ -134,7 +134,7 @@
   text-align: center;
   color: var(--theme-text-muted);
   opacity: 0.5;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 
 /* ── Expanded detail panel ────────────────────────────────── */

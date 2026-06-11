@@ -10,7 +10,6 @@ import {
   Navigation,
   Plus,
   Text,
-  ThemeSwitcher,
 } from '@components';
 import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -48,7 +47,7 @@ function shortenPath(path: string, home: string | null): string {
 
 export default function ArchitectWindow() {
   const architectKey = useMemo(readArchitectKey, []);
-  const { architect, runtime, board, boardLoading, boardError, loadError, refreshBoard } =
+  const { architect, userHome, board, boardLoading, boardError, loadError, refreshBoard } =
     useArchitectData(architectKey);
   useSessionEvents();
   useDaemonRecovery(architectKey);
@@ -165,7 +164,7 @@ export default function ArchitectWindow() {
           <Text as="span" className={styles.architectTitle}>
             {architect?.key.toUpperCase() ?? 'ARCHITECT'}
           </Text>
-          <Caption>{architect ? shortenPath(architect.path, runtime?.home ?? null) : ''}</Caption>
+          <Caption>{architect ? shortenPath(architect.path, userHome) : ''}</Caption>
           <DevBadge />
         </div>
       </Navigation>
@@ -209,7 +208,6 @@ export default function ArchitectWindow() {
                   onTicketSelect={handleTicketSelect}
                   onSpawnTicket={handleSpawnTicket}
                   onRefreshBoard={() => void refreshBoard()}
-                  onNewFreeform={() => setFreeformOpen(true)}
                 />
               </div>
             </div>
@@ -217,7 +215,17 @@ export default function ArchitectWindow() {
         )}
       </main>
 
-      <BottomBar className={styles.bottomBar} left={<BottomTabs />} right={<ThemeSwitcher />} />
+      <BottomBar
+        className={styles.bottomBar}
+        left={<BottomTabs />}
+        right={
+          <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
+            <Glyph>
+              <Plus />
+            </Glyph>
+          </IconButton>
+        }
+      />
 
       <TicketWorkflow
         architectKey={architectKey}

@@ -35,7 +35,7 @@ src/
       index.ts            registerIpc() — calls all namespace registrars
       results.ts          Centralized DaemonResult helpers (ok, errorResult, invalidDaemonResponse, withNullData, withData)
       logs.ts             logs:renderer handler — writes forwarded renderer console logs
-      preferences.ts      preferences:*, user:* handlers (local, no daemon call)
+      preferences.ts      user:* handlers (local, no daemon call)
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
@@ -52,7 +52,7 @@ src/
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
   renderer/src/
     App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
-    main.tsx              React entry, theme init, renderer console logging install
+    main.tsx              React entry, Nerd Font preload, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
       sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane, active selection, pendingApprovals (per-session)
@@ -292,7 +292,7 @@ The dispatcher runs handlers in two stages:
 
 `TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane` and pass `paneId` so each terminal knows which pane ID to claim on focus.
 
-The visual focus ring is a `::after` pseudo-element overlay on the pane wrappers (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focus-ring` (defined in `styles/global.css`), which tracks the active light/dark theme.
+The visual focus indicator is a 2px accent strip drawn via a `::after` pseudo-element along the top edge of the focused pane (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focused-foreground` (defined in `styles/global.css`, dark theme only). The unfocused pane fades to `opacity: 0.9` for additional contrast.
 
 `sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Escape or clicking the backdrop clears it. On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
 
