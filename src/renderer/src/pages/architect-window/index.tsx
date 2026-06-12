@@ -204,6 +204,7 @@ export default function ArchitectWindow() {
                   boardLoading={boardLoading}
                   boardError={boardError}
                   ticketError={ticketError}
+                  isMaximized={isRightMaximized}
                   shortcutConfig={shortcutConfig}
                   onTicketSelect={handleTicketSelect}
                   onSpawnTicket={handleSpawnTicket}

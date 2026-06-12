@@ -26,7 +26,8 @@ interface SessionState {
   events: Record<string, SessionEvent[]>;
   // Which session is selected in the bottom tab bar.
   activeSessionId: string | null;
-  // Which right-pane tab is shown. 'kanban' | 'event-log' | <terminal-uuid>.
+  // Which primary right-pane tab is shown. Split terminals are rendered beside
+  // this selection and never become the active tab-bar tab.
   activeRightTab: string;
   // Last active right tab per session ID — restored on session switch.
   sessionRightTabs: Record<string, string>;
@@ -74,6 +75,10 @@ const initialState: SessionState = {
 // Terminals are the only multi-instance tab and are keyed by their unique id.
 // Every other tab type — builtin (kanban/event-log/ticket) or plugin (e.g.
 // git-diff) — is single-instance and keyed by its type.
+export function isSplitTerminalTab(tab: SessionTab): boolean {
+  return tab.type === 'terminal' && tab.placement === 'split';
+}
+
 function tabId(tab: SessionTab): string {
   if (tab.type === 'terminal') {
     if (!tab.id) {
@@ -84,8 +89,8 @@ function tabId(tab: SessionTab): string {
   return tab.type;
 }
 
-function tabIds(session: SessionRecord): string[] {
-  return session.tabs.map(tabId);
+function primaryTabIds(session: SessionRecord): string[] {
+  return session.tabs.filter((tab) => !isSplitTerminalTab(tab)).map(tabId);
 }
 
 function focusIdForTab(tab: string): string {
@@ -118,18 +123,28 @@ function normalizeSelection(
   }
 
   const session = sessions[nextActiveSessionId];
-  const validTabs = tabIds(session);
+  const validTabs = primaryTabIds(session);
   const candidate = sessionRightTabs[nextActiveSessionId] ?? activeRightTab;
   const nextActiveRightTab = validTabs.includes(candidate) ? candidate : validTabs[0];
   if (!nextActiveRightTab) {
-    throw new Error(`Session ${session.id} returned no tabs`);
+    throw new Error(`Session ${session.id} returned no primary tabs`);
   }
+
+  const focusedSplitTerminal =
+    focusedPane.startsWith('right-terminal:') &&
+    session.tabs.some(
+      (tab) => isSplitTerminalTab(tab) && `right-terminal:${tab.id}` === focusedPane,
+    );
 
   return {
     activeSessionId: nextActiveSessionId,
     activeRightTab: nextActiveRightTab,
     focusedPane:
-      focusedPane === 'main-terminal' ? 'main-terminal' : focusIdForTab(nextActiveRightTab),
+      focusedPane === 'main-terminal'
+        ? 'main-terminal'
+        : focusedSplitTerminal
+          ? focusedPane
+          : focusIdForTab(nextActiveRightTab),
   };
 }
 
@@ -216,10 +231,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       if (!sessionId) return { activeSessionId: null };
       const session = state.sessions[sessionId];
       if (!session) throw new Error(`Cannot switch to missing session ${sessionId}`);
-      const validTabIds = tabIds(session);
+      const validTabIds = primaryTabIds(session);
       const savedTab = state.sessionRightTabs[sessionId];
       const nextTab = savedTab && validTabIds.includes(savedTab) ? savedTab : validTabIds[0];
-      if (!nextTab) throw new Error(`Session ${sessionId} has no tabs`);
+      if (!nextTab) throw new Error(`Session ${sessionId} has no primary tabs`);
       return { activeSessionId: sessionId, activeRightTab: nextTab };
     });
   },

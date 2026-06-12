@@ -13,7 +13,7 @@
 
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
 import { getTabPlugin } from '../plugins/registry';
-import { type SessionRecord, useSessionStore } from '../state/sessionStore';
+import { isSplitTerminalTab, type SessionRecord, useSessionStore } from '../state/sessionStore';
 import { matchesShortcut } from './matchers';
 
 export type DispatchResult = 'consumed' | 'passthrough';
@@ -93,6 +93,12 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
     void openNewTerminal();
     return 'consumed';
   }
+  const splitHorizontal =
+    activeConfig?.['right-pane']?.['split-horizontal'] ?? global['split-horizontal'] ?? '';
+  if (matchesShortcut(event, splitHorizontal)) {
+    void openSplitTerminal();
+    return 'consumed';
+  }
   if (matchesShortcut(event, global['maximize-pane'] ?? '')) {
     const { focusedPane, maximizedPane, setMaximizedPane } = useSessionStore.getState();
     setMaximizedPane(maximizedPane !== null ? null : focusedPane);
@@ -135,6 +141,7 @@ function getRightTabIds(): string[] {
   const { sessions, activeSessionId } = useSessionStore.getState();
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
   return (activeSession?.tabs ?? []).flatMap((t) => {
+    if (isSplitTerminalTab(t)) return [];
     if (!getTabPlugin(t.type)) return [];
     if (t.type === 'terminal') return t.id ? [t.id] : [];
     return [t.type];
@@ -193,10 +200,40 @@ function focusUp(): void {
 function cycleRightTabFocus(delta: number): void {
   const state = useSessionStore.getState();
   if (!state.focusedPane.startsWith('right-')) return;
+  const activeSession = state.activeSessionId ? state.sessions[state.activeSessionId] : undefined;
+  const splitTabs = activeSession?.tabs.filter(isSplitTerminalTab) ?? [];
+  const splitForFocusedBase = splitTabs.find(
+    (tab) => tab.base_tab_id && tabIdToFocusId(tab.base_tab_id) === state.focusedPane,
+  );
+  const focusedSplit = splitTabs.find(
+    (tab) => tab.id && `right-terminal:${tab.id}` === state.focusedPane,
+  );
+  const splitTab = splitForFocusedBase ?? focusedSplit;
+  if (splitTab) {
+    if (!splitTab.id)
+      throw new Error(`Split terminal tab is missing id: ${JSON.stringify(splitTab)}`);
+    if (!splitTab.base_tab_id) {
+      throw new Error(`Split terminal ${splitTab.id} is missing base_tab_id`);
+    }
+    const splitFocusId = `right-terminal:${splitTab.id}`;
+    const baseFocusId = tabIdToFocusId(splitTab.base_tab_id);
+    if (delta > 0 && state.focusedPane === baseFocusId) {
+      state.setFocusedPane(splitFocusId);
+      return;
+    }
+    if (delta < 0 && state.focusedPane === splitFocusId) {
+      state.setActiveRightTab(splitTab.base_tab_id);
+      state.setFocusedPane(baseFocusId);
+      return;
+    }
+  }
   const rightTabIds = getRightTabIds();
   if (rightTabIds.length === 0) return;
   const focusIds = rightTabIds.map(tabIdToFocusId);
-  const idx = focusIds.indexOf(state.focusedPane);
+  const idx =
+    splitTab && state.focusedPane === `right-terminal:${splitTab.id}`
+      ? rightTabIds.indexOf(splitTab.base_tab_id ?? '')
+      : focusIds.indexOf(state.focusedPane);
   const n = focusIds.length;
   const nextIdx = idx === -1 ? (delta > 0 ? 0 : n - 1) : (idx + delta + n) % n;
   state.setActiveRightTab(rightTabIds[nextIdx]);
@@ -246,37 +283,35 @@ function cycleSession(delta: number): void {
 
 async function closeCurrentTab(): Promise<void> {
   const state = useSessionStore.getState();
-  const { activeSessionId, activeRightTab, sessions } = state;
+  const { activeSessionId, activeRightTab, sessions, focusedPane } = state;
 
-  const isExtraTerminalTab =
-    activeRightTab !== 'kanban' && activeRightTab !== 'event-log' && activeRightTab !== 'ticket';
+  const focusedTerminalId = focusedPane.startsWith('right-terminal:')
+    ? focusedPane.slice('right-terminal:'.length)
+    : null;
 
-  if (isExtraTerminalTab && activeSessionId) {
-    await window.hiveryn.terminals.kill(activeSessionId, activeRightTab);
-    await window.hiveryn.session.disconnect(activeSessionId, activeRightTab);
-    const nextTabs = await window.hiveryn.tabs.list(activeSessionId);
-    const s = useSessionStore.getState();
-    s.setSessionTabs(activeSessionId, nextTabs);
-    const firstTab = nextTabs[0];
-    if (!firstTab) {
-      throw new Error(
-        `Session ${activeSessionId} returned no tabs after closing ${activeRightTab}`,
-      );
+  if (activeSessionId) {
+    const session = sessions[activeSessionId];
+    const terminalToClose = session?.tabs.find(
+      (tab) => tab.type === 'terminal' && tab.id === focusedTerminalId,
+    )?.id;
+    const activeTerminalToClose = session?.tabs.find(
+      (tab) =>
+        tab.type === 'terminal' &&
+        tab.id === activeRightTab &&
+        !isSplitTerminalTab(tab) &&
+        activeRightTab !== 'kanban' &&
+        activeRightTab !== 'event-log' &&
+        activeRightTab !== 'ticket',
+    )?.id;
+    const targetTerminalId = terminalToClose ?? activeTerminalToClose;
+
+    if (targetTerminalId) {
+      await window.hiveryn.terminals.kill(activeSessionId, targetTerminalId);
+      await window.hiveryn.session.disconnect(activeSessionId, targetTerminalId);
+      const nextTabs = await window.hiveryn.tabs.list(activeSessionId);
+      useSessionStore.getState().setSessionTabs(activeSessionId, nextTabs);
+      return;
     }
-    const firstId =
-      firstTab.type === 'kanban'
-        ? 'kanban'
-        : firstTab.type === 'event-log'
-          ? 'event-log'
-          : firstTab.type === 'ticket'
-            ? 'ticket'
-            : firstTab.id;
-    if (!firstId) {
-      throw new Error(`First tab after closing ${activeRightTab} is missing id`);
-    }
-    s.setActiveRightTab(firstId);
-    s.setFocusedPane(tabIdToFocusId(firstId));
-    return;
   }
 
   if (!activeSessionId) return;
@@ -292,10 +327,30 @@ async function closeCurrentTab(): Promise<void> {
 async function openNewTerminal(): Promise<void> {
   const { activeSessionId } = useSessionStore.getState();
   if (!activeSessionId) return;
-  const created = await window.hiveryn.terminals.create(activeSessionId, {});
+  const created = await window.hiveryn.terminals.create(activeSessionId, { placement: 'tab' });
   const tabs = await window.hiveryn.tabs.list(activeSessionId);
   const s = useSessionStore.getState();
   s.setSessionTabs(activeSessionId, tabs);
   s.setActiveRightTab(created.terminal_id);
+  s.setFocusedPane(`right-terminal:${created.terminal_id}`);
+}
+
+async function openSplitTerminal(): Promise<void> {
+  const { activeSessionId, activeRightTab, sessions, focusedPane } = useSessionStore.getState();
+  if (!activeSessionId || !focusedPane.startsWith('right-')) return;
+  const session = sessions[activeSessionId];
+  if (!session) {
+    throw new Error(`Cannot split right pane for missing session ${activeSessionId}`);
+  }
+  if (session.tabs.some((tab) => isSplitTerminalTab(tab) && tab.base_tab_id === activeRightTab)) {
+    return;
+  }
+  const created = await window.hiveryn.terminals.create(activeSessionId, {
+    placement: 'split',
+    base_tab_id: activeRightTab,
+  });
+  const tabs = await window.hiveryn.tabs.list(activeSessionId);
+  const s = useSessionStore.getState();
+  s.setSessionTabs(activeSessionId, tabs);
   s.setFocusedPane(`right-terminal:${created.terminal_id}`);
 }

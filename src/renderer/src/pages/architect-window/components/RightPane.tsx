@@ -22,7 +22,7 @@ import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { createPluginCall, getTabPlugin } from '../../../plugins/registry';
 import { buildSessionContext } from '../../../plugins/sessionContext';
 import { useEventsForActiveSession } from '../../../state/selectors';
-import { useSessionStore } from '../../../state/sessionStore';
+import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import TicketPane from './TicketPane';
@@ -73,6 +73,7 @@ interface Props {
   boardLoading: boolean;
   boardError: unknown | null;
   ticketError: unknown | null;
+  isMaximized: boolean;
   shortcutConfig: ShortcutConfig | null;
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
@@ -86,6 +87,7 @@ export default function RightPane({
   boardLoading,
   boardError,
   ticketError,
+  isMaximized,
   shortcutConfig,
   onTicketSelect,
   onSpawnTicket,
@@ -141,10 +143,15 @@ export default function RightPane({
     return activeSession.tabs.filter((tab) => !reserved.has(tab.type) && getTabPlugin(tab.type));
   }, [activeSession]);
 
+  const hasAnySplit = useMemo(
+    () => activeSession?.tabs.some((tab) => isSplitTerminalTab(tab)) ?? false,
+    [activeSession],
+  );
+
   const tabs = useMemo<TabBarTab[]>(() => {
     const result: TabBarTab[] = [];
     if (activeSession) {
-      for (const tab of activeSession.tabs) {
+      for (const tab of activeSession.tabs.filter((candidate) => !isSplitTerminalTab(candidate))) {
         const mapped = mapTabToBarTab(tab);
         if (mapped) result.push(mapped);
       }
@@ -154,6 +161,14 @@ export default function RightPane({
 
   const tabIsValid = tabs.some((t) => t.id === activeRightTab);
   const effectiveTab = tabIsValid ? activeRightTab : (tabs[0]?.id ?? 'event-log');
+  const splitTab = useMemo(
+    () =>
+      activeSession?.tabs.find(
+        (tab) => isSplitTerminalTab(tab) && tab.base_tab_id === effectiveTab,
+      ) ?? null,
+    [activeSession, effectiveTab],
+  );
+  const splitAppliesToEffectiveTab = splitTab !== null;
 
   // ── Kanban cursor ────────────────────────────────────────────────────────
   const cols = useMemo(() => [board.backlog, board.progress, board.done], [board]);
@@ -306,67 +321,88 @@ export default function RightPane({
     setFocusedPane(tabIdToFocusId(effectiveTab));
   }, [effectiveTab, setFocusedPane]);
 
+  const primaryContent = (
+    <>
+      <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
+        <div className={styles.kanbanPane}>
+          {boardError ? <ApiEnvelopeError error={boardError} title="Tickets API Error" /> : null}
+          {ticketError ? <ApiEnvelopeError error={ticketError} title="Ticket API Error" /> : null}
+          {!boardError || boardLoading ? (
+            <KanbanBoard
+              className={styles.kanbanBoard}
+              board={board}
+              loading={boardLoading}
+              emptyMessage="No tickets yet"
+              selectedTicketId={selectedTicketId}
+              focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
+              onTicketSelect={onTicketSelect}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      <div className={styles.tabPanel} data-active={effectiveTab === 'event-log'}>
+        <EventLog
+          className={styles.eventLog}
+          events={eventLogEvents}
+          selectedEventId={selectedEventId}
+          externalToggle={eventLogToggle}
+        />
+      </div>
+
+      <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
+        {activeSession && <TicketPane sessionId={activeSession.id} />}
+      </div>
+
+      {activeSession &&
+        sessionContext &&
+        pluginTabs.map((tab) => {
+          const plugin = getTabPlugin(tab.type);
+          if (!plugin) return null;
+          const Content = plugin.content;
+          return (
+            <div key={tab.type} className={styles.tabPanel} data-active={effectiveTab === tab.type}>
+              <Content
+                session={sessionContext}
+                call={createPluginCall(activeSession.id, tab.type)}
+              />
+            </div>
+          );
+        })}
+
+      <ExtraTerminalStack
+        mode="primary"
+        onCloseTerminal={(sessionId, terminalId) => void handleCloseTerminal(sessionId, terminalId)}
+      />
+    </>
+  );
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
     <div className={styles.rightPaneInner} onClick={handlePaneClick}>
       <div className={styles.rightPaneContent}>
-        <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
-          <div className={styles.kanbanPane}>
-            {boardError ? <ApiEnvelopeError error={boardError} title="Tickets API Error" /> : null}
-            {ticketError ? <ApiEnvelopeError error={ticketError} title="Ticket API Error" /> : null}
-            {!boardError || boardLoading ? (
-              <KanbanBoard
-                className={styles.kanbanBoard}
-                board={board}
-                loading={boardLoading}
-                emptyMessage="No tickets yet"
-                selectedTicketId={selectedTicketId}
-                focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
-                onTicketSelect={onTicketSelect}
+        {hasAnySplit ? (
+          <div
+            className={styles.rightPaneSplit}
+            data-maximized={isMaximized || undefined}
+            data-split-active={splitAppliesToEffectiveTab || undefined}
+          >
+            <div className={styles.rightPaneSplitPrimary}>{primaryContent}</div>
+            <div className={styles.rightPaneSplitSecondary}>
+              <ExtraTerminalStack
+                mode="split"
+                enabled={splitAppliesToEffectiveTab}
+                baseTabId={effectiveTab}
+                onCloseTerminal={(sessionId, terminalId) =>
+                  void handleCloseTerminal(sessionId, terminalId)
+                }
               />
-            ) : null}
+            </div>
           </div>
-        </div>
-
-        <div className={styles.tabPanel} data-active={effectiveTab === 'event-log'}>
-          <EventLog
-            className={styles.eventLog}
-            events={eventLogEvents}
-            selectedEventId={selectedEventId}
-            externalToggle={eventLogToggle}
-          />
-        </div>
-
-        <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
-          {activeSession && <TicketPane sessionId={activeSession.id} />}
-        </div>
-
-        {activeSession &&
-          sessionContext &&
-          pluginTabs.map((tab) => {
-            const plugin = getTabPlugin(tab.type);
-            if (!plugin) return null;
-            const Content = plugin.content;
-            return (
-              <div
-                key={tab.type}
-                className={styles.tabPanel}
-                data-active={effectiveTab === tab.type}
-              >
-                <Content
-                  session={sessionContext}
-                  call={createPluginCall(activeSession.id, tab.type)}
-                />
-              </div>
-            );
-          })}
-
-        <ExtraTerminalStack
-          onCloseTerminal={(sessionId, terminalId) =>
-            void handleCloseTerminal(sessionId, terminalId)
-          }
-        />
+        ) : (
+          primaryContent
+        )}
       </div>
 
       <div className={styles.tabColumn}>
@@ -389,7 +425,7 @@ export default function RightPane({
 async function handleOpenNewTerminal(sessionId: string | undefined): Promise<void> {
   if (!sessionId) return;
 
-  const created = await window.hiveryn.terminals.create(sessionId, {});
+  const created = await window.hiveryn.terminals.create(sessionId, { placement: 'tab' });
   const tabs = await window.hiveryn.tabs.list(sessionId);
   useSessionStore.getState().setSessionTabs(sessionId, tabs);
   useSessionStore.getState().setActiveRightTab(created.terminal_id);
@@ -397,6 +433,7 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
 }
 
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
+  if (isSplitTerminalTab(tab)) return null;
   const plugin = getTabPlugin(tab.type);
   if (!plugin) return null;
   const tabId = tab.type === 'terminal' ? tab.id : tab.type;

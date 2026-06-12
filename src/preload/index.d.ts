@@ -235,13 +235,17 @@ interface TerminalInfo {
   status: string;
 }
 
-type CreateTerminalParams = Record<string, never>;
+type TerminalPlacement = 'tab' | 'split';
+
+type CreateTerminalParams = { placement: 'tab' } | { placement: 'split'; base_tab_id: string };
 
 interface SessionTab {
   type: string;
   id?: string;
   command?: string;
   status?: string;
+  placement?: TerminalPlacement;
+  base_tab_id?: string;
 }
 
 // ── Architects ─────────────────────────────────────────────────────────────

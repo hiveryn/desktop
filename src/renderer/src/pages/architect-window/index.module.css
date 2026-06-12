@@ -136,6 +136,44 @@
   box-shadow: -10px 0 24px -6px rgba(255, 255, 255, 0.14);
 }
 
+.rightPaneSplit {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.rightPaneSplit[data-maximized="true"] {
+  flex-direction: row;
+}
+
+.rightPaneSplitPrimary,
+.rightPaneSplitSecondary {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.rightPaneSplit:not([data-split-active]) .rightPaneSplitPrimary {
+  flex-basis: 100%;
+}
+
+.rightPaneSplit:not([data-split-active]) .rightPaneSplitSecondary {
+  display: none;
+}
+
+.rightPaneSplitSecondary {
+  border-top: 1px solid var(--theme-border);
+}
+
+.rightPaneSplit[data-maximized="true"] .rightPaneSplitSecondary {
+  border-top: 0;
+  border-left: 1px solid var(--theme-border);
+}
+
 /* Right-pane tab panels stay mounted (terminal scrollback, kanban cursor);
    only the active one is displayed. */
 .tabPanel {
