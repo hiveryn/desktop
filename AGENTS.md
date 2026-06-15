@@ -161,7 +161,7 @@ Main terminal disconnect is not session lifecycle. If the main terminal WebSocke
 
 Duplicate `connect()` calls for the same terminal (e.g. from React StrictMode) are deduplicated via `pendingConnects` map keyed by `wcId:sessionId:terminalId`.
 
-Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists in the store. Visibility is toggled via `display:none` + the `visible` prop, which triggers an immediate `fit()` + `refresh()` in `useLayoutEffect` — no black-screen-on-tab-switch and full scrollback preservation across switches.
+Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists in the store. Visibility is toggled via `display:none` + the `visible` prop, which triggers an immediate `fit()` + `refresh()` in `useLayoutEffect` — no black-screen-on-tab-switch and full scrollback preservation across switches. The WebGL renderer follows the same visibility signal: each pane holds a WebGL context only while visible (disposed on hide, recreated on show), so live contexts stay bounded by the visible-pane count rather than growing with every tab. This prevents the browser's ~16-context cap from force-losing the oldest context — the main left pane — to black when many tabs are open.
 
 ### Layout
 

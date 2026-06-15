@@ -113,6 +113,14 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   // Hoisted out of the mount effect so the visibility effect can invoke it
   // without re-running mount.
   const recreateWebglRef = React.useRef<(() => void) | null>(null);
+  // Called by the visibility useLayoutEffect to release the WebGL context when
+  // the pane becomes hidden. Symmetric to recreateWebglRef: a terminal holds a
+  // WebGL context only while visible, so live contexts stay bounded by the
+  // number of simultaneously visible panes. Without this, every terminal that
+  // has ever been shown keeps a live context forever; past the browser's
+  // ~16-context cap Chromium force-loses the oldest (the main left pane) →
+  // black screen.
+  const disposeWebglRef = React.useRef<(() => void) | null>(null);
   const focusedRef = React.useRef(focused);
   focusedRef.current = focused;
 
@@ -157,7 +165,16 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   //      unfocused and keystrokes are dropped until the user clicks. Force
   //      a focus call here whenever we transition to visible.
   React.useLayoutEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      // Release the WebGL context while hidden. The pane is display:none so a
+      // disposed renderer paints nothing visible anyway, and the xterm buffer
+      // (scrollback) is untouched — only the GL renderer is torn down. The
+      // visible branch below recreates it on switch-back. This caps live WebGL
+      // contexts to the visible-pane count, preventing exhaustion when many
+      // tabs are open.
+      disposeWebglRef.current?.();
+      return;
+    }
     const fit = fitAddonRef.current;
     const term = termRef.current;
     if (!fit || !term || disposedRef.current) return;
@@ -279,6 +296,15 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     recreateWebglRef.current = (): void => {
       disposeWebgl();
       attachWebgl();
+    };
+
+    // Exposed so the visibility useLayoutEffect can release the GL context when
+    // this pane is hidden. webglDeferredRef is cleared so a subsequent
+    // visible transition takes the normal recreate path rather than the
+    // deferred-recovery branch.
+    disposeWebglRef.current = (): void => {
+      disposeWebgl();
+      webglDeferredRef.current = false;
     };
 
     attachWebgl();
@@ -443,6 +469,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       termRef.current = null;
       fitAddonRef.current = null;
       recreateWebglRef.current = null;
+      disposeWebglRef.current = null;
       webglDeferredRef.current = false;
       // Viewport constructor schedules `setTimeout(() => syncScrollArea())` that
       // xterm never cancels in dispose(). In React StrictMode, cleanup runs
