@@ -70,6 +70,7 @@ export default function ArchitectWindow() {
     });
   }, [shortcutConfig, paletteOpen]);
 
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
   const maximizedPane = useSessionStore((s) => s.maximizedPane);
@@ -127,6 +128,17 @@ export default function ArchitectWindow() {
   function handleSpawnRequestClear(): void {
     setSpawnRequest(null);
   }
+
+  // Scope the ticket dialog to the session it was opened in — switching
+  // sessions (Cmd+Shift+]) must dismiss it, not carry it into the next session.
+  // Bump the request id so any in-flight tickets.get resolves as stale.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeSessionId is the trigger, not read inside — the effect must re-run on every session change.
+  useEffect(() => {
+    ticketRequestId.current += 1;
+    setSelectedTicket(null);
+    setSpawnRequest(null);
+    setTicketError(null);
+  }, [activeSessionId]);
 
   const isLeftFocused = focusedPane === 'main-terminal';
   const isRightFocused = focusedPane.startsWith('right-');
