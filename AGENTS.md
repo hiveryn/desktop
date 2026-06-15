@@ -55,7 +55,7 @@ src/
     main.tsx              React entry, Nerd Font preload, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane, active selection, pendingApprovals (per-session)
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane (per-session), active selection, pendingApprovals (per-session)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
@@ -295,7 +295,7 @@ The dispatcher runs handlers in two stages:
 
 The visual focus indicator is a 2px accent strip drawn via a `::after` pseudo-element along the top edge of the focused pane (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focused-foreground` (defined in `styles/global.css`, dark theme only). The unfocused pane fades to `opacity: 0.7` for additional contrast.
 
-`sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Escape or clicking the backdrop clears it. On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
+`sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). It is scoped per architect session: the source of truth is `maximizedPanes` (keyed by session ID), and `maximizedPane` is the derived value for the active session — restored on session switch so maximize state never leaks across sessions. Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Escape or clicking the backdrop clears it. On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
 
 ## Architect workspace events
 

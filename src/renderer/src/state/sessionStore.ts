@@ -35,7 +35,12 @@ interface SessionState {
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
   // Pane currently maximized (same value space as focusedPane), or null for normal split layout.
+  // Derived from maximizedPanes for the active session — kept as a flat field so
+  // components can select it directly without recomputing per render.
   maximizedPane: string | null;
+  // Maximized pane per session ID. Maximize is scoped per architect session, so
+  // switching sessions never carries one session's maximize state into another.
+  maximizedPanes: Record<string, string | null>;
   // Pending conclusion approvals keyed by the session that triggered them.
   // Each session owns at most one; the dialog only renders for the active
   // session, so a background approval never hijacks the window.
@@ -69,6 +74,7 @@ const initialState: SessionState = {
   sessionRightTabs: {},
   focusedPane: 'main-terminal',
   maximizedPane: null,
+  maximizedPanes: {},
   pendingApprovals: {},
 };
 
@@ -106,7 +112,8 @@ function normalizeSelection(
   activeRightTab: string,
   focusedPane: string,
   sessionRightTabs: Record<string, string>,
-): Pick<SessionState, 'activeSessionId' | 'activeRightTab' | 'focusedPane'> {
+  maximizedPanes: Record<string, string | null>,
+): Pick<SessionState, 'activeSessionId' | 'activeRightTab' | 'focusedPane' | 'maximizedPane'> {
   const ordered = Object.values(sessions);
   const nextActiveSessionId =
     (activeSessionId && sessions[activeSessionId] ? activeSessionId : null) ??
@@ -119,6 +126,7 @@ function normalizeSelection(
       activeSessionId: null,
       activeRightTab: 'event-log',
       focusedPane: 'main-terminal',
+      maximizedPane: null,
     };
   }
 
@@ -145,6 +153,7 @@ function normalizeSelection(
         : focusedSplitTerminal
           ? focusedPane
           : focusIdForTab(nextActiveRightTab),
+    maximizedPane: maximizedPanes[nextActiveSessionId] ?? null,
   };
 }
 
@@ -169,17 +178,22 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const pendingApprovals = Object.fromEntries(
         Object.entries(state.pendingApprovals).filter(([id]) => id in sessions),
       );
+      const maximizedPanes = Object.fromEntries(
+        Object.entries(state.maximizedPanes).filter(([id]) => id in sessions),
+      );
       return {
         sessions,
         events,
         sessionRightTabs,
         pendingApprovals,
+        maximizedPanes,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
           state.activeRightTab,
           state.focusedPane,
           sessionRightTabs,
+          maximizedPanes,
         ),
       };
     });
@@ -192,17 +206,20 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const { [id]: _removedEvents, ...events } = state.events;
       const { [id]: _removedRightTab, ...sessionRightTabs } = state.sessionRightTabs;
       const { [id]: _removedApproval, ...pendingApprovals } = state.pendingApprovals;
+      const { [id]: _removedMaximized, ...maximizedPanes } = state.maximizedPanes;
       return {
         sessions,
         events,
         sessionRightTabs,
         pendingApprovals,
+        maximizedPanes,
         ...normalizeSelection(
           sessions,
           state.activeSessionId,
           state.activeRightTab,
           state.focusedPane,
           sessionRightTabs,
+          maximizedPanes,
         ),
       };
     });
@@ -235,7 +252,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const savedTab = state.sessionRightTabs[sessionId];
       const nextTab = savedTab && validTabIds.includes(savedTab) ? savedTab : validTabIds[0];
       if (!nextTab) throw new Error(`Session ${sessionId} has no primary tabs`);
-      return { activeSessionId: sessionId, activeRightTab: nextTab };
+      return {
+        activeSessionId: sessionId,
+        activeRightTab: nextTab,
+        maximizedPane: state.maximizedPanes[sessionId] ?? null,
+      };
     });
   },
 
@@ -254,7 +275,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
   },
 
   setMaximizedPane(pane) {
-    set({ maximizedPane: pane });
+    set((state) => {
+      if (!state.activeSessionId) return { maximizedPane: pane };
+      return {
+        maximizedPane: pane,
+        maximizedPanes: { ...state.maximizedPanes, [state.activeSessionId]: pane },
+      };
+    });
   },
 
   setSessionTabs(sessionId, tabs) {
@@ -278,6 +305,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
           state.activeRightTab,
           state.focusedPane,
           state.sessionRightTabs,
+          state.maximizedPanes,
         ),
       };
     });
