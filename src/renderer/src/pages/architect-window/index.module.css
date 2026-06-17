@@ -127,6 +127,7 @@
    thin left border so there's a clear seam between it and the agent on the
    left. Focus is conveyed by the pane opacity dimming above. */
 .rightPaneContent {
+  position: relative;
   flex: 1;
   display: flex;
   min-width: 0;
@@ -137,6 +138,7 @@
 }
 
 .rightPaneSplit {
+  position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
@@ -148,28 +150,53 @@
   flex-direction: row;
 }
 
-.rightPaneSplitPrimary,
-.rightPaneSplitSecondary {
-  flex: 1 1 50%;
+/* Primary fills the whole pane by default and shrinks to half when a split
+   applies to the current tab. The secondary is taken out of flow (absolute,
+   below) so the primary can be 100% on non-split tabs while the secondary still
+   keeps its real half-size box. */
+.rightPaneSplitPrimary {
+  position: relative;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
   overflow: hidden;
 }
 
-.rightPaneSplit:not([data-split-active]) .rightPaneSplitPrimary {
-  flex-basis: 100%;
+.rightPaneSplit[data-split-active] .rightPaneSplitPrimary {
+  flex: 0 0 50%;
 }
 
-.rightPaneSplit:not([data-split-active]) .rightPaneSplitSecondary {
-  display: none;
-}
-
+/* Secondary stays laid out at half the pane AT ALL TIMES (absolute so it doesn't
+   force the primary off 100% when inactive) and is shown/hidden with
+   `visibility` — never display:none. That keeps the split terminal's xterm grid
+   continuously fitted to a real box, so switching to its tab never resumes the
+   renderer against stale geometry (the black/garbled-on-switch bug). */
 .rightPaneSplitSecondary {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
   border-top: 1px solid var(--theme-border);
 }
 
+.rightPaneSplit[data-split-active] .rightPaneSplitSecondary {
+  visibility: visible;
+}
+
 .rightPaneSplit[data-maximized="true"] .rightPaneSplitSecondary {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: auto;
+  width: 50%;
+  height: auto;
   border-top: 0;
   border-left: 1px solid var(--theme-border);
 }

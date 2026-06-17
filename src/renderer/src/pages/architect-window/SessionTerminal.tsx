@@ -136,12 +136,17 @@ export default function SessionTerminal({
     });
   }, [sessionId, terminalId]);
 
+  // This component fills its slot; the slot owns show/hide. Background panes are
+  // hidden with visibility:hidden in a stable layout slot (see ExtraTerminalStack
+  // / MainTerminalStack), so the terminal stays laid out at its real size and
+  // xterm never sees a 0×0 container — the key to avoiding stale-geometry
+  // corruption on tab switch. We never display:none this wrapper ourselves.
   if (error) {
     return (
       <div
         style={{
           flex: 1,
-          display: visible ? 'flex' : 'none',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -155,7 +160,7 @@ export default function SessionTerminal({
     <div
       style={{
         flex: 1,
-        display: visible ? 'flex' : 'none',
+        display: 'flex',
         minHeight: 0,
         flexDirection: 'column',
         overflow: 'hidden',

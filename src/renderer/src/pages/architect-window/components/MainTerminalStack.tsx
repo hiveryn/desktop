@@ -30,18 +30,32 @@ export default function MainTerminalStack({ className }: Props) {
       {mains.map(({ session, terminalId }) => {
         const isVisible = session.id === activeSessionId;
         const isFocused = isVisible && focusedPane === 'main-terminal';
+        // One main per session and only ever switched by activating a different
+        // session, so a plain display toggle is fine here — there is no
+        // tab-switch-within-a-pane path to leave a hidden main with stale
+        // geometry. The slot (not SessionTerminal) owns the hide.
         return (
-          <SessionTerminal
+          <div
             key={`${session.id}:${terminalId}`}
-            sessionId={session.id}
-            terminalId={terminalId}
-            paneId="main-terminal"
-            visible={isVisible}
-            focused={isFocused}
-            onDisconnected={() => {
-              void refreshSessionFromDaemon(session.id);
+            style={{
+              flex: 1,
+              display: isVisible ? 'flex' : 'none',
+              minHeight: 0,
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
-          />
+          >
+            <SessionTerminal
+              sessionId={session.id}
+              terminalId={terminalId}
+              paneId="main-terminal"
+              visible={isVisible}
+              focused={isFocused}
+              onDisconnected={() => {
+                void refreshSessionFromDaemon(session.id);
+              }}
+            />
+          </div>
         );
       })}
 

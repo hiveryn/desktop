@@ -18,14 +18,20 @@
   padding: 2rem;
 }
 
-/* min-width/min-height: 0 + overflow: hidden so a too-large xterm canvas can
-   never prop up this flex item's automatic minimum size — without these, an
-   oversized grid (e.g. fitted while the pane was maximized) holds the slot at
-   the old width and FitAddon keeps re-measuring the propped-up box, so the
-   terminal can never shrink back to the real pane size. */
+/* Stable layout slot. All of a session's primary terminals are stacked here
+   (position:absolute; inset:0 over the same pane area) and switched with
+   visibility, not display:none. Staying laid out means each pane keeps a real
+   box at all times, so xterm's grid stays fitted and never resumes against
+   stale geometry on tab switch (the corruption this fixes). The parent
+   (.rightPaneContent / .rightPaneSplitPrimary / .rightPaneSplitSecondary) is
+   position:relative so these absolutely-positioned slots fill it.
+
+   overflow:hidden so a too-large xterm grid (e.g. fitted while maximized) can't
+   prop the box open; inset:0 already pins the size to the parent. */
 .extraSlot {
-  position: relative;
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;

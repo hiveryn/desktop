@@ -106,21 +106,6 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   const termRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
   const disposedRef = React.useRef(false);
-  // Tracks whether WebGL was lost while hidden and is waiting for a visible
-  // transition to recreate. See recreateWebglRef below.
-  const webglDeferredRef = React.useRef(false);
-  // Called by the visibility useLayoutEffect to recreate the WebGL addon.
-  // Hoisted out of the mount effect so the visibility effect can invoke it
-  // without re-running mount.
-  const recreateWebglRef = React.useRef<(() => void) | null>(null);
-  // Called by the visibility useLayoutEffect to release the WebGL context when
-  // the pane becomes hidden. Symmetric to recreateWebglRef: a terminal holds a
-  // WebGL context only while visible, so live contexts stay bounded by the
-  // number of simultaneously visible panes. Without this, every terminal that
-  // has ever been shown keeps a live context forever; past the browser's
-  // ~16-context cap Chromium force-loses the oldest (the main left pane) →
-  // black screen.
-  const disposeWebglRef = React.useRef<(() => void) | null>(null);
   const focusedRef = React.useRef(focused);
   focusedRef.current = focused;
 
@@ -134,73 +119,27 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   const visibleRef = React.useRef(visible);
   visibleRef.current = visible;
 
-  // Re-fit, refocus and refresh when the pane transitions to visible. Without
-  // this, switching from a hidden tab leaves xterm's last-known size until the
-  // next ResizeObserver tick (~100ms later) — a visible black flash.
+  // Restore focus when the pane transitions to visible. The renderer needs no
+  // help here: panes are hidden with visibility:hidden in a stable layout slot
+  // (see ExtraTerminalStack / SessionTerminal), so the terminal stays laid out
+  // at its real size the whole time. xterm therefore never sees a 0×0 container
+  // or a display:none subtree — its internal IntersectionObserver never pauses
+  // the renderer, and our ResizeObserver keeps the grid fitted to the slot even
+  // while hidden. Nothing is stale on switch-back, so no fit/refresh is needed.
   //
-  // Three additional jobs handled here, all related to the long-standing
-  // "garbled terminal after switching back" bug:
-  //
-  //   1. clearTextureAtlas() — the WebGL renderer's glyph atlas can be left in
-  //      an inconsistent state if any measurement happened against a 0×0
-  //      hidden container (cellWidth=0 → Infinity downstream). Wiping the
-  //      atlas forces glyphs to be re-rasterized against the now-correct cell
-  //      dimensions.
-  //
-  //   2. WebGL recreation. Recreating the addon on every visible transition
-  //      is the most reliable way to eliminate accumulated renderer state
-  //      corruption. clearTextureAtlas() only clears glyph caches; the
-  //      underlying GL programs and framebuffers are not reset. Full
-  //      dispose+recreate matches what Cmd+R does for the renderer while
-  //      keeping the xterm buffer (scrollback) intact.
-  //
-  //      Also handles the deferred case: if onContextLoss fired while
-  //      hidden, WebGL creation was blocked (0×0 container → cellWidth=0 →
-  //      Infinity in glyph math). The deferred flag lets us reach this
-  //      point before attempting creation.
-  //
-  //   3. Re-focus. When display:none lands on an ancestor, the browser moves
-  //      focus to document.body. The `focused` prop hasn't changed, so the
-  //      focus useEffect doesn't re-fire on switch-back; the textarea stays
-  //      unfocused and keystrokes are dropped until the user clicks. Force
-  //      a focus call here whenever we transition to visible.
+  // Focus is the one thing the browser drops: hiding an element (or a
+  // display:none ancestor, still used for the split secondary and background
+  // sessions) moves focus to document.body. The `focused` prop may not change
+  // on switch-back, so the focus useEffect below won't re-fire — restore focus
+  // here whenever we become visible.
   React.useLayoutEffect(() => {
-    if (!visible) {
-      // Release the WebGL context while hidden. The pane is display:none so a
-      // disposed renderer paints nothing visible anyway, and the xterm buffer
-      // (scrollback) is untouched — only the GL renderer is torn down. The
-      // visible branch below recreates it on switch-back. This caps live WebGL
-      // contexts to the visible-pane count, preventing exhaustion when many
-      // tabs are open.
-      disposeWebglRef.current?.();
-      return;
-    }
-    const fit = fitAddonRef.current;
+    if (!visible) return;
     const term = termRef.current;
-    if (!fit || !term || disposedRef.current) return;
-    fit.fit();
-    webglDeferredRef.current = false;
-    recreateWebglRef.current?.();
-    term.refresh(0, term.rows - 1);
+    if (!term || disposedRef.current) return;
     if (!readonly && focusedRef.current) {
       term.focus();
     }
-    onResizeRef.current?.(term.cols, term.rows);
   }, [visible, readonly]);
-
-  // When the Electron GPU process crashes and restarts, WebGL contexts are
-  // destroyed and canvas 2D may have rendered blank during the crash window.
-  // The main process sends this event ~1s after the crash (enough time for
-  // Chromium to start a new GPU process). Recreate the WebGL addon and force
-  // a full repaint so the terminal content reappears without a manual reload.
-  React.useEffect(() => {
-    return window.hiveryn.app.onGpuProcessCrashed(() => {
-      if (disposedRef.current) return;
-      recreateWebglRef.current?.();
-      const term = termRef.current;
-      if (term) term.refresh(0, term.rows - 1);
-    });
-  }, []);
 
   // Drive xterm's DOM focus from the `focused` prop. When another pane has
   // logical keyboard focus, blur xterm so keystrokes don't reach the PTY.
@@ -247,8 +186,27 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       // Unicode addon optional; fall through to xterm default tables
     }
 
-    // WebGL renderer eliminates per-row canvas gaps that the default canvas
-    // renderer produces at non-integer devicePixelRatios.
+    // WebGL renderer — crisp glyphs with no per-row seams at fractional
+    // devicePixelRatios (the DOM renderer leaves visible gaps in box-drawing
+    // borders, which is why WebGL is used here).
+    //
+    // The WebGL lifecycle is driven by the layout BOX, not the `visible` prop:
+    //
+    //   - A pane is hidden by visibility:hidden in a STABLE layout slot (see
+    //     ExtraTerminalStack), so it keeps a real box the whole time. Its box
+    //     never changes on tab switch, so its WebGL context is never disposed or
+    //     recreated — the renderer just keeps drawing. This is the fix for the
+    //     black/garbled-on-tab-switch bug: recreating the GL context on every
+    //     switch raced Chromium's async context GC and resumed against stale
+    //     geometry.
+    //
+    //   - A pane that is genuinely removed from layout (display:none — used for
+    //     background SESSIONS and the split secondary) collapses to a 0×0 box.
+    //     We dispose its context then (freeing it back under Chromium's ~16
+    //     live-context cap; exceeding it force-loses the oldest → black main
+    //     pane) and re-attach when the box reappears. Attaching on box-appear
+    //     (driven by the ResizeObserver, after layout) means the new
+    //     WebglRenderer always reads a valid cell size — no 0×0 poisoning.
     let webglAddon: WebglAddon | null = null;
 
     const disposeWebgl = (): void => {
@@ -259,57 +217,39 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     };
 
     const attachWebgl = (): void => {
-      // Never create a fresh WebGL renderer while the container is hidden.
-      // The new WebglRenderer reads cell dimensions from the DOM at construct
-      // time; a 0×0 container produces cellWidth=0 / Infinity downstream and
-      // permanently corrupts glyph positioning. The visibility useLayoutEffect
-      // replays this when we become visible again.
-      if (!visibleRef.current) {
-        webglDeferredRef.current = true;
-        return;
-      }
+      // Already attached, or no box yet (would construct against a 0×0 container
+      // and poison glyph cell math). The ResizeObserver re-runs this the moment
+      // a real box appears.
+      if (webglAddon || disposedRef.current) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
       try {
         const addon = new WebglAddon();
         addon.onContextLoss(() => {
-          // On context loss, fall back to the DOM renderer and stop. Do NOT
-          // attempt to recreate WebGL here — if the terminal is hidden,
-          // recreation would land on a 0×0 container. The visible
-          // useLayoutEffect recreates WebGL cleanly on the next tab switch.
-          // (Pattern from waveterm: context loss → DOM fallback, recreate
-          // on next natural opportunity.)
+          // Context lost (e.g. GPU process restart). Drop to the DOM renderer;
+          // the next ResizeObserver fit or the GPU-crash handler re-attaches.
           disposeWebgl();
-          if (!webglDeferredRef.current) {
-            term.refresh(0, term.rows - 1);
-          }
+          if (!disposedRef.current) term.refresh(0, term.rows - 1);
         });
         term.loadAddon(addon);
         webglAddon = addon;
       } catch {
-        // WebGL unavailable — canvas renderer is the fallback
+        // WebGL unavailable — xterm's DOM renderer is the fallback.
       }
     };
 
-    // Exposed so the visibility useLayoutEffect can fully recreate the WebGL
-    // addon on each visible transition. This matches what Cmd+R does for the
-    // renderer (fresh GL context, fresh texture atlas) while preserving the
-    // xterm.js buffer state and scrollback.
-    recreateWebglRef.current = (): void => {
+    term.open(containerRef.current);
+
+    // When the Electron GPU process crashes and restarts, every WebGL context is
+    // destroyed. Re-attach and force a repaint so terminals recover without a
+    // manual reload. (display:none panes have no box → attachWebgl is a no-op
+    // until they're shown again.)
+    const offGpuCrash = window.hiveryn.app.onGpuProcessCrashed(() => {
+      if (disposedRef.current) return;
       disposeWebgl();
       attachWebgl();
-    };
-
-    // Exposed so the visibility useLayoutEffect can release the GL context when
-    // this pane is hidden. webglDeferredRef is cleared so a subsequent
-    // visible transition takes the normal recreate path rather than the
-    // deferred-recovery branch.
-    disposeWebglRef.current = (): void => {
-      disposeWebgl();
-      webglDeferredRef.current = false;
-    };
-
-    attachWebgl();
-
-    term.open(containerRef.current);
+      term.refresh(0, term.rows - 1);
+    });
 
     // The viewport scrollbar is hidden via CSS (see the .xterm-viewport rules
     // in TerminalPane.module.css), so xterm's own measurement
@@ -379,17 +319,22 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     };
     textarea?.addEventListener('focus', focusListener);
 
-    // Only fit/focus on initial mount if visible. If we're mounted into a
-    // hidden tab (e.g., inactive session on app startup), fit() against a 0×0
-    // container would resize xterm to zero cells and poison the WebGL cell
-    // dimensions. The visibility useLayoutEffect runs fit+focus when the tab
-    // first becomes visible.
-    if (visibleRef.current) {
+    // Fit on initial mount whenever the container has a real box. A pane mounted
+    // into a stable layout slot (visibility:hidden) is laid out at full size, so
+    // it can — and should — fit immediately, sizing its PTY before the first
+    // connect. A pane mounted under a display:none ancestor (split secondary,
+    // background session) has a 0×0 box; skip it and let the ResizeObserver fit
+    // once the box appears. fit() on a 0×0 box is a no-op anyway (proposeDimensions
+    // bails on a zero cell), but checking is clearer.
+    const initialRect = containerRef.current.getBoundingClientRect();
+    if (initialRect.width > 0 && initialRect.height > 0) {
       fitAddon.fit();
+      // Box is present — safe to attach the WebGL renderer (reads a valid cell size).
+      attachWebgl();
       // Fire initial resize immediately so callers can size the PTY before connecting
       onResizeRef.current?.(term.cols, term.rows);
       // Focus so keystrokes are captured without requiring a manual click
-      if (!readonly && focused) {
+      if (!readonly && focused && visibleRef.current) {
         term.focus();
       }
     }
@@ -405,7 +350,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       const families = term.options.fontFamily;
       term.options.fontFamily = 'monospace';
       term.options.fontFamily = families;
-      if (visibleRef.current) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
         fitAddon.fit();
         term.refresh(0, term.rows - 1);
         onResizeRef.current?.(term.cols, term.rows);
@@ -442,9 +388,29 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     // ticket actually wanted to throttle) stays debounced. fit() resizing the
     // xterm canvas does not change the observed container box, so there is no
     // observer feedback loop.
+    //
+    // Gate on the observed box size, NOT on the `visible` prop. A backgrounded
+    // pane in a stable layout slot is visibility:hidden but fully laid out, so
+    // it must keep fitting as the slot resizes (window resize, split toggle) —
+    // otherwise its grid would go stale exactly while hidden and corrupt on
+    // switch-back (the bug this fixes). A pane under a display:none ancestor
+    // reports a 0×0 box; skip it (fitting 0×0 would resize xterm to nothing),
+    // and the observer fires again with a real box the moment it's shown.
+    //
+    // The box transition also drives the WebGL lifecycle: dispose the context
+    // when the box vanishes (display:none → free it under Chromium's context
+    // cap) and re-attach when a real box reappears (display:none → shown). A
+    // visibility:hidden pane keeps the same box, so this never fires on an
+    // in-place show/hide — its context simply persists, no churn.
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const observer = new ResizeObserver(() => {
-      if (disposedRef.current || !visibleRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (disposedRef.current) return;
+      const rect = entries[0]?.contentRect;
+      if (!rect || rect.width === 0 || rect.height === 0) {
+        disposeWebgl();
+        return;
+      }
+      attachWebgl();
       fitAddon.fit();
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
@@ -458,6 +424,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     return () => {
       disposedRef.current = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
+      offGpuCrash();
+      disposeWebgl();
       dataDispose?.dispose();
       textarea?.removeEventListener('focus', focusListener);
       observer.disconnect();
@@ -468,9 +436,6 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       if (xtermEl?.parentNode) xtermEl.parentNode.removeChild(xtermEl);
       termRef.current = null;
       fitAddonRef.current = null;
-      recreateWebglRef.current = null;
-      disposeWebglRef.current = null;
-      webglDeferredRef.current = false;
       // Viewport constructor schedules `setTimeout(() => syncScrollArea())` that
       // xterm never cancels in dispose(). In React StrictMode, cleanup runs
       // synchronously before that callback fires. Deferring disposal lets the
