@@ -172,6 +172,8 @@ How a pane is hidden matters, because xterm's core runs an `IntersectionObserver
 
 The WebGL renderer (crisp glyphs; the DOM renderer leaves seams in box-drawing borders) is driven by the **layout box, not the `visible` prop**: attach when the container has a real box, dispose when it collapses to 0×0 (`display:none`) — both via the `ResizeObserver`, plus a GPU-process-crash handler that re-attaches. A `visibility:hidden` pane keeps its box, so its context **persists across tab switches** (no recreate, which previously raced Chromium's async context GC and resumed against stale geometry). A `display:none` pane frees its context, keeping live contexts under the browser's ~16-context cap — past which Chromium force-loses the oldest (the main left pane) to black. The box-driven re-attach on switch-back runs after layout, so the new renderer always reads a valid cell size.
 
+Resize-while-scrolled-up: `fitAddon.fit()` → `term.resize()` reflows the whole scrollback (`Buffer.resize`), but the renderer only repaints the live viewport, so when the buffer is scrolled up the displayed rows keep their pre-resize wrapping until something marks them dirty (e.g. maximizing a pane mid-scrollback left stale rows). The `ResizeObserver` forces `term.refresh(0, rows-1)` when a fit changed dimensions **and** the buffer is scrolled up (`viewportY < baseY`); bottom-anchored fits and drag-resizes skip it since the renderer already paints the bottom correctly.
+
 ### Layout
 
 | Pane | Content |

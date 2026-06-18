@@ -411,7 +411,20 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
         return;
       }
       attachWebgl();
+      const prevCols = term.cols;
+      const prevRows = term.rows;
       fitAddon.fit();
+      // fit() → term.resize() reflows the FULL scrollback (Buffer.resize), but the
+      // renderer only repaints the live viewport. When scrolled up into scrollback,
+      // the displayed rows keep their pre-resize wrapping until something marks them
+      // dirty — so maximizing while scrolled up leaves stale/garbled rows on screen
+      // until the next scroll. Force the repaint here. Gated on scrolled-up
+      // (viewportY < baseY) so the common bottom-anchored case and drag-resizes pay
+      // no extra full refresh — the renderer already paints the bottom correctly.
+      const buf = term.buffer.active;
+      if ((term.cols !== prevCols || term.rows !== prevRows) && buf.viewportY < buf.baseY) {
+        term.refresh(0, term.rows - 1);
+      }
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         resizeTimer = null;
