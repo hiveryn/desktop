@@ -1,0 +1,55 @@
+/* The tray popover window is transparent and frameless — this panel IS the
+   whole surface, so it carries the background, border, and rounded corners. */
+.panel {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.5em 1ch;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+/* Scroll container — its scrollHeight is what we report to size the window. */
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.empty {
+  padding: 0.75em 1ch;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  padding: 0.6em 1ch;
+  border-top: 1px solid var(--theme-border);
+  color: var(--theme-error, #ff6b6b);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex-shrink: 0;
+  max-height: 30vh;
+  overflow-y: auto;
+}

@@ -23,7 +23,8 @@ The renderer has **no Node.js access**. It can only call functions exposed on `w
 ```
 src/
   main/
-    index.ts              Electron app setup — window creation, registerIpc()
+    index.ts              Electron app setup — window creation, registerIpc(), createTray()
+    tray.ts               Persistent menu bar Tray + frameless popover window (loads #/tray)
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
@@ -47,11 +48,12 @@ src/
       launcher.ts         launcher:open-architect handler
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
+      tray.ts             tray:hide / tray:set-height — menu bar popover window control
   preload/
     index.ts              contextBridge — invoke() wrapper + daemon.onRequest listeners
     index.d.ts            Global TypeScript types for the renderer (Envelope, IpcError, HiverynAPI…)
   renderer/src/
-    App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow
+    App.tsx               Root component — hash-based routing between Launcher / ArchitectWindow / TrayPalette (#/tray)
     main.tsx              React entry, Nerd Font preload, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
@@ -303,6 +305,16 @@ The dispatcher runs handlers in two stages:
 The visual focus indicator is a 2px accent strip drawn via a `::after` pseudo-element along the top edge of the focused pane (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focused-foreground` (defined in `styles/global.css`, dark theme only). The unfocused pane fades to `opacity: 0.7` for additional contrast.
 
 `sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). It is scoped per architect session: the source of truth is `maximizedPanes` (keyed by session ID), and `maximizedPane` is the derived value for the active session — restored on session switch so maximize state never leaks across sessions. Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Escape or clicking the backdrop clears it. On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
+
+## Menu bar tray
+
+A persistent macOS menu bar icon (`src/main/tray.ts`, created in `app.whenReady` via `createTray()`) opens a command-palette-style popover listing every architect and its sessions. The tray is per-process, so a concurrently-running dev build shows a second icon — the dev tray sets a `dev` title + `Hiveryn Dev` tooltip (gated on `IS_DESKTOP_DEVELOPMENT`) to disambiguate.
+
+- **Window** — a frameless, transparent, `alwaysOnTop` `BrowserWindow` loading the `#/tray` route. On macOS it's an `NSPanel` (`type: 'panel'`, `setVisibleOnAllWorkspaces`) so it takes key focus for the search input without activating the rest of the app, and shows over fullscreen. Created hidden at startup for instant first open; toggled on tray click, positioned + clamped under the icon, and hidden on `blur`.
+- **Surface** — `components/TrayPalette/TrayPalette.tsx` reuses `CommandPalette.module.css` and the shared row logic in `components/CommandPalette/rows.ts` (`buildRows`/`rowKey`/`isArchitectActive`, extracted so the modal and tray stay in sync). It mounts the existing `ProfileSelector` for spawning.
+- **Actions** — a **session row** or **active architect** calls `palette:focus-architect` (same focus-window + `palette:switch-session` flow as `CommandPalette`); an **inactive architect** opens `ProfileSelector`, then runs the launcher spawn flow (`sessions.create('architect', key)` → `sessions.createRun` → `launcher.openArchitect`).
+- **IPC** — `tray:hide` dismisses the popover; `tray:set-height` lets the renderer report measured content height so the window fits (capped, then the body scrolls). A main→renderer `tray:shown` event refreshes data + focuses the input on each open.
+- **Asset** — `resources/trayTemplate.png` (+`@2x`), a monochrome template image (`setTemplateImage(true)`), copied into the packaged app via `electron-builder.yml` `extraResources` and resolved from `process.resourcesPath` when packaged.
 
 ## Architect workspace events
 

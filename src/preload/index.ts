@@ -78,6 +78,8 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
   'plugins:call': { method: 'POST', path: '/api/sessions/:id/plugins/call' },
+  'tray:hide': { method: 'IPC', path: '/tray/hide' },
+  'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -258,6 +260,15 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   launcher: {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
+  },
+  tray: {
+    hide: (): Promise<void> => invoke('tray:hide'),
+    setHeight: (height: number): Promise<void> => invoke('tray:set-height', height),
+    onShown: (callback: () => void): (() => void) => {
+      const listener = (): void => callback();
+      ipcRenderer.on('tray:shown', listener);
+      return () => ipcRenderer.removeListener('tray:shown', listener);
+    },
   },
   palette: {
     focusArchitect: (key: string, sessionId?: string): Promise<void> =>

@@ -359,6 +359,11 @@ interface HiverynAPI {
   launcher: {
     openArchitect: (key: string) => Promise<void>;
   };
+  tray: {
+    hide: () => Promise<void>;
+    setHeight: (height: number) => Promise<void>;
+    onShown: (callback: () => void) => () => void;
+  };
   palette: {
     focusArchitect: (key: string, sessionId?: string) => Promise<void>;
     onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;

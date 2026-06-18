@@ -5,6 +5,7 @@ import * as daemonHealth from './daemon/health';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
+import { createTray } from './tray';
 
 app.setPath('userData', join(DESKTOP_RUNTIME_HOME, 'desktop'));
 if (IS_DESKTOP_DEVELOPMENT) {
@@ -133,6 +134,9 @@ app.whenReady().then(() => {
   }
 
   daemonHealth.start();
+
+  // Persistent menu bar icon that opens the architect/session palette popover.
+  createTray();
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
