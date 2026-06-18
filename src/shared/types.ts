@@ -173,8 +173,8 @@ export interface ArchitectRepo {
 
 export interface Architect {
   key: string;
+  name: string;
   path: string;
-  group: string;
   repos?: ArchitectRepo[];
 }
 
@@ -188,6 +188,7 @@ export interface ArchitectStatusSession {
 
 export interface ArchitectStatus {
   key: string;
+  name: string;
   path: string;
   status: string | null;
   sessions: ArchitectStatusSession[];

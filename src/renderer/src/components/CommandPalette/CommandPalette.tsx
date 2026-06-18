@@ -183,7 +183,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose }) => {
                     onClick={() => confirm(i)}
                     onMouseEnter={() => setActiveIndex(i)}
                   >
-                    <span className={styles.itemName}>{row.architect.key}</span>
+                    <span className={styles.itemName}>{row.architect.name ?? row.architect.key}</span>
                     <span className={styles.itemMeta}>
                       <span className={styles.itemStatus}>
                         {row.active ? (row.architect.status ?? '—') : '(inactive)'}

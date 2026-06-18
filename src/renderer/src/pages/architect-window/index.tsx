@@ -174,7 +174,7 @@ export default function ArchitectWindow() {
       >
         <div className={styles.navTitle}>
           <Text as="span" className={styles.architectTitle}>
-            {architect?.key.toUpperCase() ?? 'ARCHITECT'}
+            {architect?.name ?? architect?.key.toUpperCase() ?? 'ARCHITECT'}
           </Text>
           <Caption>{architect ? shortenPath(architect.path, userHome) : ''}</Caption>
           <DevBadge />

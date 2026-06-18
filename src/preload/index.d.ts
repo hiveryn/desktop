@@ -265,6 +265,7 @@ interface ArchitectStatusSession {
 
 interface ArchitectStatus {
   key: string;
+  name: string;
   path: string;
   status: string | null;
   sessions: ArchitectStatusSession[];
@@ -300,8 +301,8 @@ interface ArchitectRepo {
 
 interface Architect {
   key: string;
+  name: string;
   path: string;
-  group: string;
   repos?: ArchitectRepo[];
 }
 

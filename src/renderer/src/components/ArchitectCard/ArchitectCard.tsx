@@ -3,8 +3,8 @@ import styles from './ArchitectCard.module.css';
 
 export interface ArchitectCardData {
   key: string;
+  name?: string;
   path: string;
-  group?: string;
   repos?: Array<{ key: string }>;
 }
 
@@ -75,7 +75,7 @@ const ArchitectCard: React.FC<ArchitectCardProps> = ({
       aria-disabled={isInert || undefined}
     >
       <div className={styles.titleBar}>
-        <span className={styles.title}>{architect.key.toUpperCase()}</span>
+        <span className={styles.title}>{architect.name ?? architect.key.toUpperCase()}</span>
         {status === 'running' && (
           <div className={styles.titleActions}>
             <span className={styles.statusTag}>running</span>
