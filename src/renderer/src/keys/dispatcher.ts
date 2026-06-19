@@ -105,20 +105,9 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
     return 'consumed';
   }
 
-  // Escape dismisses maximize (runs after dynamic handlers, so modals/dialogs take priority).
-  if (
-    event.key === 'Escape' &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.altKey &&
-    !event.shiftKey
-  ) {
-    const { maximizedPane, setMaximizedPane } = useSessionStore.getState();
-    if (maximizedPane !== null) {
-      setMaximizedPane(null);
-      return 'consumed';
-    }
-  }
+  // NOTE: Escape is intentionally NOT used to dismiss maximize. A maximized
+  // terminal must forward Escape to xterm (TUIs, vim, agent prompts rely on it).
+  // Un-maximizing happens only via Cmd+M (above) or clicking the dimmed backdrop.
 
   // Cmd+2..9: direct right-tab jump (position-based, not configurable).
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.repeat) {
