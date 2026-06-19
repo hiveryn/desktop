@@ -118,6 +118,15 @@ export function useSessionEvents(): void {
         return;
       }
 
+      // Durable counterpart to approval_required: clears the dialog when the
+      // approval was rejected, cancelled, or orphaned by a daemon restart. The
+      // SSE backlog replays in order, so a resolved event following a required
+      // event nets to "no dialog" on reconnect.
+      if (event.type === 'status' && event.status === 'approval_resolved') {
+        store.clearPendingApproval(event.session_intent_id);
+        return;
+      }
+
       if (event.type !== 'status' || event.status !== 'ended' || !isConcludedSessionEnd(event)) {
         return;
       }
