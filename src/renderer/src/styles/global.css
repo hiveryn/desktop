@@ -138,15 +138,19 @@
   --space-h-3: 1.5ch;
   --space-h-4: 2ch;
 
-  /* Z-index stack */
+  /* Z-index stack (low → high). The maximize layer lifts a single pane above the
+     normal split layout and the in-pane floating UI (focus ring, selects, tooltips,
+     popovers, dropdowns). Page modals are global overlays portaled to <body>
+     (command palette, dialogs, profile selector, ticket detail) and must stay on
+     top of everything — including a maximized pane — so they remain reachable. */
   --z-index-pane-focus: 2;
   --z-index-page-select: 3;
   --z-index-page-tooltips: 4;
   --z-index-page-popover: 5;
   --z-index-page-dropdown-menus: 6;
-  --z-index-page-modals: 10;
   --z-index-maximize-backdrop: 20;
   --z-index-maximize-pane: 21;
+  --z-index-page-modals: 30;
 
   /* ── Theme (dark-only) ───────────────────────────────────── */
   --theme-background: var(--color-black);
