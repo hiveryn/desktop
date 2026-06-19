@@ -241,15 +241,6 @@
   min-height: 0;
 }
 
-.concludeBtn {
-  color: var(--theme-status-error);
-
-  &:hover {
-    color: var(--theme-status-error);
-    background: color-mix(in srgb, var(--theme-status-error) 12%, transparent);
-  }
-}
-
 /* The architect window is a flex column (nav / content / bottom bar); the bar
    stays in flow at its natural height so the content above it gets exactly the
    remaining space. BottomBar is in-flow by default now, so this is just an

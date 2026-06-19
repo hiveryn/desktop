@@ -1,4 +1,9 @@
-import type { SessionIntent, SessionType, Ticket } from '@hiveryn/shared/domain';
+import type {
+  ConcludeSessionParams,
+  SessionIntent,
+  SessionType,
+  Ticket,
+} from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
 import type { DaemonResult, SessionRunResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
@@ -78,10 +83,19 @@ export function registerSessionsIpc(): void {
 
   ipcMain.handle(
     'sessions:conclude',
-    async (_event, sessionId: string, body: string): Promise<DaemonResult<null>> => {
+    async (
+      _event,
+      sessionId: string,
+      params: ConcludeSessionParams,
+    ): Promise<DaemonResult<null>> => {
       return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/conclude`, {
         method: 'POST',
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({
+          body: params.body,
+          commits: params.commits,
+          rejected: params.rejected,
+          rejection_reason: params.rejection_reason,
+        }),
       });
     },
   );

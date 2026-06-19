@@ -2,7 +2,6 @@ import {
   ApiEnvelopeError,
   BottomBar,
   Caption,
-  Close,
   CommandPalette,
   DevBadge,
   Glyph,
@@ -17,7 +16,7 @@ import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../keys/dispatcher';
 import { matchesShortcut } from '../../keys/matchers';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
-import { useSessionStore } from '../../state/sessionStore';
+import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
 import ApprovalDialog from './components/ApprovalDialog';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
@@ -75,10 +74,6 @@ export default function ArchitectWindow() {
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
   const maximizedPane = useSessionStore((s) => s.maximizedPane);
   const setMaximizedPane = useSessionStore((s) => s.setMaximizedPane);
-  const architectSessionId = useSessionStore((s) => {
-    const found = Object.values(s.sessions).find((r) => r.type === 'architect');
-    return found?.id ?? null;
-  });
 
   // Only the active session's approval is shown, scoped to its pane — a pending
   // approval from a background session surfaces as a tab badge, not a modal.
@@ -86,7 +81,7 @@ export default function ArchitectWindow() {
     s.activeSessionId ? (s.pendingApprovals[s.activeSessionId] ?? null) : null,
   );
 
-  const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
+  const [concludeTarget, setConcludeTarget] = useState<SessionRecord | null>(null);
   const [freeformOpen, setFreeformOpen] = useState(false);
   // Tracked in state (not a ref) so the scoped dialog re-renders once the
   // split-pane element mounts and can portal into it. Scoping to the split
@@ -149,27 +144,14 @@ export default function ArchitectWindow() {
     <div className={styles.window}>
       <Navigation
         right={
-          <>
-            <IconButton
-              onClick={() => window.hiveryn.architect.openLauncher()}
-              aria-label="Open launcher"
-            >
-              <Glyph>
-                <Plus />
-              </Glyph>
-            </IconButton>
-            {architectSessionId && (
-              <IconButton
-                className={styles.concludeBtn}
-                onClick={() => setConcludeDialogOpen(true)}
-                aria-label="Conclude session"
-              >
-                <Glyph>
-                  <Close />
-                </Glyph>
-              </IconButton>
-            )}
-          </>
+          <IconButton
+            onClick={() => window.hiveryn.architect.openLauncher()}
+            aria-label="Open launcher"
+          >
+            <Glyph>
+              <Plus />
+            </Glyph>
+          </IconButton>
         }
       >
         <div className={styles.navTitle}>
@@ -230,7 +212,7 @@ export default function ArchitectWindow() {
 
       <BottomBar
         className={styles.bottomBar}
-        left={<BottomTabs />}
+        left={<BottomTabs onConclude={setConcludeTarget} />}
         right={
           <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
             <Glyph>
@@ -252,11 +234,8 @@ export default function ArchitectWindow() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
-      {concludeDialogOpen && architectSessionId && (
-        <ConcludeSessionDialog
-          sessionId={architectSessionId}
-          onClose={() => setConcludeDialogOpen(false)}
-        />
+      {concludeTarget && (
+        <ConcludeSessionDialog session={concludeTarget} onClose={() => setConcludeTarget(null)} />
       )}
 
       {freeformOpen && (

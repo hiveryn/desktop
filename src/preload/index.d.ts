@@ -161,6 +161,13 @@ interface CommitRef {
   repo: string;
 }
 
+interface ConcludeSessionParams {
+  body: string;
+  commits: CommitRef[];
+  rejected: boolean;
+  rejection_reason: string;
+}
+
 interface TicketConclusion {
   started_at: string;
   concluded_at: string;
@@ -381,7 +388,7 @@ interface HiverynAPI {
       cols?: number,
       rows?: number,
     ) => Promise<SessionRunResult>;
-    conclude: (sessionId: string, body: string) => Promise<void>;
+    conclude: (sessionId: string, params: ConcludeSessionParams) => Promise<void>;
     approveConclusion: (sessionId: string) => Promise<void>;
     rejectConclusion: (sessionId: string, reason?: string) => Promise<void>;
     createFreeform: (

@@ -24,6 +24,16 @@
   min-width: 0;
 }
 
+/* Wraps each tab so an optional action button can sit beside the selection
+   button without nesting <button>s. Full-width in column layouts; capped width
+   in the bottom bar (see .bottom .tabWrap). */
+.tabWrap {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+}
+
 .tab {
   display: flex;
   align-items: center;
@@ -75,6 +85,53 @@
   background: var(--theme-status-warning);
 }
 
+/* Per-tab action button (e.g. conclude). Reads as part of the tab: no padding
+   on the text side, no hover background of its own (the whole cell highlights
+   together — see .bottom .tabWrap:hover), and it adopts the tab's surface + top
+   accent when active. */
+.tabAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--theme-text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-h-2) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+
+  &:hover {
+    color: var(--theme-text);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+}
+
+/* Hovering anywhere in the cell (tab or its action) highlights the whole cell. */
+.bottom .tabWrap:hover {
+  background: var(--theme-surface-raised);
+}
+
+.tab.active ~ .tabAction {
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+}
+
+/* Match the active tab's transparent-then-accent top border so the action
+   button lines up with the tab and shares its active accent. */
+.bottom .tabAction {
+  border-top: 2px solid transparent;
+}
+
+.bottom .tab.active ~ .tabAction {
+  border-top-color: var(--theme-focused-foreground);
+}
+
 .addBtn {
   display: flex;
   align-items: center;
@@ -114,14 +171,23 @@
 /* Bottom horizontal bar — keeps room for labels, but caps each tab so long
    session names ellipsize instead of overflowing the window. Icons never
    shrink; only the label gives way. */
-.bottom .tab {
-  border-right: none;
-  border-top: 2px solid transparent;
-  padding: var(--space-1) var(--space-h-4);
-  font-size: var(--font-size-lg);
+/* Cap the wrapper (tab + action) so long session names ellipsize instead of
+   overflowing the window. The inner tab gives way; the action button stays. */
+.bottom .tabWrap {
+  width: auto;
   flex: 0 1 auto;
   min-width: 0;
   max-width: 28ch;
+}
+
+.bottom .tab {
+  border-right: none;
+  border-top: 2px solid transparent;
+  /* Tight right padding so the label sits close to the action button. */
+  padding: var(--space-1) var(--space-h-1) var(--space-1) var(--space-h-4);
+  font-size: var(--font-size-lg);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .bottom .tab > svg {

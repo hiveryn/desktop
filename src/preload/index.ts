@@ -1,4 +1,5 @@
 import type {
+  ConcludeSessionParams,
   CreateTerminalParams,
   SessionEvent,
   SessionIntent,
@@ -293,8 +294,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
       cols?: number,
       rows?: number,
     ): Promise<SessionRunResult> => invoke('sessions:createRun', intentId, profileName, cols, rows),
-    conclude: (sessionId: string, body: string): Promise<void> =>
-      invoke('sessions:conclude', sessionId, body),
+    conclude: (sessionId: string, params: ConcludeSessionParams): Promise<void> =>
+      invoke('sessions:conclude', sessionId, params),
     approveConclusion: (sessionId: string): Promise<void> =>
       invoke('sessions:approve-conclusion', sessionId),
     rejectConclusion: (sessionId: string, reason?: string): Promise<void> =>
