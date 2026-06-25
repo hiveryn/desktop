@@ -89,6 +89,7 @@ src/
       TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport
       types.ts            Injected interfaces: TerminalTransport, TerminalThemeSource, RouteKey, GpuCrashSource
       keymap.ts           Pure key mechanics (Shift+Enter→LF, keypress double-fire suppression)
+      overlayFit.ts       FitAddon subclass that reserves zero scrollbar width (full-pane fit; v6 overlay scrollbar floats)
      styles/
        global.css          Renderer global styles imported through @styles/global.css
        reset.css           Shared reset imported by global.css

@@ -22,15 +22,22 @@
   z-index: 1;
 }
 
-/* Hide the xterm-viewport scrollbar. Chromium renders webkit-styled scrollbars
-   in a compositor layer that sits above the xterm canvas regardless of DOM
-   stacking order, so the 8px strip intercepted mouse/wheel events before they
-   reached xterm's bindMouse listeners. xterm's internal scrollTop mechanism
-   continues to work without a visible scrollbar widget. */
-.root :global(.xterm-viewport) {
-  scrollbar-width: none;
+/* xterm v6 ships a VS Code-style auto-hiding overlay scrollbar
+   (.xterm-scrollable-element). Render it as a THIN overlay instead of the
+   default ~14px lane. OverlayFitAddon (see overlayFit.ts) reserves zero width
+   for it, so the terminal fills the full pane and the scrollbar floats over the
+   last column — no dead lane behind full-screen TUIs that draw their own
+   scrollbar. Width is the slider's visual size; the slider's vertical position
+   and hit-testing are computed independently, so narrowing it is cosmetic. */
+.root :global(.xterm-scrollable-element > .scrollbar.vertical),
+.root :global(.xterm-scrollable-element > .scrollbar.vertical > .slider) {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides xterm's inline scrollbar width */
+  width: 7px !important;
 }
 
-.root :global(.xterm-viewport)::-webkit-scrollbar {
+/* Alternate-screen buffer (full-screen TUIs): no scrollback, so suppress the
+   scrollbar entirely — TerminalView toggles .altBuffer on the container when
+   term.buffer.active.type === 'alternate'. */
+.altBuffer :global(.xterm-scrollable-element > .scrollbar) {
   display: none;
 }

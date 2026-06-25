@@ -1,4 +1,4 @@
-import { FitAddon } from '@xterm/addon-fit';
+import type { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -7,6 +7,7 @@ import { Terminal } from '@xterm/xterm';
 import * as React from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { isShiftEnter, xtermWillEmitFromKeydown } from './keymap';
+import { OverlayFitAddon } from './overlayFit';
 import styles from './TerminalView.module.css';
 import type { GpuCrashSource, RouteKey, TerminalThemeSource } from './types';
 
@@ -140,7 +141,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       allowTransparency: false,
     });
 
-    const fitAddon = new FitAddon();
+    const fitAddon = new OverlayFitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
     term.loadAddon(new SearchAddon());
@@ -224,21 +225,6 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       term.refresh(0, term.rows - 1);
     });
 
-    // The viewport scrollbar is hidden via CSS (see the .xterm-viewport rules
-    // in TerminalView.module.css), so xterm's own measurement
-    // (offsetWidth - scrollArea.offsetWidth) comes out 0 — which is falsy, so
-    // Viewport falls back to a phantom 15px scrollbar width. FitAddon then
-    // subtracts those 15px from every fit, leaving a permanent dead strip on
-    // the right edge of the pane. The scrollbar is genuinely zero-width here;
-    // tell xterm so.
-    try {
-      (
-        term as unknown as { _core: { viewport: { scrollBarWidth: number } } }
-      )._core.viewport.scrollBarWidth = 0;
-    } catch {
-      // Private API drift — worst case the 15px right gap returns.
-    }
-
     // xterm calls this BEFORE its own _keyDown / _keyPress / _inputEvent.
     // Returning false short-circuits xterm's processing for that event.
     //
@@ -286,6 +272,22 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       onTextAreaFocusRef.current?.();
     };
     textarea?.addEventListener('focus', focusListener);
+
+    // Hide the overlay scrollbar entirely while the alternate screen buffer is
+    // active. Full-screen TUIs (vim, opencode, etc.) switch to the alt buffer,
+    // which has no scrollback — xterm would otherwise flash the scrollbar on
+    // their frequent redraws even though there is nothing to scroll and the TUI
+    // draws its own. A class the CSS keys off (see TerminalView.module.css)
+    // tracks the active buffer type.
+    const altBufferContainer = containerRef.current;
+    const syncAltBuffer = (): void => {
+      altBufferContainer.classList.toggle(
+        styles.altBuffer,
+        term.buffer.active.type === 'alternate',
+      );
+    };
+    syncAltBuffer();
+    const bufferDispose = term.buffer.onBufferChange(syncAltBuffer);
 
     // Fit on initial mount whenever the container has a real box. A pane mounted
     // into a stable layout slot (visibility:hidden) is laid out at full size, so
@@ -341,11 +343,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     // Fit SYNCHRONOUSLY on every size change, but debounce only the daemon
     // resize notification.
     //
-    // xterm renders its screen at exactly rows×cellHeight pixels, and our
-    // viewport scrollbar is hidden via CSS (see TerminalView.module.css). So
-    // any frame where xterm holds a stale, larger row count than the container
-    // now fits renders the bottom rows below the fold, where `.root`'s
-    // overflow:hidden silently clips them — content vanishes with no scrollbar.
+    // xterm renders its screen at exactly rows×cellHeight pixels. So any frame
+    // where xterm holds a stale, larger row count than the container now fits
+    // renders the bottom rows below the fold, where `.root`'s overflow:hidden
+    // silently clips them — content vanishes.
     //
     // The previous resize ticket debounced this whole callback 100ms to avoid
     // flooding the PTY with SIGWINCH. That also delayed fit() itself, leaving
@@ -407,6 +408,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       offGpuCrash();
       disposeWebgl();
+      bufferDispose.dispose();
       dataDispose?.dispose();
       textarea?.removeEventListener('focus', focusListener);
       observer.disconnect();
@@ -417,18 +419,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       if (xtermEl?.parentNode) xtermEl.parentNode.removeChild(xtermEl);
       termRef.current = null;
       fitAddonRef.current = null;
-      // Viewport constructor schedules `setTimeout(() => syncScrollArea())` that
-      // xterm never cancels in dispose(). In React StrictMode, cleanup runs
-      // synchronously before that callback fires. Deferring disposal lets the
-      // callback complete while the renderer is still alive, preventing an
-      // uncaught crash on `_renderer.value!.dimensions`.
-      setTimeout(() => {
-        try {
-          term.dispose();
-        } catch {
-          /* disposal-order race, safe to ignore */
-        }
-      }, 0);
+      term.dispose();
     };
   }, []);
 
