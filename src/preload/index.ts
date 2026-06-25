@@ -41,6 +41,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'sessions:list': { method: 'GET', path: '/api/sessions' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'sessions:conclude': { method: 'POST', path: '/api/sessions/:id/conclude' },
+  'sessions:discard': { method: 'POST', path: '/api/sessions/:id/discard' },
   'sessions:approve-conclusion': {
     method: 'POST',
     path: '/api/sessions/:id/approve-conclusion',
@@ -296,6 +297,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
     ): Promise<SessionRunResult> => invoke('sessions:createRun', intentId, profileName, cols, rows),
     conclude: (sessionId: string, params: ConcludeSessionParams): Promise<void> =>
       invoke('sessions:conclude', sessionId, params),
+    discard: (sessionId: string): Promise<void> => invoke('sessions:discard', sessionId),
     approveConclusion: (sessionId: string): Promise<void> =>
       invoke('sessions:approve-conclusion', sessionId),
     rejectConclusion: (sessionId: string, reason?: string): Promise<void> =>

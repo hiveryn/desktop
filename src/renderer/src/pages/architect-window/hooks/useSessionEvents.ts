@@ -41,8 +41,11 @@ function mainTerminalResumeEvent(event: {
   return { mainTerminalId: mainTerminalID, previousTerminalId: previousTerminalID };
 }
 
-function isConcludedSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
-  return event.raw?.lifecycle === 'concluded';
+// A session end that should tear down the tab: either concluded (normal) or
+// discarded (ticket session moved back to backlog as if never spawned).
+function isFinalSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
+  const lifecycle = event.raw?.lifecycle;
+  return lifecycle === 'concluded' || lifecycle === 'discarded';
 }
 
 async function cleanupEndedSession(
@@ -127,7 +130,7 @@ export function useSessionEvents(): void {
         return;
       }
 
-      if (event.type !== 'status' || event.status !== 'ended' || !isConcludedSessionEnd(event)) {
+      if (event.type !== 'status' || event.status !== 'ended' || !isFinalSessionEnd(event)) {
         return;
       }
       if (endingSessionIdsRef.current.has(event.session_intent_id)) return;

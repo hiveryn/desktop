@@ -32,3 +32,14 @@
   font-size: var(--font-size-sm);
   white-space: pre-wrap;
 }
+
+.confirmText {
+  margin: 0;
+  color: var(--theme-text);
+  font-size: var(--font-size);
+  line-height: calc(var(--line-height-base) * 1rem);
+}
+
+.confirmText + .confirmText {
+  margin-top: var(--space-2);
+}

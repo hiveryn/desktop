@@ -40,7 +40,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/createFreeform/conclude/approve-conclusion/reject-conclusion → daemon HTTP
+      sessions.ts         sessions:list/create/createFreeform/conclude/discard/approve-conclusion/reject-conclusion → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
@@ -260,12 +260,16 @@ All main-process IPC handlers that construct `DaemonResult` envelopes use the ce
 
 ## Session conclusion cleanup
 
-When a session ends (architect or worker), the daemon sends a daemon-authored `status: ended` SSE event with `raw.lifecycle === 'concluded'`. Raw agent `ended` events are not session lifecycle. `useSessionEvents` immediately performs client-side cleanup with no dialog or countdown:
+When a session ends (architect or worker), the daemon sends a daemon-authored `status: ended` SSE event with `raw.lifecycle === 'concluded'` (normal conclusion) or `raw.lifecycle === 'discarded'` (ticket moved back to backlog — see below). Raw agent `ended` events are not session lifecycle. `useSessionEvents` treats either lifecycle as a final end and immediately performs client-side cleanup with no dialog or countdown:
 
 1. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 2. `store.unregisterSession(sessionId)` — removes the session from the Zustand store
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
 4. **Ticket/freeform session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
+
+### Discard ticket session (move back to backlog)
+
+A ticket session can be discarded as if it was never spawned — distinct from concluding/rejecting (no conclusion is written, no run record is kept). The ticket `ConcludeSessionDialog` (the type-aware dialog opened from a tab's conclude × button) shows a destructive **MOVE TO BACKLOG** button alongside REJECT. It opens a confirmation step (irreversible; discards the session's output; does **not** revert any git commits the agent already made), then calls `sessions:discard` IPC → `POST /api/sessions/{id}/discard` (no body). The daemon resets the ticket `progress → backlog`, deletes the run/intent rows, and emits the `raw.lifecycle === 'discarded'` ended event — which drives the cleanup above to remove the tab. The dialog itself only closes; it never optimistically unregisters. A late call after the daemon resolved returns HTTP 404, treated as already-resolved.
 
 ## Conclusion approval flow
 

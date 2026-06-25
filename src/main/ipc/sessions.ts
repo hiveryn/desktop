@@ -101,6 +101,15 @@ export function registerSessionsIpc(): void {
   );
 
   ipcMain.handle(
+    'sessions:discard',
+    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/discard`, {
+        method: 'POST',
+      });
+    },
+  );
+
+  ipcMain.handle(
     'sessions:approve-conclusion',
     async (_event, sessionId: string): Promise<DaemonResult<null>> => {
       return daemonFetch<null>(
