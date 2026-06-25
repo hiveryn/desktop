@@ -1,11 +1,17 @@
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import type { ArchitectStatus } from '../../../../shared/types';
+import type { AgentProfile, ArchitectStatus } from '../../../../shared/types';
 import { formatElapsed } from '../../lib/formatElapsed';
+import ProfileSelector from '../ProfileSelector/ProfileSelector';
 import styles from './CommandPalette.module.css';
 import { buildRows, rowKey } from './rows';
 
 const REFRESH_INTERVAL_MS = 5000;
+
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.stack ?? err.message;
+  return String(err);
+}
 
 interface CommandPaletteProps {
   open: boolean;
@@ -16,7 +22,12 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose }) => {
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [statuses, setStatuses] = React.useState<ArchitectStatus[]>([]);
+  const [profiles, setProfiles] = React.useState<AgentProfile[]>([]);
   const [now, setNow] = React.useState(0);
+  const [pendingKey, setPendingKey] = React.useState<string | null>(null);
+  const [showProfileSelector, setShowProfileSelector] = React.useState(false);
+  const [spawning, setSpawning] = React.useState(false);
+  const [error, setError] = React.useState<unknown>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const activeItemRef = React.useRef<HTMLLIElement>(null);
 
@@ -26,6 +37,11 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose }) => {
     if (open) {
       setQuery('');
       setActiveIndex(0);
+      setPendingKey(null);
+      setShowProfileSelector(false);
+      setSpawning(false);
+      setError(null);
+      window.hiveryn.profiles.list().then(setProfiles).catch(setError);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -60,12 +76,37 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose }) => {
     const row = rows[index];
     if (!row) return;
     if (row.kind === 'architect') {
-      if (!row.active) return;
+      if (!row.active) {
+        // Inactive architect — spawn a new session via the profile selector.
+        setError(null);
+        setPendingKey(row.architect.key);
+        setShowProfileSelector(true);
+        return;
+      }
       void window.hiveryn.palette.focusArchitect(row.architect.key);
     } else {
       void window.hiveryn.palette.focusArchitect(row.architect.key, row.session.id);
     }
     onClose();
+  };
+
+  const handleProfileSelect = (profileName: string): void => {
+    const key = pendingKey;
+    if (!key) return;
+    setShowProfileSelector(false);
+    setSpawning(true);
+    setError(null);
+    void (async (): Promise<void> => {
+      try {
+        const intent = await window.hiveryn.sessions.create('architect', key);
+        await window.hiveryn.sessions.createRun(intent.id, profileName);
+        await window.hiveryn.launcher.openArchitect(key);
+        onClose();
+      } catch (err) {
+        setError(err);
+        setSpawning(false);
+      }
+    })();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
@@ -171,9 +212,23 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose }) => {
             })}
           </ul>
         ) : (
-          <div className={styles.empty}>no architects or sessions match</div>
+          <div className={styles.empty}>
+            {spawning ? 'spawning session…' : 'no architects or sessions match'}
+          </div>
         )}
+        {error ? <div className={styles.error}>{errorText(error)}</div> : null}
       </div>
+      <ProfileSelector
+        profiles={profiles}
+        open={showProfileSelector}
+        onClose={() => {
+          if (!spawning) {
+            setShowProfileSelector(false);
+            setPendingKey(null);
+          }
+        }}
+        onSelect={handleProfileSelect}
+      />
     </div>,
     document.body,
   );
