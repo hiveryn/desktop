@@ -1,23 +1,31 @@
-import * as React from 'react';
-import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
-import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { Terminal } from '@xterm/xterm';
+import * as React from 'react';
 import '@xterm/xterm/css/xterm.css';
-import styles from './TerminalPane.module.css';
-import { dispatch } from '../../keys/dispatcher';
+import { isShiftEnter, xtermWillEmitFromKeydown } from './keymap';
+import styles from './TerminalView.module.css';
+import type { GpuCrashSource, RouteKey, TerminalThemeSource } from './types';
 
-export interface TerminalPaneProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface TerminalViewProps extends React.HTMLAttributes<HTMLDivElement> {
   // Consumer receives a write function to push data into the terminal. Accepts
   // string or Uint8Array — the latter is the right type for raw PTY bytes that
   // may include partial UTF-8 sequences at chunk boundaries.
   onWrite?: (writeFn: (data: string | Uint8Array) => void) => void;
-  // Fires when the user types — wire to useTerminalInteractive or a PTY
+  // Fires when the user types — wire to a transport or a PTY.
   onData?: (data: string) => void;
-  // Fires when the terminal resizes — send cols/rows to the PTY/daemon
+  // Fires when the terminal resizes — send cols/rows to the PTY/daemon.
   onResize?: (cols: number, rows: number) => void;
+  // Theme + font, injected so the module never reads CSS variables directly.
+  themeSource: TerminalThemeSource;
+  // App-shortcut router. Returns 'consumed' to suppress xterm's processing.
+  routeKey: RouteKey;
+  // Subscribe to host GPU-process crashes (WebGL contexts destroyed). Returns
+  // an unsubscribe.
+  gpuCrash: GpuCrashSource;
   fontSize?: number;
   cursorBlink?: boolean;
   // Disables stdin (user cannot type)
@@ -30,70 +38,20 @@ export interface TerminalPaneProps extends React.HTMLAttributes<HTMLDivElement> 
   // called so keystrokes don't reach the PTY (used when another pane has
   // logical keyboard focus). Defaults to true for backward compatibility.
   focused?: boolean;
-  // Fires when the xterm helper textarea receives DOM focus. The architect
-  // window listens for this so a mouse click on the terminal updates
-  // focusedPane in the session store (single source of truth for focus).
+  // Fires when the xterm helper textarea receives DOM focus. The host listens
+  // for this so a mouse click on the terminal updates the focused pane in the
+  // session store (single source of truth for focus).
   onTextAreaFocus?: () => void;
 }
 
-// Read theme tokens from CSS variables so xterm's palette tracks the global
-// design system.
-function readTerminalTheme(): ITheme {
-  const cs = getComputedStyle(document.documentElement);
-  const v = (name: string) => cs.getPropertyValue(name).trim();
-  return {
-    foreground:          v('--theme-text'),
-    background:          v('--theme-background'),
-    cursor:              v('--theme-cursor'),
-    cursorAccent:        v('--theme-cursor-accent'),
-    selectionBackground: v('--theme-terminal-selection'),
-    black:               v('--theme-ansi-black'),
-    red:                 v('--theme-ansi-red'),
-    green:               v('--theme-ansi-green'),
-    yellow:              v('--theme-ansi-yellow'),
-    blue:                v('--theme-ansi-blue'),
-    magenta:             v('--theme-ansi-magenta'),
-    cyan:                v('--theme-ansi-cyan'),
-    white:               v('--theme-ansi-white'),
-    brightBlack:         v('--theme-ansi-bright-black'),
-    brightRed:           v('--theme-ansi-bright-red'),
-    brightGreen:         v('--theme-ansi-bright-green'),
-    brightYellow:        v('--theme-ansi-bright-yellow'),
-    brightBlue:          v('--theme-ansi-bright-blue'),
-    brightMagenta:       v('--theme-ansi-bright-magenta'),
-    brightCyan:          v('--theme-ansi-bright-cyan'),
-    brightWhite:         v('--theme-ansi-bright-white'),
-  };
-}
-
-// Returns true when xterm's _keyDown will emit a character to the PTY for this
-// event. When true, the corresponding keypress must be suppressed to avoid a
-// double-fire (Chromium does not suppress keypress when keydown is canceled).
-//
-// xterm's _keyDown emits for: any key where evaluateKeyboardEvent returns a
-// non-empty result.key AND the event is not uppercase A-Z (which xterm defers
-// to keypress for a macOS IME caps-lock fix). evaluateKeyboardEvent requires
-// keyCode >= 48 for its default printable-char branch, which excludes space
-// (keyCode 32). All special keys (Enter, Tab, Backspace, arrows, F-keys) have
-// explicit cases and DO emit from _keyDown.
-function xtermWillEmitFromKeydown(event: KeyboardEvent): boolean {
-  if (event.defaultPrevented || event.isComposing) return false;
-  // Modifier-bearing combos either matched a shortcut (already returned
-  // 'consumed') or are routed through xterm's special branches without
-  // going through the keypress-double path.
-  if (event.ctrlKey || event.metaKey || event.altKey) return false;
-  // Uppercase A-Z: xterm short-circuits, defers to _keyPress.
-  if (event.key.length === 1 && /^[A-Z]$/.test(event.key)) return false;
-  // Space: keyCode 32 < 48, evaluateKeyboardEvent returns no key.
-  if (event.key === ' ') return false;
-  return true;
-}
-
-const TerminalPane: React.FC<TerminalPaneProps> = ({
+const TerminalView: React.FC<TerminalViewProps> = ({
   onWrite,
   onData,
   onResize,
   onTextAreaFocus,
+  themeSource,
+  routeKey,
+  gpuCrash,
   fontSize = 13,
   cursorBlink = false,
   readonly = false,
@@ -118,6 +76,14 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   onTextAreaFocusRef.current = onTextAreaFocus;
   const visibleRef = React.useRef(visible);
   visibleRef.current = visible;
+  // Injected deps read inside the mount effect's handlers — keep them in refs so
+  // the once-only effect always sees the latest without re-running.
+  const themeSourceRef = React.useRef(themeSource);
+  themeSourceRef.current = themeSource;
+  const routeKeyRef = React.useRef(routeKey);
+  routeKeyRef.current = routeKey;
+  const gpuCrashRef = React.useRef(gpuCrash);
+  gpuCrashRef.current = gpuCrash;
 
   // Restore focus when the pane transitions to visible. The renderer needs no
   // help here: panes are hidden with visibility:hidden in a stable layout slot
@@ -153,18 +119,21 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     }
   }, [focused, readonly]);
 
+  // Mount-once: xterm is constructed a single time and its handlers read the
+  // latest props via refs. The construction options (fontSize/cursorBlink/etc.)
+  // are intentionally captured at mount — re-running would destroy and recreate
+  // the terminal. Matches the pre-extraction TerminalPane behavior.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-once terminal construction; props captured intentionally
   React.useEffect(() => {
     if (!containerRef.current) return;
     disposedRef.current = false;
 
-    const fontFamily = getComputedStyle(document.documentElement)
-      .getPropertyValue('--font-family-mono')
-      .trim() || 'monospace';
+    const fontFamily = themeSourceRef.current.readFontFamily();
 
     const term = new Terminal({
       fontSize,
       fontFamily,
-      theme: readTerminalTheme(),
+      theme: themeSourceRef.current.readTheme(),
       cursorBlink,
       disableStdin: readonly,
       scrollback: 5000,
@@ -211,7 +180,11 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     const disposeWebgl = (): void => {
       if (webglAddon) {
-        try { webglAddon.dispose(); } catch { /* disposal race */ }
+        try {
+          webglAddon.dispose();
+        } catch {
+          /* disposal race */
+        }
         webglAddon = null;
       }
     };
@@ -240,11 +213,11 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     term.open(containerRef.current);
 
-    // When the Electron GPU process crashes and restarts, every WebGL context is
+    // When the host GPU process crashes and restarts, every WebGL context is
     // destroyed. Re-attach and force a repaint so terminals recover without a
     // manual reload. (display:none panes have no box → attachWebgl is a no-op
     // until they're shown again.)
-    const offGpuCrash = window.hiveryn.app.onGpuProcessCrashed(() => {
+    const offGpuCrash = gpuCrashRef.current(() => {
       if (disposedRef.current) return;
       disposeWebgl();
       attachWebgl();
@@ -252,15 +225,16 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     });
 
     // The viewport scrollbar is hidden via CSS (see the .xterm-viewport rules
-    // in TerminalPane.module.css), so xterm's own measurement
+    // in TerminalView.module.css), so xterm's own measurement
     // (offsetWidth - scrollArea.offsetWidth) comes out 0 — which is falsy, so
     // Viewport falls back to a phantom 15px scrollbar width. FitAddon then
     // subtracts those 15px from every fit, leaving a permanent dead strip on
     // the right edge of the pane. The scrollbar is genuinely zero-width here;
     // tell xterm so.
     try {
-      (term as unknown as { _core: { viewport: { scrollBarWidth: number } } })
-        ._core.viewport.scrollBarWidth = 0;
+      (
+        term as unknown as { _core: { viewport: { scrollBarWidth: number } } }
+      )._core.viewport.scrollBarWidth = 0;
     } catch {
       // Private API drift — worst case the 15px right gap returns.
     }
@@ -269,28 +243,22 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     // Returning false short-circuits xterm's processing for that event.
     //
     // Three jobs:
-    //   1. Route app shortcuts through the dispatcher and consume matches.
-    //   2. Translate Shift+Enter to LF so agent TUIs (Claude, Cursor) treat
+    //   1. Translate Shift+Enter to LF so agent TUIs (Claude, Cursor) treat
     //      it as a newline-within-input rather than xterm's default CR.
+    //   2. Route app shortcuts through the injected router and consume matches.
     //   3. Suppress xterm's _keyPress when its _keyDown already emitted —
     //      otherwise printable chars and Enter are sent twice (Chromium does
     //      not suppress keypress when keydown is preventDefaulted).
     let suppressNextKeypress = false;
     term.attachCustomKeyEventHandler((event) => {
       if (event.type === 'keydown') {
-        if (
-          event.key === 'Enter' &&
-          event.shiftKey &&
-          !event.ctrlKey &&
-          !event.metaKey &&
-          !event.altKey
-        ) {
+        if (isShiftEnter(event)) {
           onDataRef.current?.('\n');
           suppressNextKeypress = true;
           return false;
         }
 
-        if (dispatch(event) === 'consumed') {
+        if (routeKeyRef.current(event) === 'consumed') {
           suppressNextKeypress = false;
           return false;
         }
@@ -311,8 +279,8 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
     });
 
     // Update app focus state whenever the textarea gains DOM focus (covers
-    // both programmatic term.focus() and user mouse clicks). This keeps
-    // focusedPane in lock-step with reality.
+    // both programmatic term.focus() and user mouse clicks). This keeps the
+    // host's focused-pane state in lock-step with reality.
     const textarea = term.textarea;
     const focusListener = (): void => {
       onTextAreaFocusRef.current?.();
@@ -367,14 +335,14 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
 
     let dataDispose: { dispose: () => void } | null = null;
     if (!readonly) {
-      dataDispose = term.onData(data => onDataRef.current?.(data));
+      dataDispose = term.onData((data) => onDataRef.current?.(data));
     }
 
     // Fit SYNCHRONOUSLY on every size change, but debounce only the daemon
     // resize notification.
     //
     // xterm renders its screen at exactly rows×cellHeight pixels, and our
-    // viewport scrollbar is hidden via CSS (see TerminalPane.module.css). So
+    // viewport scrollbar is hidden via CSS (see TerminalView.module.css). So
     // any frame where xterm holds a stale, larger row count than the container
     // now fits renders the bottom rows below the fold, where `.root`'s
     // overflow:hidden silently clips them — content vanishes with no scrollbar.
@@ -455,10 +423,13 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
       // callback complete while the renderer is still alive, preventing an
       // uncaught crash on `_renderer.value!.dimensions`.
       setTimeout(() => {
-        try { term.dispose(); } catch { /* disposal-order race, safe to ignore */ }
+        try {
+          term.dispose();
+        } catch {
+          /* disposal-order race, safe to ignore */
+        }
       }, 0);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -468,4 +439,4 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({
   );
 };
 
-export default TerminalPane;
+export default TerminalView;

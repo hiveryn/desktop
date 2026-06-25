@@ -3,8 +3,6 @@ export { default as DevBadge } from './DevBadge/DevBadge';
 export { default as ApiEnvelopeError } from './ApiEnvelopeError/ApiEnvelopeError';
 export { default as ArchitectCard } from './ArchitectCard/ArchitectCard';
 export type { ArchitectCardData } from './ArchitectCard/ArchitectCard';
-export { default as TerminalPane } from './TerminalPane/TerminalPane';
-export type { TerminalPaneProps } from './TerminalPane/TerminalPane';
 export { useTerminalSimulate } from './TerminalPane/useTerminalSimulate';
 export type { SimulateOptions } from './TerminalPane/useTerminalSimulate';
 export { useTerminalInteractive } from './TerminalPane/useTerminalInteractive';

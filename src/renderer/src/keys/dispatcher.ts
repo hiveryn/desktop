@@ -3,8 +3,9 @@
 // Two callers:
 //   1. useKeyDispatcher (document bubble-phase) — for events when xterm does
 //      NOT have focus (kanban, event-log, modals, chrome).
-//   2. TerminalPane's attachCustomKeyEventHandler — for events when xterm
-//      DOES have focus, before xterm processes them.
+//   2. TerminalView's attachCustomKeyEventHandler (wired in via the injected
+//      routeKey adapter) — for events when xterm DOES have focus, before xterm
+//      processes them.
 //
 // Both routes call `dispatch()` with the same KeyboardEvent. The dispatcher
 // decides 'consumed' (caller should preventDefault/stopPropagation, or in

@@ -71,7 +71,8 @@ src/
       launcher.tsx        Launcher page — architect list, variant selection on click
       architect-window/
         index.tsx                Thin shell — composes hooks + view components
-        SessionTerminal.tsx      Reusable terminal — connect to any (sessionId, terminalId)
+        SessionTerminal.tsx      Electron wiring for the terminal/ module — builds the transport + theme/keyboard/GPU adapters
+        terminal-adapters/       Electron impls of the terminal module interfaces (electronTransport, cssThemeSource, dispatcherRouteKey, gpuCrashSource)
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
@@ -83,6 +84,11 @@ src/
       index.ts            Renderer component barrel exported through @components
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
+    terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps
+      TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected
+      TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport
+      types.ts            Injected interfaces: TerminalTransport, TerminalThemeSource, RouteKey, GpuCrashSource
+      keymap.ts           Pure key mechanics (Shift+Enter→LF, keypress double-fire suppression)
      styles/
        global.css          Renderer global styles imported through @styles/global.css
        reset.css           Shared reset imported by global.css
@@ -163,7 +169,7 @@ Main terminal disconnect is not session lifecycle. If the main terminal WebSocke
 
 Duplicate `connect()` calls for the same terminal (e.g. from React StrictMode) are deduplicated via `pendingConnects` map keyed by `wcId:sessionId:terminalId`.
 
-Terminal DOM persistence: `TerminalPane` xterm instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists — this includes every split (all splits render, not just the one for the current base tab) so switching tabs never unmounts/remounts an xterm (a remount forces a reconnect + replay that flashes black).
+Terminal DOM persistence: `TerminalView` (the xterm component in the `terminal/` module, rendered via `SessionTerminal`) instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists — this includes every split (all splits render, not just the one for the current base tab) so switching tabs never unmounts/remounts an xterm (a remount forces a reconnect + replay that flashes black).
 
 How a pane is hidden matters, because xterm's core runs an `IntersectionObserver` that **pauses the renderer** and a `display:none` element fires **no** `ResizeObserver` events — so a `display:none` pane both stops rendering and misses size changes, then resumes against **stale geometry** and corrupts on switch-back. So:
 
@@ -281,7 +287,7 @@ All keyboard routing flows through a single `dispatch(event)` function in `keys/
 
 There are two callers:
 
-1. **`TerminalPane.attachCustomKeyEventHandler`** — called by xterm itself before its own `_keyDown`/`_keyPress` processing. When the terminal has DOM focus, this is the gate. Returning `false` suppresses xterm's emit so the keystroke never reaches the PTY. Returning `true` passes through. xterm-level concerns (Shift+Enter → `\n`, double-fire suppression) are also handled here.
+1. **`TerminalView.attachCustomKeyEventHandler`** — called by xterm itself before its own `_keyDown`/`_keyPress` processing. When the terminal has DOM focus, this is the gate. Returning `false` suppresses xterm's emit so the keystroke never reaches the PTY. Returning `true` passes through. xterm-level concerns (Shift+Enter → `\n`, double-fire suppression) are handled in `terminal/keymap.ts`; app shortcuts go through the injected `routeKey` (wired to `dispatch` by `terminal-adapters/dispatcherRouteKey.ts`), which keeps the `terminal/` module off the `keys/dispatcher` import.
 
 2. **`useKeyDispatcher`** — a single bubble-phase `keydown` listener on `document`. Skips events whose target is `.xterm-helper-textarea` (those come via path 1). Calls `dispatch(event)`, and if `'consumed'`, calls `preventDefault()`/`stopPropagation()`.
 
@@ -300,9 +306,9 @@ The dispatcher runs handlers in two stages:
 `sessionStore.focusedPane` is the single source of truth for keyboard focus: `'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}'`. It is updated by:
 - Clicks on pane wrappers
 - Navigation shortcut actions inside the dispatcher
-- `TerminalPane.onTextAreaFocus` callback — fires when xterm's helper textarea receives DOM focus by any means (keyboard shortcut transition or mouse click), calling `setFocusedPane` to keep app state in sync with DOM reality.
+- `TerminalView.onTextAreaFocus` callback — fires when xterm's helper textarea receives DOM focus by any means (keyboard shortcut transition or mouse click); forwarded through `TerminalSession` to `SessionTerminal`, which calls `setFocusedPane` to keep app state in sync with DOM reality (the store write is app policy and stays out of the `terminal/` module).
 
-`TerminalPane` accepts a `focused` prop that drives `term.focus()` / `term.blur()`. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane` and pass `paneId` so each terminal knows which pane ID to claim on focus.
+`TerminalView` accepts a `focused` prop that drives `term.focus()` / `term.blur()`. `MainTerminalStack` / `ExtraTerminalStack` compute `focused` per-terminal from `focusedPane` and pass `paneId` so each terminal knows which pane ID to claim on focus.
 
 The visual focus indicator is a 2px accent strip drawn via a `::after` pseudo-element along the top edge of the focused pane (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focused-foreground` (defined in `styles/global.css`, dark theme only). The unfocused pane fades to `opacity: 0.7` for additional contrast.
 
