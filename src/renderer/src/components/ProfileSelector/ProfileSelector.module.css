@@ -107,6 +107,16 @@
   white-space: nowrap;
 }
 
+.itemBadge {
+  color: var(--theme-focused-foreground);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  border: 1px solid var(--theme-border);
+  padding: 0 0.5ch;
+  line-height: 1.3;
+  text-transform: lowercase;
+}
+
 .itemAgent {
   color: var(--theme-text-muted);
   font-size: var(--font-size-sm);

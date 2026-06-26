@@ -60,6 +60,8 @@ export interface AgentProfile {
   name: string;
   agent: string;
   model?: string;
+  yolo?: boolean;
+  mode?: string;
   args: string[];
   env: Record<string, string>;
 }

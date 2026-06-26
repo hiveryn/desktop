@@ -6,6 +6,8 @@ export interface AgentProfile {
   name: string;
   agent: string;
   model?: string;
+  yolo?: boolean;
+  mode?: string;
   args: string[];
   env: Record<string, string>;
 }
@@ -30,7 +32,9 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
       p =>
         p.name.toLowerCase().includes(q) ||
         p.agent.toLowerCase().includes(q) ||
-        (p.model?.toLowerCase().includes(q) ?? false),
+        (p.model?.toLowerCase().includes(q) ?? false) ||
+        (p.mode?.toLowerCase().includes(q) ?? false) ||
+        (p.yolo === true && 'yolo'.includes(q)),
     );
   }, [profiles, query]);
 
@@ -116,6 +120,8 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
                 >
                   <span className={styles.itemName}>{profile.name}</span>
                   <span className={styles.itemMeta}>
+                    {profile.mode === 'plan' && <span className={styles.itemBadge}>plan</span>}
+                    {profile.yolo && <span className={styles.itemBadge}>yolo</span>}
                     {profile.model && <span className={styles.itemModel}>{profile.model}</span>}
                     <span className={styles.itemAgent}>{profile.agent}</span>
                   </span>
