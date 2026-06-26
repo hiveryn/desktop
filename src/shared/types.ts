@@ -59,6 +59,7 @@ export type AgentKind = 'claude' | 'codex' | 'opencode';
 export interface AgentProfile {
   name: string;
   agent: string;
+  model?: string;
   args: string[];
   env: Record<string, string>;
 }

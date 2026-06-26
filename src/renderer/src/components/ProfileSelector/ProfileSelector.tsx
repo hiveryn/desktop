@@ -5,6 +5,7 @@ import styles from './ProfileSelector.module.css';
 export interface AgentProfile {
   name: string;
   agent: string;
+  model?: string;
   args: string[];
   env: Record<string, string>;
 }
@@ -24,7 +25,13 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
 
   const filtered = React.useMemo(() => {
     const q = query.toLowerCase().trim();
-    return q ? profiles.filter(p => p.name.toLowerCase().includes(q)) : profiles;
+    if (!q) return profiles;
+    return profiles.filter(
+      p =>
+        p.name.toLowerCase().includes(q) ||
+        p.agent.toLowerCase().includes(q) ||
+        (p.model?.toLowerCase().includes(q) ?? false),
+    );
   }, [profiles, query]);
 
   React.useEffect(() => {
@@ -108,7 +115,10 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
                   onMouseEnter={() => setActiveIndex(i)}
                 >
                   <span className={styles.itemName}>{profile.name}</span>
-                  <span className={styles.itemAgent}>{profile.agent}</span>
+                  <span className={styles.itemMeta}>
+                    {profile.model && <span className={styles.itemModel}>{profile.model}</span>}
+                    <span className={styles.itemAgent}>{profile.agent}</span>
+                  </span>
                 </li>
               );
             })}
