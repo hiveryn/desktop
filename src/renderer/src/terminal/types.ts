@@ -33,6 +33,10 @@ export interface TerminalTransport {
 export interface TerminalThemeSource {
   readTheme(): ITheme;
   readFontFamily(): string;
+  // Canvas font size in px. CSS scaling can't reach the xterm canvas, so the
+  // size is read here from the design-system --font-size-terminal token rather
+  // than hardcoded in the view.
+  readFontSize(): number;
 }
 
 // Keyboard: app-shortcut routing ONLY. Returns whether an app shortcut consumed

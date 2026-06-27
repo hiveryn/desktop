@@ -39,4 +39,10 @@ export const cssThemeSource: TerminalThemeSource = {
       'monospace'
     );
   },
+  readFontSize(): number {
+    const raw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-size-terminal')
+      .trim();
+    return parseFloat(raw) || 16;
+  },
 };

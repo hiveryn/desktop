@@ -149,6 +149,13 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 
 CSS and shared UI component work lives in `src/renderer/src/components/` and `src/renderer/src/styles/`. Keep component behavior and CSS Modules co-located, and route shared component imports through `@components`.
 
+### Global UI scale (`--ui-scale`)
+
+`styles/global.css` defines `--ui-scale` (currently `1.1`) as the single source of truth for the overall UI scale — it drives `:root { font-size }`, so every `em`/`ch`/`rem` measurement and the px tokens that multiply by it (`--appbar-height`, etc.) scale from one number. Set it to `1` to restore the pre-scale appearance exactly. **1px/2px hairline borders are intentionally left literal** so they stay crisp (the reason scale is baked into tokens instead of an Electron zoom factor). Two things don't follow the knob and must be kept in sync by hand:
+
+- **Main-process DIP values** can't read CSS vars: `trafficLightPosition` in `src/main/index.ts` (derived from `--appbar-height`) and the tray dimensions in `src/main/tray.ts`. Update them together with `--ui-scale`; both files reference the knob in comments.
+- **The xterm terminal** is a canvas, not CSS — its font comes from the `--font-size-terminal` token read in JS via `cssThemeSource.readFontSize()` (`TerminalThemeSource`). It is deliberately **decoupled** from `--ui-scale` (fixed `14px`) so the terminal grid stays dense while the chrome scales.
+
 ## Multi-session & multi-terminal architecture
 
 The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurrent sessions per webContents** — keyed by `wcId → sessionId → ActiveSession`. Each session can have **multiple UUID-addressed terminals**, each with its own WebSocket connection. The daemon-owned tab layout from `GET /api/sessions/{id}/tabs` is the source of truth for all non-main right-pane tabs.

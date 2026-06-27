@@ -5,9 +5,13 @@ import { IS_DESKTOP_DEVELOPMENT } from './runtime';
 
 // Fixed width; the renderer measures its content and asks us to resize the
 // height to fit (capped at TRAY_MAX_HEIGHT, after which the list scrolls).
-const TRAY_WIDTH = 380;
-const TRAY_INITIAL_HEIGHT = 420;
-const TRAY_MAX_HEIGHT = 520;
+// Dimensions track the global --ui-scale (1.1): the popover content scales via
+// CSS, so these grow with it to avoid horizontal overflow / vertical clipping.
+// The renderer reports height in CSS px, which equals DIP here (no zoom factor),
+// so the measured height stays correct without extra conversion.
+const TRAY_WIDTH = 418; // 380 × 1.1
+const TRAY_INITIAL_HEIGHT = 462; // 420 × 1.1
+const TRAY_MAX_HEIGHT = 572; // 520 × 1.1
 // Gap between the menu bar icon and the top of the popover.
 const TRAY_GAP = 6;
 

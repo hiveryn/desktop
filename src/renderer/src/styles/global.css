@@ -18,6 +18,20 @@
    color values. Do not add colors outside this spec.
    ──────────────────────────────────────────────────────────── */
 :root {
+  /* ── UI scale ──────────────────────────────────────────────────
+     Single source of truth for the global UI scale. Bakes a modest scale-up
+     (1.1×) at the token level instead of an Electron zoom factor, so 1px
+     hairline borders stay crisp and manual zoom doesn't stack. Drives the root
+     font-size below; every em/ch/rem measurement and the px tokens that
+     multiply by it then scale from this one number. Set to 1 to restore the
+     pre-scale appearance exactly.
+     NOTE: main-process DIP values (trafficLightPosition in src/main/index.ts,
+     tray dimensions in src/main/tray.ts) can't read this var — they're computed
+     by hand from the same scale and reference this knob in comments, so update
+     them together if you change this. */
+  --ui-scale: 1.1;
+  font-size: calc(16px * var(--ui-scale));
+
   /* Standard 16 ANSI */
   --ansi-0-black: #000000;
   --ansi-1-maroon: #800000;
@@ -103,13 +117,22 @@
   /* ── Typography scale ──────────────────────────────────────── */
   --font-family-mono: 'Geist Mono Variable', 'JetBrains Mono Variable', 'Symbols Nerd Font Mono', Consolas, monaco, monospace;
 
-  --font-size-xs: 10px;
-  --font-size-sm: 12px;
-  --font-size: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 18px;
-  --font-size-2xl: 22px;
-  --font-size-icon: 24px;
+  /* Sizes are rem-relative to a 16px base, so the single --ui-scale knob (see
+     top of :root) scales the whole type ramp. Values preserve the original px
+     at --ui-scale: 1 (e.g. 0.875rem × 16 = 14px). */
+  --font-size-xs: 0.625rem;   /* 10px */
+  --font-size-sm: 0.75rem;    /* 12px */
+  --font-size: 0.875rem;      /* 14px */
+  --font-size-lg: 1rem;       /* 16px */
+  --font-size-xl: 1.125rem;   /* 18px */
+  --font-size-2xl: 1.375rem;  /* 22px */
+  --font-size-icon: 1.5rem;   /* 24px */
+  /* Terminal canvas font (xterm). Read in JS via the theme source — CSS scaling
+     can't reach the canvas. Deliberately NOT multiplied by --ui-scale: scaling it
+     with the chrome (→14.3px) reads oversized, but the original 13px reads small
+     against the larger UI — 14px splits the difference and stays a whole px so the
+     canvas grid renders crisply. */
+  --font-size-terminal: 14px;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -141,8 +164,10 @@
   /* ── Layout ────────────────────────────────────────────────── */
   /* App chrome bar height (top Navigation). Decoupled from font size so the bar
      stays compact regardless of the title type scale, with comfortable vertical
-     breathing room around the title. */
-  --appbar-height: 36px;
+     breathing room around the title — but tracks --ui-scale so it grows with the
+     rest of the UI. NOTE: trafficLightPosition.y in src/main/index.ts is derived
+     from this height ((height − 12) / 2); keep them in sync. */
+  --appbar-height: calc(36px * var(--ui-scale)); /* 39.6px at scale 1.1 */
   /* Left inset that clears the macOS traffic-light buttons (windows use
      titleBarStyle: 'hidden', so the lights sit at the default top-left spot). */
   --titlebar-inset: 78px;

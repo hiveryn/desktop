@@ -53,7 +53,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
   themeSource,
   routeKey,
   gpuCrash,
-  fontSize = 13,
+  fontSize: fontSizeProp,
   cursorBlink = false,
   readonly = false,
   visible = true,
@@ -130,6 +130,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     disposedRef.current = false;
 
     const fontFamily = themeSourceRef.current.readFontFamily();
+    // Default to the --font-size-terminal design token; an explicit prop overrides.
+    const fontSize = fontSizeProp ?? themeSourceRef.current.readFontSize();
 
     const term = new Terminal({
       fontSize,
