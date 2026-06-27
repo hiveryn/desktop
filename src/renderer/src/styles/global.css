@@ -138,6 +138,15 @@
   --space-h-3: 1.5ch;
   --space-h-4: 2ch;
 
+  /* ── Layout ────────────────────────────────────────────────── */
+  /* App chrome bar height (top Navigation). Decoupled from font size so the bar
+     stays compact regardless of the title type scale, with comfortable vertical
+     breathing room around the title. */
+  --appbar-height: 36px;
+  /* Left inset that clears the macOS traffic-light buttons (windows use
+     titleBarStyle: 'hidden', so the lights sit at the default top-left spot). */
+  --titlebar-inset: 78px;
+
   /* Z-index stack (low → high). The maximize layer lifts a single pane above the
      normal split layout and the in-pane floating UI (focus ring, selects, tooltips,
      popovers, dropdowns). Page modals are global overlays portaled to <body>

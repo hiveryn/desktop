@@ -50,9 +50,36 @@ export function dispatch(event: KeyboardEvent): DispatchResult {
   return dispatchGlobal(event);
 }
 
+// Pane-focus navigation shortcuts. While a pane is maximized only that one
+// pane is visible, so these would move focus to a hidden pane — disabled below.
+const FOCUS_NAV_SHORTCUTS = ['focus-left', 'focus-right', 'focus-down', 'focus-up', 'focus-main'];
+
 function dispatchGlobal(event: KeyboardEvent): DispatchResult {
   const global = activeConfig?.global;
   if (!global) return 'passthrough';
+
+  // When a pane is maximized, swallow pane-focus navigation so it neither
+  // navigates to a hidden pane nor leaks the keystroke to a maximized
+  // terminal's PTY. Un-maximize (Cmd+M) re-enables navigation.
+  const isMaximized = useSessionStore.getState().maximizedPane !== null;
+  if (isMaximized) {
+    // Exception: a maximized right-pane split shows both terminals side by side,
+    // so left/right moves focus between them. Up/down/main stay disabled.
+    const split = getMaximizedRightSplit();
+    if (split) {
+      if (matchesShortcut(event, global['focus-left'] ?? '')) {
+        useSessionStore.getState().setFocusedPane(split.leftFocusId);
+        return 'consumed';
+      }
+      if (matchesShortcut(event, global['focus-right'] ?? '')) {
+        useSessionStore.getState().setFocusedPane(split.rightFocusId);
+        return 'consumed';
+      }
+    }
+    if (FOCUS_NAV_SHORTCUTS.some((name) => matchesShortcut(event, global[name] ?? ''))) {
+      return 'consumed';
+    }
+  }
 
   if (matchesShortcut(event, global['focus-left'] ?? '')) {
     focusLeft();
@@ -111,9 +138,12 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
   // Un-maximizing happens only via Cmd+M (above) or clicking the dimmed backdrop.
 
   // Cmd+2..9: direct right-tab jump (position-based, not configurable).
+  // Disabled while maximized — like the focus-nav shortcuts above, it would
+  // move focus to a hidden tab. Swallowed so the digit never reaches the PTY.
   if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.repeat) {
     const digit = parseInt(event.key, 10);
     if (!Number.isNaN(digit) && digit >= 2 && digit <= 9) {
+      if (isMaximized) return 'consumed';
       if (jumpRightTab(digit - 2)) return 'consumed';
     }
   }
@@ -143,6 +173,31 @@ function tabIdToFocusId(tabId: string): string {
   if (tabId === 'event-log') return 'right-event-log';
   if (tabId === 'ticket') return 'right-ticket';
   return `right-terminal:${tabId}`;
+}
+
+// When the right pane is maximized AND its active tab has an applied split, the
+// two terminals lay out side by side (primary left, secondary right — see
+// `.rightPaneSplit[data-maximized] { flex-direction: row }`). Returns the focus
+// ids for the two halves so left/right can move between them; null otherwise.
+function getMaximizedRightSplit(): { leftFocusId: string; rightFocusId: string } | null {
+  const state = useSessionStore.getState();
+  if (!state.maximizedPane?.startsWith('right-')) return null;
+  const activeSession = state.activeSessionId ? state.sessions[state.activeSessionId] : undefined;
+  if (!activeSession) return null;
+  const rightTabIds = getRightTabIds();
+  const effectiveTab =
+    state.activeRightTab && rightTabIds.includes(state.activeRightTab)
+      ? state.activeRightTab
+      : rightTabIds[0];
+  if (!effectiveTab) return null;
+  const splitTab = activeSession.tabs.find(
+    (tab) => isSplitTerminalTab(tab) && tab.base_tab_id === effectiveTab,
+  );
+  if (!splitTab?.id) return null;
+  return {
+    leftFocusId: tabIdToFocusId(effectiveTab),
+    rightFocusId: `right-terminal:${splitTab.id}`,
+  };
 }
 
 // ── Focus actions ────────────────────────────────────────────────────────────

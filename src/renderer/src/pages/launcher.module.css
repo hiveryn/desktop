@@ -1,18 +1,21 @@
-/* The launcher is a scrolling page: it pins the bottom bar to the viewport and
-   reserves space for it with padding-bottom so cards never hide behind it. */
+/* Non-scrolling window: the appbar and bottom bar are fixed flex children and
+   only the content between them scrolls. This keeps the scrollbar under the
+   appbar (and above the bottom bar) instead of running the full window height. */
 .window {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--theme-background);
   color: var(--theme-text);
-  padding-bottom: 3.25rem;
+  overflow: hidden;
+}
+
+.appbar {
+  flex-shrink: 0;
 }
 
 .bottomBarFixed {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-index-page-select);
+  flex-shrink: 0;
 }
 
 .navTitle {
@@ -37,8 +40,11 @@
 }
 
 .content {
+  flex: 1;
+  overflow-y: auto;
   padding: var(--space-6) var(--space-6) var(--space-5);
   max-width: 88rem;
+  width: 100%;
   margin: 0 auto;
 }
 

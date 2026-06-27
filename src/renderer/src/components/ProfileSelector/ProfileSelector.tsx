@@ -118,10 +118,12 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
                   onClick={() => confirm(i)}
                   onMouseEnter={() => setActiveIndex(i)}
                 >
-                  <span className={styles.itemName}>{profile.name}</span>
-                  <span className={styles.itemMeta}>
+                  <span className={styles.itemPrimary}>
+                    <span className={styles.itemName}>{profile.name}</span>
                     {profile.mode === 'plan' && <span className={styles.itemBadge}>plan</span>}
                     {profile.yolo && <span className={styles.itemBadge}>yolo</span>}
+                  </span>
+                  <span className={styles.itemMeta}>
                     {profile.model && <span className={styles.itemModel}>{profile.model}</span>}
                     <span className={styles.itemAgent}>{profile.agent}</span>
                   </span>

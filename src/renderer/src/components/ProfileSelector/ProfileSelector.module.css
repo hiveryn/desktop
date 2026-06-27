@@ -16,6 +16,7 @@
   font-size: var(--font-size);
   color: var(--theme-text);
   width: 44ch;
+  max-width: 90vw;
   max-height: 60vh;
   display: flex;
   flex-direction: column;
@@ -59,12 +60,14 @@
   overflow-y: auto;
 }
 
+/* Two-row item: name + badges on top, model + agent below. Stacking removes the
+   horizontal name-vs-model competition, so it stays readable in the narrow
+   menu-bar tray (≈380px) as well as the modal. */
 .item {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 2ch;
-  padding: 0.35em 1ch;
+  flex-direction: column;
+  gap: 0.1em;
+  padding: 0.4em 1ch;
   cursor: pointer;
 
   &:hover {
@@ -80,6 +83,14 @@
   }
 }
 
+/* Row 1: name + its badges (plan/yolo) — the profile's identity. */
+.itemPrimary {
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+  min-width: 0;
+}
+
 .itemName {
   color: var(--theme-text);
   font-size: var(--font-size);
@@ -90,17 +101,19 @@
   white-space: nowrap;
 }
 
+/* Row 2: model + agent, muted, aligned under the name. The model truncates
+   first; the short agent label is kept whole. */
 .itemMeta {
   display: flex;
   align-items: baseline;
   gap: 1ch;
   min-width: 0;
-  flex-shrink: 1;
 }
 
 .itemModel {
   color: var(--theme-text-muted);
   font-size: var(--font-size-sm);
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

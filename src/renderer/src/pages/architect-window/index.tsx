@@ -143,6 +143,25 @@ export default function ArchitectWindow() {
   return (
     <div className={styles.window}>
       <Navigation
+        className={styles.appbar}
+        left={
+          <div className={styles.navTitle}>
+            <Text as="span" className={styles.architectTitle}>
+              {architect?.name ?? architect?.key.toUpperCase() ?? 'ARCHITECT'}
+            </Text>
+            {architect ? (
+              <>
+                <span className={styles.navSep} aria-hidden="true">
+                  ·
+                </span>
+                <Caption className={styles.navPath}>
+                  {shortenPath(architect.path, userHome)}
+                </Caption>
+              </>
+            ) : null}
+            <DevBadge />
+          </div>
+        }
         right={
           <IconButton
             onClick={() => window.hiveryn.architect.openLauncher()}
@@ -153,15 +172,7 @@ export default function ArchitectWindow() {
             </Glyph>
           </IconButton>
         }
-      >
-        <div className={styles.navTitle}>
-          <Text as="span" className={styles.architectTitle}>
-            {architect?.name ?? architect?.key.toUpperCase() ?? 'ARCHITECT'}
-          </Text>
-          <Caption>{architect ? shortenPath(architect.path, userHome) : ''}</Caption>
-          <DevBadge />
-        </div>
-      </Navigation>
+      />
 
       <main className={styles.content}>
         {loadError ? (

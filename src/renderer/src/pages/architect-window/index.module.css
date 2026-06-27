@@ -8,22 +8,41 @@
   overflow: hidden;
 }
 
+/* Left-align the title past the macOS traffic lights: black background to blend
+   with the app, a hairline bottom border to separate it from the content, and a
+   small right inset so the launcher button doesn't sit flush to the window edge.
+   Element+class outranks Navigation's single-class .root regardless of
+   stylesheet load order, so these always win (avoids the equal-specificity
+   footgun). */
+nav.appbar {
+  padding-left: var(--titlebar-inset);
+  padding-right: var(--space-h-2);
+  background: var(--theme-background);
+  border-bottom: 1px solid var(--theme-border);
+}
+
 .navTitle {
   display: flex;
   align-items: center;
-  gap: var(--space-h-4);
-  max-width: 70vw;
+  gap: var(--space-h-2);
+  max-width: 60vw;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .architectTitle {
   flex: 0 0 auto;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
 }
 
-.navTitle > :last-child {
+.navSep {
+  flex: 0 0 auto;
+  color: var(--theme-text-subtle);
+}
+
+.navPath {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -245,8 +264,11 @@
    stays in flow at its natural height so the content above it gets exactly the
    remaining space. BottomBar is in-flow by default now, so this is just an
    explicit guard against the bar being squeezed. */
-.bottomBar {
+/* Right inset matches nav.appbar so the freeform + lines up under the launcher +.
+   div.bottomBar (element+class) keeps it above BottomBar's single-class .root. */
+div.bottomBar {
   flex-shrink: 0;
+  padding-right: var(--space-h-2);
 }
 
 /* ── Pane maximize ─────────────────────────────────────────────────────────── */

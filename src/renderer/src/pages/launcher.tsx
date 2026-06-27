@@ -160,7 +160,7 @@ export default function Launcher() {
 
   return (
     <div className={styles.window}>
-      <Navigation>
+      <Navigation className={styles.appbar}>
         <span className={styles.navTitle}>
           <span className={styles.brandMark} aria-hidden="true">
             ▣

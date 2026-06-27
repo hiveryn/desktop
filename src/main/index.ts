@@ -50,6 +50,8 @@ function createLauncherWindow(): BrowserWindow {
     show: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: true,
+    // Center the traffic lights in the 36px appbar (--appbar-height); see architect window.
+    trafficLightPosition: { x: 12, y: 12 },
     // Matches --theme-background; prevents a white flash before the renderer paints.
     backgroundColor: '#000000',
     webPreferences: {
@@ -85,6 +87,9 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
     show: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: true,
+    // Vertically center the traffic lights in the 36px appbar (--appbar-height):
+    // y = (36 - 12px button) / 2. Keep in sync if the appbar height changes.
+    trafficLightPosition: { x: 12, y: 12 },
     // Matches --theme-background; prevents a white flash before the renderer paints.
     backgroundColor: '#000000',
     webPreferences: {

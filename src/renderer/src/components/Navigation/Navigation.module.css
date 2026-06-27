@@ -12,7 +12,7 @@
      edge, matching the bottom bar's corner button. */
   padding: 0 0 0 var(--space-h-4);
   line-height: var(--line-height-base);
-  height: calc(var(--line-height-base) * 1.5rem);
+  height: var(--appbar-height);
   -webkit-app-region: drag;
 }
 
