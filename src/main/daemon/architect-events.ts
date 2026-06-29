@@ -1,5 +1,5 @@
 import type { WebContents } from 'electron';
-import type { WorkspaceChangedEvent } from '../../shared/types';
+import { STREAM_CONNECTED_EVENT_TYPE, type WorkspaceChangedEvent } from '../../shared/types';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
 
@@ -60,6 +60,9 @@ export function handleDaemonAvailable(): void {
   }
 }
 
+const RECONNECT_BASE_MS = 500;
+const RECONNECT_MAX_MS = 5000;
+
 function startSubscription(key: string): void {
   const subscription = subscriptions.get(key);
   if (!subscription) {
@@ -72,18 +75,61 @@ function startSubscription(key: string): void {
 
   subscription.abort.abort();
   subscription.abort = new AbortController();
-  void consumeArchitectEventStream(
+  void runSubscriptionLoop(
     subscription.architectKey,
     subscription.abort.signal,
     subscription.sender,
   );
 }
 
-async function consumeArchitectEventStream(
+// Keeps the SSE stream alive across transient drops. Each (re)connect reconciles
+// board state in the renderer, so any event missed while disconnected is
+// recovered. Exits as soon as the signal is aborted (unsubscribe / window gone /
+// daemon-unavailable), which is the only thing that must NOT trigger a reconnect.
+async function runSubscriptionLoop(
   architectKey: string,
   signal: AbortSignal,
   sender: WebContents,
 ): Promise<void> {
+  let backoff = RECONNECT_BASE_MS;
+  while (!signal.aborted && !sender.isDestroyed()) {
+    const connected = await consumeArchitectEventStream(architectKey, signal, sender);
+    if (signal.aborted || sender.isDestroyed()) {
+      return;
+    }
+    // Reset backoff after a connection that actually opened, so a healthy stream
+    // that briefly drops reconnects quickly; a connection that never opens backs
+    // off up to the cap.
+    backoff = connected ? RECONNECT_BASE_MS : Math.min(backoff * 2, RECONNECT_MAX_MS);
+    console.log('[main:architect-events] reconnecting', { architectKey, delayMs: backoff });
+    await delay(backoff, signal);
+  }
+}
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+// Returns true if the stream opened (so the loop can reset its backoff).
+async function consumeArchitectEventStream(
+  architectKey: string,
+  signal: AbortSignal,
+  sender: WebContents,
+): Promise<boolean> {
   try {
     const response = await fetch(
       `${DAEMON_URL}/api/architects/${encodeURIComponent(architectKey)}/events`,
@@ -92,13 +138,13 @@ async function consumeArchitectEventStream(
 
     if (!response.ok) {
       console.warn('[main:architect-events] fetch returned', response.status, architectKey);
-      return;
+      return false;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
       console.warn('[main:architect-events] response.body is null', architectKey);
-      return;
+      return false;
     }
 
     console.log('[main:architect-events] stream connected', {
@@ -106,17 +152,35 @@ async function consumeArchitectEventStream(
       architectKey,
     });
 
+    // Reconcile on every (re)connect: tell the renderer to refetch the board so
+    // any event published while we were disconnected is recovered.
+    if (!sender.isDestroyed()) {
+      sender.send('architect:workspace-event', {
+        type: STREAM_CONNECTED_EVENT_TYPE,
+        architect_key: architectKey,
+        reason: STREAM_CONNECTED_EVENT_TYPE,
+        ticket_id: '',
+        at: new Date().toISOString(),
+      } satisfies WorkspaceChangedEvent);
+    }
+
     const decoder = new TextDecoder();
     let buffer = '';
 
     const onData = (data: string): void => {
+      let event: WorkspaceChangedEvent;
       try {
-        const event = JSON.parse(data) as WorkspaceChangedEvent;
-        if (!sender.isDestroyed()) {
-          sender.send('architect:workspace-event', event);
-        }
-      } catch {
-        // Ignore malformed event payloads
+        event = JSON.parse(data) as WorkspaceChangedEvent;
+      } catch (error) {
+        console.warn('[main:architect-events] failed to parse event', {
+          architectKey,
+          data,
+          error: (error as Error).message,
+        });
+        return;
+      }
+      if (!sender.isDestroyed()) {
+        sender.send('architect:workspace-event', event);
       }
     };
 
@@ -130,9 +194,12 @@ async function consumeArchitectEventStream(
     if (buffer.trim()) {
       dispatchSseBlock(buffer, onData);
     }
+    console.log('[main:architect-events] stream ended', { architectKey });
+    return true;
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
       console.warn('[main:architect-events] stream error', (err as Error).message);
     }
+    return false;
   }
 }

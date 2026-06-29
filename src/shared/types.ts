@@ -202,6 +202,13 @@ export interface ArchitectInfo {
   path: string;
 }
 
+// Daemon-emitted architect event (e.g. a ticket being concluded).
+export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
+// Synthetic event the main process emits on every SSE (re)connect so the
+// renderer reconciles board state and recovers anything missed while
+// disconnected. Not produced by the daemon.
+export const STREAM_CONNECTED_EVENT_TYPE = 'stream_connected';
+
 export interface WorkspaceChangedEvent {
   type: string;
   architect_key: string;
