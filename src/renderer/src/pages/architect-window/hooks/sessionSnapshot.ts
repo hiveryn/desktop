@@ -27,6 +27,7 @@ export function buildSessionRecord(intent: SessionIntent, tabs: SessionTab[]): S
     contextId: intent.context_id,
     mainTerminalId: intent.current_run.main_terminal_id,
     tabs,
+    status: intent.current_run.agent_status,
   };
 }
 

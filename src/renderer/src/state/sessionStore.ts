@@ -17,6 +17,9 @@ export interface SessionRecord {
   contextId: string;
   mainTerminalId: string;
   tabs: SessionTab[];
+  // Live agent status (active | idle | waiting | stopped), driving the tab icon.
+  // Undefined until seeded from the daemon or the first agent_status SSE event.
+  status?: string;
 }
 
 const EVENTS_PER_SESSION_CAP = 500;
@@ -52,6 +55,7 @@ interface SessionActions {
   reconcileSessions(records: SessionRecord[]): void;
   unregisterSession(id: string): void;
   updateSessionMainTerminal(id: string, mainTerminalId: string): void;
+  setSessionStatus(id: string, status: string): void;
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
   setFocusedPane(pane: string): void;
@@ -237,6 +241,24 @@ export const useSessionStore = create<SessionStore>((set) => ({
           [id]: {
             ...session,
             mainTerminalId,
+          },
+        },
+      };
+    });
+  },
+
+  setSessionStatus(id, status) {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) {
+        throw new Error(`Cannot set agent status for missing session ${id}`);
+      }
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            status,
           },
         },
       };

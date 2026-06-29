@@ -194,7 +194,7 @@ Resize-while-scrolled-up: `fitAddon.fit()` → `term.resize()` reflows the whole
 |---|---|
 | **Left pane** | `MainTerminalStack` — every session's main terminal mounted as a sibling; visibility picked by `activeSessionId`. Shows a "No active session / Return to Launcher" fallback when no session is registered. |
 | **Right pane** | Daemon-provided tabs from `tabs:list`: Kanban, Activity log, and `ExtraTerminalStack` terminal tabs. Tab visibility picked by `activeRightTab`. |
-| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
+| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. Each tab's icon reflects the session's live agent status (`active`/`idle`/`waiting`/`stopped`) via `iconForStatus`, distinct from the approval notify dot. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
 
 Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, terminalId)` props — no shared input-routing state needed.
 
@@ -288,6 +288,10 @@ When an agent requests a conclusion via MCP, the daemon blocks and publishes a `
 3. **`ArchitectWindow`** only renders `<ApprovalDialog>` when the **active** session has a pending approval — so a background session's approval never hijacks the window as a modal. The dialog is scoped to the split-pane container (both left and right panes) so it centers across the full tab.
 4. **`ApprovalDialog`** shows the conclusion body as rendered markdown, plus a "Resubmitted after rejection" banner when `rejected` and a commit list when `commits` is non-empty. A countdown driven by `timeout_seconds` shows in the title bar; on reaching zero the dialog auto-closes (the daemon has already auto-approved). "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`. A late Approve/Reject after the daemon resolved returns HTTP 404, which the dialog treats as already-resolved and closes silently.
 5. On either action completing, `clearPendingApproval(sessionId)` removes the approval from the store and closes the dialog.
+
+## Agent status tab icon
+
+Separate from the approval flow, the daemon emits a `{ type: "agent_status", status: "active" | "idle" | "waiting" | "stopped" }` SSE event whenever a session's mapped agent status transitions (emit-on-change only). `useSessionEvents` handles `type === 'agent_status'` by calling `store.setSessionStatus(sessionId, status)` (throws if `status` is absent); `BottomTabs` maps `SessionRecord.status` to a glyph via `iconForStatus` (`active`→`Activity`, `idle`→`AgentIdle`, `waiting`→`AgentWaiting`, `stopped`→`AgentStopped` dimmed, fallback `Terminal`). Initial status is seeded from `current_run.agent_status` in `buildSessionRecord` on window restore, and the persisted event replays in the connect backlog so a fresh stream renders the right icon immediately. `waiting` stays visually distinct from the approval notify dot — they are never merged.
 
 ## Keyboard shortcuts and focus model
 

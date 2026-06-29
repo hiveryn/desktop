@@ -1,8 +1,34 @@
-import { Close, TabBar, type TabBarTab, Terminal } from '@components';
+import {
+  Activity,
+  AgentIdle,
+  AgentStopped,
+  AgentWaiting,
+  Close,
+  TabBar,
+  type TabBarTab,
+  Terminal,
+} from '@components';
 import { useMemo } from 'react';
 import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 
 const ARCHITECT_TAB_LABEL = 'Architect';
+
+// Maps the live agent status to its tab glyph. Falls back to Terminal until the
+// first status arrives (seeded from the daemon or an agent_status SSE event).
+function iconForStatus(status: string | undefined): TabBarTab['icon'] {
+  switch (status) {
+    case 'active':
+      return Activity;
+    case 'idle':
+      return AgentIdle;
+    case 'waiting':
+      return AgentWaiting;
+    case 'stopped':
+      return AgentStopped;
+    default:
+      return Terminal;
+  }
+}
 
 interface BottomTabsProps {
   // Opens the conclude form for the given session.
@@ -30,7 +56,7 @@ export default function BottomTabs({ onConclude }: BottomTabsProps) {
 
     const tabFor = (session: SessionRecord, label: string): TabBarTab => ({
       id: session.id,
-      icon: Terminal,
+      icon: iconForStatus(session.status),
       label,
       notify: needsAttention(session.id),
       onAction: () => onConclude(session),

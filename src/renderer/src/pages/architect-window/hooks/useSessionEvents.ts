@@ -93,6 +93,16 @@ export function useSessionEvents(): void {
         return;
       }
 
+      // Live agent status drives the bottom-tab icon. Backlog replays in order,
+      // so the last agent_status event wins on reconnect.
+      if (event.type === 'agent_status') {
+        if (!event.status) {
+          throw new Error(`agent_status event missing status: ${JSON.stringify(event)}`);
+        }
+        store.setSessionStatus(event.session_intent_id, event.status);
+        return;
+      }
+
       if (event.type === 'status' && event.status === 'approval_required') {
         const body = event.raw?.body;
         if (typeof body !== 'string' || !body) {
