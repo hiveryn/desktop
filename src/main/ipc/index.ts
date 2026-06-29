@@ -20,6 +20,7 @@ import { registerTrayIpc } from './tray';
 interface RegisterIpcOptions {
   openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
   openLauncherWindow: () => void;
+  isLauncherWindow: Parameters<typeof registerLauncherIpc>[0]['isLauncherWindow'];
 }
 
 export function registerIpc(options: RegisterIpcOptions): void {

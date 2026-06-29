@@ -116,6 +116,7 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
 registerIpc({
   openArchitectWindow: createArchitectWindow,
   openLauncherWindow: createLauncherWindow,
+  isLauncherWindow: (window) => window === launcherWindow,
 });
 
 app.whenReady().then(() => {

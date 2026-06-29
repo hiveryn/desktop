@@ -45,7 +45,7 @@ src/
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       plugins.ts          plugins:call handler → POST /api/sessions/:id/plugins/call (routes to tabplugin)
-      launcher.ts         launcher:open-architect handler
+      launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the command palette / tray)
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
       tray.ts             tray:hide / tray:set-height — menu bar popover window control

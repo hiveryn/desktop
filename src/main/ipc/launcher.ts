@@ -5,16 +5,13 @@ import { withData } from './results';
 
 interface LauncherIpcOptions {
   openArchitectWindow: (architectKey: string) => BrowserWindow;
+  isLauncherWindow: (window: BrowserWindow) => boolean;
 }
 
-function closeSenderWindow(sender: Electron.WebContents): void {
-  const window = BrowserWindow.fromWebContents(sender);
-  if (window && !window.isDestroyed()) {
-    window.close();
-  }
-}
-
-export function registerLauncherIpc({ openArchitectWindow }: LauncherIpcOptions): void {
+export function registerLauncherIpc({
+  openArchitectWindow,
+  isLauncherWindow,
+}: LauncherIpcOptions): void {
   ipcMain.handle(
     'launcher:open-architect',
     async (event, architectKey: string): Promise<DaemonResult<null>> => {
@@ -26,7 +23,13 @@ export function registerLauncherIpc({ openArchitectWindow }: LauncherIpcOptions)
       }
 
       openArchitectWindow(architectKey);
-      closeSenderWindow(event.sender);
+      // Only the launcher window self-closes after spawning an architect. The same
+      // channel is also invoked from the command palette inside an architect window
+      // and from the tray popup — those senders must stay open.
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (senderWindow && !senderWindow.isDestroyed() && isLauncherWindow(senderWindow)) {
+        senderWindow.close();
+      }
       return withData(result, null);
     },
   );
