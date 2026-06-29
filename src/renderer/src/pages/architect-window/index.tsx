@@ -2,7 +2,6 @@ import {
   ApiEnvelopeError,
   BottomBar,
   Caption,
-  CommandPalette,
   DevBadge,
   Glyph,
   IconButton,
@@ -13,8 +12,6 @@ import {
 import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
-import { registerDynamicHandler } from '../../keys/dispatcher';
-import { matchesShortcut } from '../../keys/matchers';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
 import ApprovalDialog from './components/ApprovalDialog';
@@ -55,19 +52,6 @@ export default function ArchitectWindow() {
 
   const { config: shortcutConfig, error: shortcutError } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
-
-  const [paletteOpen, setPaletteOpen] = useState(false);
-
-  useEffect(() => {
-    const binding = shortcutConfig?.global?.['command-palette'];
-    if (!binding) return;
-    return registerDynamicHandler((e) => {
-      if (paletteOpen) return 'passthrough';
-      if (!matchesShortcut(e, binding)) return 'passthrough';
-      setPaletteOpen(true);
-      return 'consumed';
-    });
-  }, [shortcutConfig, paletteOpen]);
 
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const focusedPane = useSessionStore((s) => s.focusedPane);
@@ -242,8 +226,6 @@ export default function ArchitectWindow() {
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
       />
-
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       {concludeTarget && (
         <ConcludeSessionDialog session={concludeTarget} onClose={() => setConcludeTarget(null)} />

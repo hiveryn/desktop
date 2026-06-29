@@ -32,4 +32,3 @@ export { default as TicketCard } from './TicketCard/TicketCard';
 export { default as TicketDetail } from './TicketDetail/TicketDetail';
 export { default as ProfileSelector } from './ProfileSelector/ProfileSelector';
 export type { AgentProfile } from './ProfileSelector/ProfileSelector';
-export { default as CommandPalette } from './CommandPalette/CommandPalette';

@@ -79,6 +79,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
+  'globalShortcut:reload': { method: 'IPC', path: '/global-shortcut/reload' },
   'plugins:call': { method: 'POST', path: '/api/sessions/:id/plugins/call' },
   'tray:hide': { method: 'IPC', path: '/tray/hide' },
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
@@ -372,5 +373,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
   config: {
     getShortcuts: (): Promise<Record<string, Record<string, string>>> => invoke('config:shortcuts'),
     getDesktop: (): Promise<DesktopConfig> => invoke('config:desktop'),
+  },
+  globalShortcut: {
+    reload: (): Promise<void> => invoke('globalShortcut:reload'),
   },
 });

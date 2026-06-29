@@ -4,7 +4,6 @@ import {
   ArchitectCard,
   BottomBar,
   Caption,
-  CommandPalette,
   DevBadge,
   Navigation,
   ProfileSelector,
@@ -12,8 +11,6 @@ import {
 } from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShortcutConfig } from '../hooks/useShortcutConfig';
-import { registerDynamicHandler } from '../keys/dispatcher';
-import { matchesShortcut } from '../keys/matchers';
 import { useKeyDispatcher } from '../keys/useKeyDispatcher';
 import styles from './launcher.module.css';
 
@@ -26,19 +23,6 @@ function shortenPath(path: string, home: string | null): string {
 export default function Launcher() {
   const { config: shortcutConfig } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
-
-  const [paletteOpen, setPaletteOpen] = useState(false);
-
-  useEffect(() => {
-    const binding = shortcutConfig?.global?.['command-palette'];
-    if (!binding) return;
-    return registerDynamicHandler((e) => {
-      if (paletteOpen) return 'passthrough';
-      if (!matchesShortcut(e, binding)) return 'passthrough';
-      setPaletteOpen(true);
-      return 'consumed';
-    });
-  }, [shortcutConfig, paletteOpen]);
 
   const [architects, setArchitects] = useState<Architect[]>([]);
   const [userHome, setUserHome] = useState<string | null>(null);
@@ -209,8 +193,6 @@ export default function Launcher() {
         onSelect={(name: string) => void handleProfileSelect(name)}
         onClose={handleProfileSelectorClose}
       />
-
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

@@ -23,8 +23,9 @@ The renderer has **no Node.js access**. It can only call functions exposed on `w
 ```
 src/
   main/
-    index.ts              Electron app setup — window creation, registerIpc(), createTray()
-    tray.ts               Persistent menu bar Tray + frameless popover window (loads #/tray)
+    index.ts              Electron app setup — window creation, registerIpc(), createTray(), global shortcut
+    tray.ts               Menu bar Tray + frameless popover window (loads #/tray); doubles as the centered ⌥Space palette
+    globalShortcut.ts     OS-global palette shortcut — reads os-global.palette, registers via globalShortcut, surfaces failures
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
@@ -45,9 +46,10 @@ src/
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       plugins.ts          plugins:call handler → POST /api/sessions/:id/plugins/call (routes to tabplugin)
-      launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the command palette / tray)
+      launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the palette / tray)
       daemon.ts           daemon:health:get handler
-      palette.ts          palette:focus-architect — cross-window focus + session-switch for the command palette
+      palette.ts          palette:focus-architect — cross-window focus + session-switch for the palette
+      config.ts           config:shortcuts/desktop → daemon HTTP; globalShortcut:reload re-registers the OS-global palette binding
       tray.ts             tray:hide / tray:set-height — menu bar popover window control
   preload/
     index.ts              contextBridge — invoke() wrapper + daemon.onRequest listeners
@@ -315,7 +317,7 @@ The dispatcher runs handlers in two stages:
 
 - **Pane-local shortcuts** (kanban `h/l/j/k/o/s/r`, event-log `j/k/o/c`) use `registerDynamicHandler` inside `RightPane`, gated on `focusedPane`. `isTextInputFocused()` guards them so modal inputs are never stolen.
 - **`quit`** (`q`) uses `registerDynamicHandler` inside `TicketWorkflow`, active only while a dialog is open.
-- **`command-palette`** (`Cmd+P`) uses `registerDynamicHandler` in both `Launcher` and `ArchitectWindow` to open `CommandPalette` — a top-anchored quick-search overlay (mirrors `ProfileSelector`'s layout/keyboard pattern: arrows/Enter/Escape, no dynamic handler while open) listing every architect and its running worker sessions via `architects:status`. Selecting a **session row** or **active architect** calls `palette:focus-architect` (focus-or-create the target `BrowserWindow`, then `palette:switch-session` to land on the chosen session — or the architect's own session when `null` — handled by `usePaletteSessionSwitch`, which retries `setActiveSession` until the target session appears in a freshly created window's store). Selecting an **inactive architect** opens `ProfileSelector` and runs the launcher spawn flow (`sessions.create('architect', key)` → `sessions.createRun` → `launcher.openArchitect`), identical to the tray palette.
+- The command palette is **not** a renderer shortcut — it's an OS-global window summoned by `⌥Space` (registered in the main process via `globalShortcut`), reusing the tray popover window. See [Menu bar tray & global palette](#menu-bar-tray--global-palette).
 
 ### Focus model
 
@@ -328,15 +330,16 @@ The dispatcher runs handlers in two stages:
 
 The visual focus indicator is a 2px accent strip drawn via a `::after` pseudo-element along the top edge of the focused pane (`z-index: var(--z-index-pane-focus)`, `pointer-events: none`), so it sits **above** xterm's canvas but **below** modals. The color is `--theme-focused-foreground` (defined in `styles/global.css`, dark theme only). The unfocused pane fades to `opacity: 0.7` for additional contrast.
 
-`sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). It is scoped per architect session: the source of truth is `maximizedPanes` (keyed by session ID), and `maximizedPane` is the derived value for the active session — restored on session switch so maximize state never leaks across sessions. Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Global overlays portaled to `<body>` (command palette, dialogs, profile selector, ticket detail) use `--z-index-page-modals: 30`, which sits **above** the maximize layer so they stay reachable while a pane is maximized. Cmd+M again or clicking the backdrop clears it — Escape is intentionally NOT a dismiss key, so a maximized terminal forwards Escape to xterm (TUIs/vim/agent prompts depend on it). On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
+`sessionStore.maximizedPane` mirrors the same value space as `focusedPane` (or `null` for normal layout). It is scoped per architect session: the source of truth is `maximizedPanes` (keyed by session ID), and `maximizedPane` is the derived value for the active session — restored on session switch so maximize state never leaks across sessions. Cmd+M toggles it via the `maximize-pane` global shortcut: the focused pane floats as a `position: fixed` 95vw × 85vh card above a full-viewport backdrop (`--z-index-maximize-backdrop: 20`, pane at `21`). Global overlays portaled to `<body>` (dialogs, profile selector, ticket detail) use `--z-index-page-modals: 30`, which sits **above** the maximize layer so they stay reachable while a pane is maximized. Cmd+M again or clicking the backdrop clears it — Escape is intentionally NOT a dismiss key, so a maximized terminal forwards Escape to xterm (TUIs/vim/agent prompts depend on it). On macOS, Electron's default Window menu is replaced at startup to remove the native "Minimize" entry (Cmd+M) so the renderer can claim the key unobstructed.
 
-## Menu bar tray
+## Menu bar tray & global palette
 
-A persistent macOS menu bar icon (`src/main/tray.ts`, created in `app.whenReady` via `createTray()`) opens a command-palette-style popover listing every architect and its sessions. The tray is per-process, so a concurrently-running dev build shows a second icon — the dev tray sets a `dev` title + `Hiveryn Dev` tooltip (gated on `IS_DESKTOP_DEVELOPMENT`) to disambiguate.
+A persistent macOS menu bar icon (`src/main/tray.ts`, created in `app.whenReady` via `createTray()`) opens a command-palette-style popover listing every architect and its sessions. The **same window** is also the global command palette: an OS-global shortcut (default `⌥Space`) summons it centered on the active display. There is no in-app palette overlay — this window is the only palette. The tray is per-process, so a concurrently-running dev build shows a second icon — the dev tray sets a `dev` title + `Hiveryn Dev` tooltip (gated on `IS_DESKTOP_DEVELOPMENT`) to disambiguate.
 
-- **Window** — a frameless, transparent, `alwaysOnTop` `BrowserWindow` loading the `#/tray` route. On macOS it's an `NSPanel` (`type: 'panel'`, `setVisibleOnAllWorkspaces`) so it takes key focus for the search input without activating the rest of the app, and shows over fullscreen. Created hidden at startup for instant first open; toggled on tray click, positioned + clamped under the icon, and hidden on `blur`.
-- **Surface** — `components/TrayPalette/TrayPalette.tsx` reuses `CommandPalette.module.css` and the shared row logic in `components/CommandPalette/rows.ts` (`buildRows`/`rowKey`/`isArchitectActive`, extracted so the modal and tray stay in sync). It mounts the existing `ProfileSelector` for spawning.
-- **Actions** — a **session row** or **active architect** calls `palette:focus-architect` (same focus-window + `palette:switch-session` flow as `CommandPalette`); an **inactive architect** opens `ProfileSelector`, then runs the launcher spawn flow (`sessions.create('architect', key)` → `sessions.createRun` → `launcher.openArchitect`).
+- **Window** — a frameless, transparent, `alwaysOnTop` `BrowserWindow` loading the `#/tray` route. On macOS it's an `NSPanel` (`type: 'panel'`, `setVisibleOnAllWorkspaces`) so it takes key focus for the search input without activating the rest of the app, and shows over fullscreen. Created hidden at startup for instant first open; hidden on `blur`/Escape/selection. Two triggers reposition the one window each open: a **tray click** clamps it under the icon (`positionWindow`); `⌥Space` (`togglePalette`) centers it on the display under the cursor (`positionCentered`, multi-display aware).
+- **Global shortcut** — `src/main/globalShortcut.ts` registers the binding via Electron `globalShortcut` in `app.whenReady` (unregistered on `will-quit`). The binding is read from the `os-global.palette` key of `~/.hiveryn/shortcuts.yaml` (via `/api/config/shortcuts`), defaulting to `Option+Space`; `toAccelerator()` converts the config string to Electron's accelerator format. Registration can silently fail when the combo is already taken — since there's no in-app fallback, failure surfaces an Electron `Notification` pointing the user at the config key. `loadAndRegisterGlobalShortcut()` unregisters-then-registers, so it doubles as the live-reload path: the `globalShortcut:reload` IPC (called by the renderer's `useShortcutConfig` on its mount/focus refresh) re-applies edits to `shortcuts.yaml` without a restart.
+- **Surface** — `components/TrayPalette/TrayPalette.tsx` reuses `components/palette/palette.module.css` and the shared row logic in `components/palette/rows.ts` (`buildRows`/`rowKey`/`isArchitectActive`). It mounts the existing `ProfileSelector` for spawning.
+- **Actions** — a **session row** or **active architect** calls `palette:focus-architect` (focus-or-create the target `BrowserWindow`, then `palette:switch-session` to land on the chosen session — or the architect's own session when `null` — handled by `usePaletteSessionSwitch`, which retries `setActiveSession` until the target session appears in a freshly created window's store); an **inactive architect** opens `ProfileSelector`, then runs the launcher spawn flow (`sessions.create('architect', key)` → `sessions.createRun` → `launcher.openArchitect`).
 - **IPC** — `tray:hide` dismisses the popover; `tray:set-height` lets the renderer report measured content height so the window fits (capped, then the body scrolls). A main→renderer `tray:shown` event refreshes data + focuses the input on each open.
 - **Asset** — `resources/trayTemplate.png` (+`@2x`), a monochrome template image (`setTemplateImage(true)`), copied into the packaged app via `electron-builder.yml` `extraResources` and resolved from `process.resourcesPath` when packaged.
 

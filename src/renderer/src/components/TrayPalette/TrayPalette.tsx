@@ -1,8 +1,8 @@
 import * as React from 'react';
 import type { AgentProfile, ArchitectStatus } from '../../../../shared/types';
 import { formatElapsed } from '../../lib/formatElapsed';
-import paletteStyles from '../CommandPalette/CommandPalette.module.css';
-import { buildRows, type PaletteRow, rowKey } from '../CommandPalette/rows';
+import paletteStyles from '../palette/palette.module.css';
+import { buildRows, type PaletteRow, rowKey } from '../palette/rows';
 import ProfileSelector from '../ProfileSelector/ProfileSelector';
 import styles from './TrayPalette.module.css';
 

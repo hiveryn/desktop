@@ -95,6 +95,21 @@ function positionWindow(window: BrowserWindow, trayBounds: Rectangle): void {
   window.setPosition(x, y, false);
 }
 
+// Center the palette on the display under the cursor (the "active" display in a
+// multi-monitor setup). Sits a bit above the vertical middle, Raycast-style.
+function positionCentered(window: BrowserWindow): void {
+  const { width, height } = window.getBounds();
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+
+  let x = Math.round(workArea.x + (workArea.width - width) / 2);
+  x = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - width));
+
+  let y = Math.round(workArea.y + (workArea.height - height) / 3);
+  y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - height));
+
+  window.setPosition(x, y, false);
+}
+
 function showTrayWindow(trayBounds: Rectangle): void {
   if (!trayWindow || trayWindow.isDestroyed()) {
     trayWindow = createTrayWindow();
@@ -113,6 +128,22 @@ function toggleTrayWindow(trayBounds: Rectangle): void {
     return;
   }
   showTrayWindow(trayBounds);
+}
+
+// Toggle the palette from the OS-global shortcut: same window as the tray
+// popover, but centered on the active display instead of anchored to the icon.
+export function togglePalette(): void {
+  if (trayWindow && !trayWindow.isDestroyed() && trayWindow.isVisible()) {
+    trayWindow.hide();
+    return;
+  }
+  if (!trayWindow || trayWindow.isDestroyed()) {
+    trayWindow = createTrayWindow();
+  }
+  positionCentered(trayWindow);
+  trayWindow.show();
+  trayWindow.focus();
+  trayWindow.webContents.send('tray:shown');
 }
 
 export function createTray(): void {

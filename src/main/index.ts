@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 import { electronApp, is, optimizer } from '@electron-toolkit/utils';
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { app, BrowserWindow, globalShortcut, Menu, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
+import { loadAndRegisterGlobalShortcut } from './globalShortcut';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
@@ -147,6 +148,11 @@ app.whenReady().then(() => {
   // Persistent menu bar icon that opens the architect/session palette popover.
   createTray();
 
+  // OS-global shortcut (default ⌥Space) that summons the same palette window
+  // centered on the active display. Registered in the main process so it works
+  // regardless of which app is focused.
+  void loadAndRegisterGlobalShortcut();
+
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
   });
@@ -174,6 +180,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
   daemonHealth.stop();
   shutdownDesktopLogging();
 });
