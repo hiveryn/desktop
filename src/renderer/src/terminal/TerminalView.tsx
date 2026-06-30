@@ -11,6 +11,15 @@ import { OverlayFitAddon } from './overlayFit';
 import styles from './TerminalView.module.css';
 import type { GpuCrashSource, RouteKey, TerminalThemeSource } from './types';
 
+// Chromium force-loses the oldest WebGL context once a renderer process exceeds
+// ~16 live contexts (see the box-lifecycle comment in the mount effect, and the
+// related "bound WebGL contexts" ticket). The cap is referenced in comments but
+// never measured — this module-scope counter tracks the live count across ALL
+// TerminalView instances in this renderer process so the logs can show how close
+// we run to the ceiling. It is per-renderer-process (what we can observe here).
+const WEBGL_CONTEXT_CAP = 16;
+let liveWebglContexts = 0;
+
 export interface TerminalViewProps extends React.HTMLAttributes<HTMLDivElement> {
   // Consumer receives a write function to push data into the terminal. Accepts
   // string or Uint8Array — the latter is the right type for raw PTY bytes that
@@ -27,6 +36,10 @@ export interface TerminalViewProps extends React.HTMLAttributes<HTMLDivElement> 
   // Subscribe to host GPU-process crashes (WebGL contexts destroyed). Returns
   // an unsubscribe.
   gpuCrash: GpuCrashSource;
+  // Opaque per-pane label stamped into this module's structured logs (jsonl)
+  // so a WebGL-context-loss / GPU-crash-recovery trace can be attributed to a
+  // specific terminal. Purely diagnostic; the module sees no routing ids.
+  logLabel?: string;
   fontSize?: number;
   cursorBlink?: boolean;
   // Disables stdin (user cannot type)
@@ -53,6 +66,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
   themeSource,
   routeKey,
   gpuCrash,
+  logLabel,
   fontSize: fontSizeProp,
   cursorBlink = false,
   readonly = false,
@@ -85,6 +99,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({
   routeKeyRef.current = routeKey;
   const gpuCrashRef = React.useRef(gpuCrash);
   gpuCrashRef.current = gpuCrash;
+  const logLabelRef = React.useRef(logLabel);
+  logLabelRef.current = logLabel;
 
   // Restore focus when the pane transitions to visible. The renderer needs no
   // help here: panes are hidden with visibility:hidden in a stable layout slot
@@ -189,6 +205,12 @@ const TerminalView: React.FC<TerminalViewProps> = ({
           /* disposal race */
         }
         webglAddon = null;
+        liveWebglContexts = Math.max(0, liveWebglContexts - 1);
+        console.debug('[terminal:webgl] disposed', {
+          term: logLabelRef.current,
+          liveWebglContexts,
+          cap: WEBGL_CONTEXT_CAP,
+        });
       }
     };
 
@@ -198,33 +220,133 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       // a real box appears.
       if (webglAddon || disposedRef.current) return;
       const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) return;
+      if (!rect || rect.width === 0 || rect.height === 0) {
+        // No layout box → display:none (background session / split secondary).
+        // attach no-ops here; the ResizeObserver re-attaches on box-appear when
+        // the pane is shown again. Logged so a GPU-crash recovery trace shows
+        // exactly which panes deferred re-attach vs. recovered in place.
+        console.debug('[terminal:webgl] attach skipped — no layout box', {
+          term: logLabelRef.current,
+          width: rect?.width ?? 0,
+          height: rect?.height ?? 0,
+        });
+        return;
+      }
       try {
         const addon = new WebglAddon();
         addon.onContextLoss(() => {
-          // Context lost (e.g. GPU process restart). Drop to the DOM renderer;
-          // the next ResizeObserver fit or the GPU-crash handler re-attaches.
+          // Context lost (e.g. GPU process restart). Drop to the DOM renderer
+          // immediately for an instant visual fall-back, then drive a
+          // retry-with-backoff re-attach to get WebGL back. This is the PRIMARY,
+          // self-timed recovery trigger — it fires the instant the context dies,
+          // independent of the main-process broadcast's fixed-delay guess.
+          console.warn('[terminal:webgl] context lost', { term: logLabelRef.current });
           disposeWebgl();
-          if (!disposedRef.current) term.refresh(0, term.rows - 1);
+          if (!disposedRef.current) {
+            term.refresh(0, term.rows - 1);
+            scheduleWebglReattach('context-loss');
+          }
         });
         term.loadAddon(addon);
         webglAddon = addon;
-      } catch {
-        // WebGL unavailable — xterm's DOM renderer is the fallback.
+        liveWebglContexts += 1;
+        console.info('[terminal:webgl] attached', {
+          term: logLabelRef.current,
+          liveWebglContexts,
+          cap: WEBGL_CONTEXT_CAP,
+        });
+      } catch (err) {
+        // WebGL unavailable — xterm's DOM renderer is the fallback. This is a
+        // legitimate recovery path, so we log and continue rather than throw.
+        console.warn('[terminal:webgl] attach failed — WebGL unavailable, using DOM renderer', {
+          term: logLabelRef.current,
+          err,
+        });
       }
+    };
+
+    // Self-healing WebGL re-attach with linear backoff. The pre-existing recovery
+    // was single-shot: one attach attempt with no retry, so if the GPU process
+    // was not ready yet (or the fresh context was immediately lost again) the
+    // pane stayed corrupted until a manual window close/reopen. A still-VISIBLE
+    // pane is the worst case — its box never changes, so the ResizeObserver never
+    // re-fires to re-attach it. This loop re-attempts until a live context comes
+    // back (or we exhaust attempts and stay on the DOM renderer).
+    let reattachTimer: ReturnType<typeof setTimeout> | null = null;
+    let reattachAttempts = 0;
+    const MAX_REATTACH_ATTEMPTS = 5;
+    const REATTACH_BASE_DELAY_MS = 250; // 250,500,750,1000,1250ms ≈ 3.75s total
+    const scheduleWebglReattach = (reason: 'gpu-crash' | 'context-loss'): void => {
+      if (disposedRef.current || reattachTimer !== null) return;
+      const run = (): void => {
+        reattachTimer = null;
+        if (disposedRef.current) return;
+        disposeWebgl();
+        attachWebgl();
+        const rect = containerRef.current?.getBoundingClientRect();
+        const hasBox = !!rect && rect.width > 0 && rect.height > 0;
+        const attached = webglAddon !== null;
+        console.info('[terminal:gpu-recovery] reattach attempt', {
+          term: logLabelRef.current,
+          reason,
+          attempt: reattachAttempts,
+          hasBox,
+          attached,
+        });
+        if (!hasBox) {
+          // display:none pane — nothing to attach to. The ResizeObserver
+          // re-attaches on box-appear when the pane is shown again; stop here.
+          reattachAttempts = 0;
+          return;
+        }
+        if (attached) {
+          term.refresh(0, term.rows - 1);
+          console.info('[terminal:gpu-recovery] recovered', {
+            term: logLabelRef.current,
+            reason,
+            attempts: reattachAttempts,
+          });
+          reattachAttempts = 0;
+          return;
+        }
+        // Box present but attach failed — GPU likely still restarting. Retry.
+        if (reattachAttempts < MAX_REATTACH_ATTEMPTS) {
+          reattachAttempts += 1;
+          reattachTimer = setTimeout(run, REATTACH_BASE_DELAY_MS * reattachAttempts);
+        } else {
+          console.warn('[terminal:gpu-recovery] gave up, staying on DOM renderer', {
+            term: logLabelRef.current,
+            reason,
+            attempts: reattachAttempts,
+          });
+          reattachAttempts = 0;
+        }
+      };
+      // First attempt is also delayed — re-creating a context in the same tick a
+      // GPU crash lands usually fails; a small delay lets the process come back.
+      reattachTimer = setTimeout(run, REATTACH_BASE_DELAY_MS);
     };
 
     term.open(containerRef.current);
 
     // When the host GPU process crashes and restarts, every WebGL context is
-    // destroyed. Re-attach and force a repaint so terminals recover without a
-    // manual reload. (display:none panes have no box → attachWebgl is a no-op
-    // until they're shown again.)
+    // destroyed. This broadcast-driven handler is the BACKUP trigger (the
+    // primary is each context's own onContextLoss). Drop to the DOM renderer
+    // immediately to clear any corrupted GL canvas, then drive the
+    // retry-with-backoff re-attach. (display:none panes have no box → the
+    // re-attach defers to the ResizeObserver when they're shown again.)
     const offGpuCrash = gpuCrashRef.current(() => {
       if (disposedRef.current) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const hasBox = !!rect && rect.width > 0 && rect.height > 0;
+      console.info('[terminal:gpu-recovery] gpu-crash signal received', {
+        term: logLabelRef.current,
+        hasBox,
+        visible: visibleRef.current,
+      });
       disposeWebgl();
-      attachWebgl();
       term.refresh(0, term.rows - 1);
+      scheduleWebglReattach('gpu-crash');
     });
 
     // xterm calls this BEFORE its own _keyDown / _keyPress / _inputEvent.
@@ -408,6 +530,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     return () => {
       disposedRef.current = true;
       if (resizeTimer !== null) clearTimeout(resizeTimer);
+      if (reattachTimer !== null) clearTimeout(reattachTimer);
       offGpuCrash();
       disposeWebgl();
       bufferDispose.dispose();

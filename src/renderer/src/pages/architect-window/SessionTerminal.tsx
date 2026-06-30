@@ -80,6 +80,7 @@ export default function SessionTerminal({
         themeSource={cssThemeSource}
         routeKey={dispatcherRouteKey}
         gpuCrash={gpuCrashSource}
+        logLabel={`${paneId}·${sessionId.slice(0, 8)}/${terminalId.slice(0, 8)}`}
         className={className}
         visible={visible}
         focused={focused}

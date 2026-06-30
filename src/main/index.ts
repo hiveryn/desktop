@@ -159,17 +159,45 @@ app.whenReady().then(() => {
 
   // When the GPU process crashes, Chromium auto-restarts it (~100–500ms).
   // After restart, WebGL contexts are gone and canvas 2D may be blank until
-  // xterm re-renders. Notify all renderer windows after a 1s delay (enough
+  // xterm re-renders. Notify all renderer windows after a short delay (enough
   // for the new GPU process to be ready) so they can recreate their surfaces.
+  //
+  // This broadcast is the BACKUP recovery trigger. The primary trigger is each
+  // terminal's own `addon.onContextLoss`, which fires the instant the context
+  // dies and drives a retry-with-backoff re-attach — so the exact delay here is
+  // no longer load-bearing. The broadcast still covers panes that never held a
+  // WebGL context (e.g. canvas-2D blanking). Logs (desktop.jsonl) make a future
+  // occurrence fully traceable against the renderer-side recovery logs.
+  const GPU_CRASH_BROADCAST_DELAY_MS = 1000;
   app.on('child-process-gone', (_event, details) => {
-    if (details.type !== 'GPU') return;
+    if (details.type !== 'GPU') {
+      // Log non-GPU child-process exits too — useful context when triaging a
+      // GPU crash that cascaded from (or alongside) another process dying.
+      console.info('[main:child-process] child process gone', {
+        type: details.type,
+        reason: details.reason,
+        exitCode: details.exitCode,
+      });
+      return;
+    }
+    console.warn('[main:gpu] GPU process gone', {
+      type: details.type,
+      reason: details.reason,
+      exitCode: details.exitCode,
+    });
     setTimeout(() => {
+      let windows = 0;
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) {
           win.webContents.send('app:gpu-process-crashed');
+          windows += 1;
         }
       }
-    }, 1000);
+      console.info('[main:gpu] broadcasting app:gpu-process-crashed', {
+        windows,
+        delayMs: GPU_CRASH_BROADCAST_DELAY_MS,
+      });
+    }, GPU_CRASH_BROADCAST_DELAY_MS);
   });
 
   createLauncherWindow();

@@ -10,6 +10,10 @@ export interface TerminalSessionProps {
   routeKey: RouteKey;
   gpuCrash: GpuCrashSource;
   className?: string;
+  // Opaque per-pane label included in the module's structured logs (jsonl) so a
+  // GPU-crash / WebGL-recovery trace can be attributed to a specific terminal.
+  // Purely diagnostic — the module carries no routing-id knowledge.
+  logLabel?: string;
   visible?: boolean;
   focused?: boolean;
   // Connected/disconnected lifecycle, surfaced to the host for UI state.
@@ -36,6 +40,7 @@ export default function TerminalSession({
   routeKey,
   gpuCrash,
   className,
+  logLabel,
   visible = true,
   focused = true,
   onConnected,
@@ -143,6 +148,7 @@ export default function TerminalSession({
       themeSource={themeSource}
       routeKey={routeKey}
       gpuCrash={gpuCrash}
+      logLabel={logLabel}
       style={{ flex: 1, minHeight: 0, height: 'auto' }}
       onWrite={(fn) => {
         writeRef.current = fn;
