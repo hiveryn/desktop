@@ -15,10 +15,6 @@ export function useShortcutConfig(): ShortcutConfigState {
 
   useEffect(() => {
     function load(): void {
-      // Re-register the OS-global palette shortcut (main process) so edits to
-      // shortcuts.yaml take effect on the same focus-driven refresh that reloads
-      // the in-app bindings below. Idempotent: main unregisters then re-registers.
-      void window.hiveryn.globalShortcut.reload();
       window.hiveryn.config
         .getShortcuts()
         .then((raw) => {

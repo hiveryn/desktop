@@ -445,9 +445,6 @@ interface HiverynAPI {
     getShortcuts: () => Promise<Record<string, Record<string, string>>>;
     getDesktop: () => Promise<DesktopConfig>;
   };
-  globalShortcut: {
-    reload: () => Promise<void>;
-  };
 }
 
 interface Window {

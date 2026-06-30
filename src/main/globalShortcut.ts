@@ -61,19 +61,44 @@ function notifyRegistrationFailed(binding: string): void {
   }
 }
 
-// Read the configured binding and (re)register the OS-global palette shortcut.
-// Safe to call repeatedly — it unregisters the previous binding first, so it
-// doubles as the live-reload path when the user edits shortcuts.yaml.
-export async function loadAndRegisterGlobalShortcut(): Promise<void> {
-  globalShortcut.unregisterAll();
+// Accelerator we currently hold a live registration for, and the one we've
+// already warned the user about. Module state so repeated calls are idempotent
+// and the failure notification fires at most once per distinct binding.
+let currentAccelerator: string | null = null;
+let failedAccelerator: string | null = null;
 
+// Read the configured binding and (re)register the OS-global palette shortcut.
+// Idempotent: when the desired accelerator is already registered (ours), this is
+// a no-op — it does NOT unregisterAll+re-register. It only churns the
+// registration when the binding actually changes, which avoids the race where
+// two overlapping calls each see register() return false even though the
+// accelerator is bound. Source of truth for success is isRegistered(), never the
+// register() return value.
+export async function loadAndRegisterGlobalShortcut(): Promise<void> {
   const binding = await readPaletteBinding();
   const accelerator = toAccelerator(binding);
 
-  const registered = globalShortcut.register(accelerator, () => togglePalette());
-  // register() returns false / can silently fail when the combo is already
-  // claimed. Surface it — there's no in-app palette fallback anymore.
-  if (!registered || !globalShortcut.isRegistered(accelerator)) {
+  // Already live and unchanged — nothing to do.
+  if (accelerator === currentAccelerator && globalShortcut.isRegistered(accelerator)) {
+    return;
+  }
+
+  // Binding changed (or isn't live yet): drop the old one and (re)register.
+  globalShortcut.unregisterAll();
+  currentAccelerator = null;
+
+  globalShortcut.register(accelerator, () => togglePalette());
+
+  if (globalShortcut.isRegistered(accelerator)) {
+    currentAccelerator = accelerator;
+    failedAccelerator = null;
+    return;
+  }
+
+  // Genuinely couldn't bind (combo owned by macOS or another app). Surface it —
+  // there's no in-app palette fallback anymore — but only once per binding.
+  if (failedAccelerator !== accelerator) {
+    failedAccelerator = accelerator;
     notifyRegistrationFailed(binding);
   }
 }
