@@ -1,10 +1,6 @@
 # desktop Architecture
 
-`desktop` is the Hiveryn Electron application. It provides the UI surface for interacting with the local daemon and, eventually, running agent sessions.
-
-## Purpose
-
-The desktop app is the **primary UI** for Hiveryn. It talks to the daemon over HTTP and surfaces local state — agent profiles, sessions, workspace views — in a native macOS window. It does not own any state; it delegates all reads/writes to the daemon.
+`desktop` is the Hiveryn Electron application — the native macOS window for agent profiles, sessions, and workspace views. This document covers how the desktop app is built and how to work in it: the main/preload/renderer split, source layout, the IPC + envelope pattern, structured logging, the terminal/GPU lifecycle, the tab plugin system, the approval/conclusion flows, the keyboard/focus model, and the dev commands.
 
 ## Process boundaries
 
