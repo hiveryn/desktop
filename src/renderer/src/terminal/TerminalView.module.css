@@ -41,3 +41,76 @@
 .altBuffer :global(.xterm-scrollable-element > .scrollbar) {
   display: none;
 }
+
+/* In-terminal find box — anchored top-right of the pane, above the xterm layer
+   (.terminal is z-index:1). Sits inside .root (overflow:hidden), so it stays
+   within the pane bounds. Modeled on the floating close button in
+   terminal-stack.module.css, but always fully visible while open. */
+.findBox {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--theme-surface-raised);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-modal);
+}
+
+.findInput {
+  width: 12rem;
+  padding: 0.15rem 0.4rem;
+  background: var(--theme-background-input);
+  border: 1px solid var(--theme-border);
+  border-radius: 3px;
+  color: var(--theme-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.findInput:focus {
+  border-color: var(--theme-focused-foreground);
+}
+
+.findCount {
+  min-width: 3.5rem;
+  text-align: center;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.findButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.findButton:hover {
+  color: var(--theme-text);
+  background: var(--theme-surface-overlay);
+}
+
+.findButton:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
+}

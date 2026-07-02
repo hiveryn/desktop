@@ -83,10 +83,10 @@ src/
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
     terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps
-      TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected
+      TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected; per-pane Cmd+F find box (search addon)
       TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport
-      types.ts            Injected interfaces: TerminalTransport, TerminalThemeSource, RouteKey, GpuCrashSource
-      keymap.ts           Pure key mechanics (Shift+Enter→LF, keypress double-fire suppression)
+      types.ts            Injected interfaces: TerminalTransport, TerminalThemeSource, RouteKey, GpuCrashSource, SearchDecorations
+      keymap.ts           Pure key mechanics (Shift+Enter→LF, keypress double-fire suppression, Cmd+F find detection)
       overlayFit.ts       FitAddon subclass that reserves zero scrollbar width (full-pane fit; v6 overlay scrollbar floats)
      styles/
        global.css          Renderer global styles imported through @styles/global.css
@@ -303,7 +303,7 @@ All keyboard routing flows through a single `dispatch(event)` function in `keys/
 
 There are two callers:
 
-1. **`TerminalView.attachCustomKeyEventHandler`** — called by xterm itself before its own `_keyDown`/`_keyPress` processing. When the terminal has DOM focus, this is the gate. Returning `false` suppresses xterm's emit so the keystroke never reaches the PTY. Returning `true` passes through. xterm-level concerns (Shift+Enter → `\n`, double-fire suppression) are handled in `terminal/keymap.ts`; app shortcuts go through the injected `routeKey` (wired to `dispatch` by `terminal-adapters/dispatcherRouteKey.ts`), which keeps the `terminal/` module off the `keys/dispatcher` import.
+1. **`TerminalView.attachCustomKeyEventHandler`** — called by xterm itself before its own `_keyDown`/`_keyPress` processing. When the terminal has DOM focus, this is the gate. Returning `false` suppresses xterm's emit so the keystroke never reaches the PTY. Returning `true` passes through. xterm-level concerns (Shift+Enter → `\n`, double-fire suppression, Cmd+F opening the in-terminal find box) are handled in `terminal/keymap.ts`; app shortcuts go through the injected `routeKey` (wired to `dispatch` by `terminal-adapters/dispatcherRouteKey.ts`), which keeps the `terminal/` module off the `keys/dispatcher` import. Cmd+F is checked after `routeKey`, so a daemon-bound shortcut would win; because this handler only fires for the terminal that owns DOM focus, the find box is inherently scoped to the focused pane.
 
 2. **`useKeyDispatcher`** — a single bubble-phase `keydown` listener on `document`. Skips events whose target is `.xterm-helper-textarea` (those come via path 1). Calls `dispatch(event)`, and if `'consumed'`, calls `preventDefault()`/`stopPropagation()`.
 

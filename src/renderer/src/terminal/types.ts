@@ -27,6 +27,19 @@ export interface TerminalTransport {
   onClosed(cb: () => void): () => void;
 }
 
+// Colors for the search addon's match decorations. Mirrors
+// @xterm/addon-search's (non-exported) ISearchDecorationOptions. `#RRGGBB`
+// format is required by the addon. Sourced from the design-system CSS vars by
+// the host adapter, since the module never reads CSS variables directly.
+export interface SearchDecorations {
+  matchBackground: string;
+  matchBorder: string;
+  matchOverviewRuler: string;
+  activeMatchBackground: string;
+  activeMatchBorder: string;
+  activeMatchColorOverviewRuler: string;
+}
+
 // Theme: a live getter, not a snapshot. The view re-reads at construction and
 // again on `document.fonts.ready`, so a theme switch is reflected without the
 // host having to re-render the view.
@@ -37,6 +50,9 @@ export interface TerminalThemeSource {
   // size is read here from the design-system --font-size-terminal token rather
   // than hardcoded in the view.
   readFontSize(): number;
+  // Colors for in-terminal search-match highlighting (all matches + the active
+  // match). Read live so a theme switch is reflected on the next search.
+  readSearchDecorations(): SearchDecorations;
 }
 
 // Keyboard: app-shortcut routing ONLY. Returns whether an app shortcut consumed

@@ -11,6 +11,7 @@ export { default as TerminalView } from './TerminalView';
 export type {
   GpuCrashSource,
   RouteKey,
+  SearchDecorations,
   TerminalThemeSource,
   TerminalTransport,
 } from './types';

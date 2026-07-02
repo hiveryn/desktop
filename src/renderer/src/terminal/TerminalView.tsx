@@ -6,7 +6,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import * as React from 'react';
 import '@xterm/xterm/css/xterm.css';
-import { isShiftEnter, xtermWillEmitFromKeydown } from './keymap';
+import { isFindShortcut, isShiftEnter, xtermWillEmitFromKeydown } from './keymap';
 import { OverlayFitAddon } from './overlayFit';
 import styles from './TerminalView.module.css';
 import type { GpuCrashSource, RouteKey, TerminalThemeSource } from './types';
@@ -78,9 +78,21 @@ const TerminalView: React.FC<TerminalViewProps> = ({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const termRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
+  const searchAddonRef = React.useRef<SearchAddon | null>(null);
   const disposedRef = React.useRef(false);
   const focusedRef = React.useRef(focused);
   focusedRef.current = focused;
+
+  // In-terminal find (Cmd+F). State drives the overlay find box; the addon does
+  // the scrollback search + match decorations. Per-instance, so each terminal
+  // pane searches only its own buffer.
+  const [findOpen, setFindOpen] = React.useState(false);
+  const [findQuery, setFindQuery] = React.useState('');
+  const [findResults, setFindResults] = React.useState<{ index: number; count: number }>({
+    index: 0,
+    count: 0,
+  });
+  const findInputRef = React.useRef<HTMLInputElement>(null);
 
   // Keep refs so handlers always call the latest prop without re-running the effect
   const onDataRef = React.useRef(onData);
@@ -136,6 +148,14 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     }
   }, [focused, readonly]);
 
+  // Move focus into the find input when the box opens so the user can type
+  // immediately; select any existing text so re-opening replaces the query.
+  React.useEffect(() => {
+    if (!findOpen) return;
+    findInputRef.current?.focus();
+    findInputRef.current?.select();
+  }, [findOpen]);
+
   // Mount-once: xterm is constructed a single time and its handlers read the
   // latest props via refs. The construction options (fontSize/cursorBlink/etc.)
   // are intentionally captured at mount — re-running would destroy and recreate
@@ -157,12 +177,22 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       disableStdin: readonly,
       scrollback: 5000,
       allowTransparency: false,
+      // registerDecoration is a proposed API in xterm 6; the search addon's
+      // match highlighting calls it and throws without this flag.
+      allowProposedApi: true,
     });
 
     const fitAddon = new OverlayFitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
-    term.loadAddon(new SearchAddon());
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
+    searchAddonRef.current = searchAddon;
+    // Fires only while decorations are enabled (we always pass them). Feeds the
+    // find box's "index/total" counter.
+    const searchResultsDispose = searchAddon.onDidChangeResults((e) => {
+      setFindResults({ index: e.resultIndex, count: e.resultCount });
+    });
 
     // Unicode 11 width tables — without this, emoji and CJK characters
     // mis-align the cursor by 1 cell.
@@ -373,6 +403,16 @@ const TerminalView: React.FC<TerminalViewProps> = ({
           return false;
         }
 
+        // Cmd+F opens the find box. Handled after app-shortcut routing (so a
+        // bound shortcut still wins) and consumed so it never reaches the PTY.
+        // Only fires for the focused terminal — xterm calls this handler only
+        // when it owns DOM focus — so it's inherently pane-scoped.
+        if (isFindShortcut(event)) {
+          setFindOpen(true);
+          suppressNextKeypress = false;
+          return false;
+        }
+
         suppressNextKeypress = xtermWillEmitFromKeydown(event);
         return true;
       }
@@ -533,6 +573,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       if (reattachTimer !== null) clearTimeout(reattachTimer);
       offGpuCrash();
       disposeWebgl();
+      searchResultsDispose.dispose();
+      searchAddonRef.current = null;
       bufferDispose.dispose();
       dataDispose?.dispose();
       textarea?.removeEventListener('focus', focusListener);
@@ -548,9 +590,108 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     };
   }, []);
 
+  // Drive the search addon. Empty query clears decorations + the counter.
+  // `incremental` (findNext only) expands the current match as the user types.
+  const runSearch = (query: string, direction: 'next' | 'prev', incremental = false): void => {
+    const addon = searchAddonRef.current;
+    if (!addon) return;
+    if (!query) {
+      addon.clearDecorations();
+      setFindResults({ index: 0, count: 0 });
+      return;
+    }
+    const options = {
+      decorations: themeSourceRef.current.readSearchDecorations(),
+      incremental,
+    };
+    if (direction === 'next') addon.findNext(query, options);
+    else addon.findPrevious(query, options);
+  };
+
+  const closeFind = (): void => {
+    setFindOpen(false);
+    setFindQuery('');
+    setFindResults({ index: 0, count: 0 });
+    searchAddonRef.current?.clearDecorations();
+    // Return keyboard focus to the terminal so typing goes to the PTY again.
+    termRef.current?.focus();
+  };
+
+  const onFindKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    // Keep the document-level key dispatcher out of the find box entirely.
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSearch(findQuery, event.shiftKey ? 'prev' : 'next');
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeFind();
+    } else if (isFindShortcut(event.nativeEvent)) {
+      // Cmd+F while already searching: re-select the query for a quick retype.
+      event.preventDefault();
+      findInputRef.current?.select();
+    }
+  };
+
+  // Plain numeric counter; a query with no matches reads "0/0" rather than a
+  // text message. index is -1 when the active match isn't tracked (e.g. the
+  // decoration highlight limit was exceeded).
+  const matchLabel = findQuery
+    ? `${findResults.count && findResults.index >= 0 ? findResults.index + 1 : 0}/${findResults.count}`
+    : '';
+
   return (
     <div className={[styles.root, className].filter(Boolean).join(' ')} {...rest}>
       <div ref={containerRef} className={styles.terminal} />
+      {findOpen && (
+        <div className={styles.findBox}>
+          <input
+            ref={findInputRef}
+            className={styles.findInput}
+            type="text"
+            placeholder="Find"
+            spellCheck={false}
+            aria-label="Search terminal"
+            value={findQuery}
+            onChange={(e) => {
+              setFindQuery(e.target.value);
+              runSearch(e.target.value, 'next', true);
+            }}
+            onKeyDown={onFindKeyDown}
+          />
+          <span className={styles.findCount}>{matchLabel}</span>
+          {/* preventDefault on mousedown keeps focus in the input across clicks */}
+          <button
+            type="button"
+            className={styles.findButton}
+            title="Previous match (Shift+Enter)"
+            aria-label="Previous match"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runSearch(findQuery, 'prev')}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className={styles.findButton}
+            title="Next match (Enter)"
+            aria-label="Next match"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => runSearch(findQuery, 'next')}
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            className={styles.findButton}
+            title="Close (Esc)"
+            aria-label="Close find"
+            onClick={closeFind}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };

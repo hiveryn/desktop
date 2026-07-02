@@ -11,6 +11,18 @@ export function isShiftEnter(event: KeyboardEvent): boolean {
   );
 }
 
+// Cmd+F (macOS) / Ctrl+F (other platforms) with no other modifier → open the
+// in-terminal find box. A view mechanic (like Shift+Enter above), not an app
+// shortcut, so it lives here. Modifier-exact so it can't overlap other combos.
+export function isFindShortcut(event: KeyboardEvent): boolean {
+  if (event.key !== 'f' && event.key !== 'F') return false;
+  if (event.shiftKey || event.altKey) return false;
+  // navigator.platform is deprecated but still the simplest renderer-side way to
+  // pick the accelerator modifier; darwin uses Cmd, everything else Ctrl.
+  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  return isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+}
+
 // Returns true when xterm's _keyDown will emit a character to the PTY for this
 // event. When true, the corresponding keypress must be suppressed to avoid a
 // double-fire (Chromium does not suppress keypress when keydown is canceled).

@@ -1,5 +1,5 @@
 import type { ITheme } from '@xterm/xterm';
-import type { TerminalThemeSource } from '../../../terminal';
+import type { SearchDecorations, TerminalThemeSource } from '../../../terminal';
 
 // Reads xterm's palette and font from the global design-system CSS variables so
 // the terminal tracks the app theme. Read live on every call (no caching) so a
@@ -44,5 +44,25 @@ export const cssThemeSource: TerminalThemeSource = {
       .getPropertyValue('--font-size-terminal')
       .trim();
     return parseFloat(raw) || 16;
+  },
+  readSearchDecorations(): SearchDecorations {
+    // The search addon parses these as CSS colors and expects solid hex for the
+    // fills. The --theme-* accent vars resolve to oklch(), which the addon can't
+    // consume, so read the raw ANSI hex tokens (#RRGGBB) directly and append an
+    // alpha byte for the translucent fills. Fuchsia (the app accent) tints all
+    // matches; yellow marks the active one so it stands out against them.
+    const cs = getComputedStyle(document.documentElement);
+    const hex = (name: string) => cs.getPropertyValue(name).trim();
+    const fuchsia = hex('--ansi-13-fuchsia');
+    const yellow = hex('--ansi-11-yellow');
+    const brightYellow = hex('--ansi-bright-yellow');
+    return {
+      matchBackground: `${fuchsia}4d`, // ~30% alpha
+      matchBorder: fuchsia,
+      matchOverviewRuler: fuchsia,
+      activeMatchBackground: `${yellow}8c`, // ~55% alpha
+      activeMatchBorder: brightYellow,
+      activeMatchColorOverviewRuler: brightYellow,
+    };
   },
 };
