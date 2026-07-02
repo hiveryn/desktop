@@ -1,15 +1,18 @@
 import type { AgentProfile } from '@components';
 import {
-  ApiEnvelopeError,
   ArchitectCard,
   BottomBar,
   Caption,
   DevBadge,
+  ErrorCenterIndicator,
+  ErrorCenterSheet,
   Navigation,
   ProfileSelector,
   Text,
+  ToastHost,
 } from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useErrorCenterCapture } from '../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../keys/useKeyDispatcher';
 import styles from './launcher.module.css';
@@ -23,11 +26,11 @@ function shortenPath(path: string, home: string | null): string {
 export default function Launcher() {
   const { config: shortcutConfig } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
+  useErrorCenterCapture();
 
   const [architects, setArchitects] = useState<Architect[]>([]);
   const [userHome, setUserHome] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<unknown | null>(null);
 
   const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set());
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
@@ -36,7 +39,6 @@ export default function Launcher() {
   const [pendingArchitectKey, setPendingArchitectKey] = useState<string | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
   const [isSpawning, setIsSpawning] = useState(false);
-  const [spawnError, setSpawnError] = useState<unknown | null>(null);
 
   const pendingArchitectKeyRef = useRef(pendingArchitectKey);
   useEffect(() => {
@@ -48,7 +50,6 @@ export default function Launcher() {
 
     async function loadData() {
       setIsLoading(true);
-      setError(null);
       setProfilesError(null);
       const [architectsResult, userHomeResult, sessionsResult, profilesResult] =
         await Promise.allSettled([
@@ -62,8 +63,6 @@ export default function Launcher() {
 
       if (architectsResult.status === 'fulfilled') {
         setArchitects(architectsResult.value);
-      } else {
-        setError(architectsResult.reason);
       }
 
       if (userHomeResult.status === 'fulfilled') {
@@ -99,18 +98,11 @@ export default function Launcher() {
   }, [architects]);
 
   const handleOpenArchitect = (key: string) => {
-    setError(null);
-    setSpawnError(null);
-
     if (runningSessions.has(key)) {
-      void window.hiveryn.launcher.openArchitect(key).catch((err) => {
-        setError(err);
-      });
+      // Already captured centrally via the onRequest capture bridge on failure.
+      void window.hiveryn.launcher.openArchitect(key).catch(() => {});
     } else {
-      if (profilesError) {
-        setError(profilesError);
-        return;
-      }
+      if (profilesError) return;
       setPendingArchitectKey(key);
       setShowProfileSelector(true);
     }
@@ -121,14 +113,13 @@ export default function Launcher() {
     if (!key) return;
     setShowProfileSelector(false);
     setIsSpawning(true);
-    setSpawnError(null);
 
     try {
       const intent = await window.hiveryn.sessions.create('architect', key);
       await window.hiveryn.sessions.createRun(intent.id, profileName);
       await window.hiveryn.launcher.openArchitect(key);
-    } catch (err) {
-      setSpawnError(err);
+    } catch {
+      // Already captured centrally via the onRequest capture bridge.
       setIsSpawning(false);
     }
   };
@@ -139,8 +130,6 @@ export default function Launcher() {
       setPendingArchitectKey(null);
     }
   };
-
-  const displayedError = error ?? spawnError;
 
   return (
     <div className={styles.window}>
@@ -157,8 +146,6 @@ export default function Launcher() {
       </Navigation>
 
       <main className={styles.content}>
-        {displayedError ? <ApiEnvelopeError error={displayedError} /> : null}
-
         {isLoading ? (
           <div className={styles.centerState}>
             <Caption as="p">Loading architects</Caption>
@@ -185,7 +172,7 @@ export default function Launcher() {
         )}
       </main>
 
-      <BottomBar className={styles.bottomBarFixed} />
+      <BottomBar className={styles.bottomBarFixed} right={<ErrorCenterIndicator />} />
 
       <ProfileSelector
         profiles={profiles}
@@ -193,6 +180,9 @@ export default function Launcher() {
         onSelect={(name: string) => void handleProfileSelect(name)}
         onClose={handleProfileSelectorClose}
       />
+
+      <ToastHost />
+      <ErrorCenterSheet />
     </div>
   );
 }

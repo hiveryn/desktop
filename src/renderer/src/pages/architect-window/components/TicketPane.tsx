@@ -1,4 +1,3 @@
-import { ApiEnvelopeError } from '@components';
 import type { Ticket, TicketConclusion } from '@hiveryn/shared/domain';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -89,7 +88,7 @@ export default function TicketPane({ sessionId }: Props) {
   if (error) {
     return (
       <div className={styles.pane}>
-        <ApiEnvelopeError error={error} title="Ticket API Error" />
+        <span className={styles.loading}>Failed to load ticket — see error center</span>
       </div>
     );
   }

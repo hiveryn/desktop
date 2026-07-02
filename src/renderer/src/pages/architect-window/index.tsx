@@ -1,16 +1,20 @@
 import {
-  ApiEnvelopeError,
   BottomBar,
+  Button,
   Caption,
   DevBadge,
+  ErrorCenterIndicator,
+  ErrorCenterSheet,
   Glyph,
   IconButton,
   Navigation,
   Plus,
   Text,
+  ToastHost,
 } from '@components';
 import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
@@ -43,14 +47,23 @@ function shortenPath(path: string, home: string | null): string {
 
 export default function ArchitectWindow() {
   const architectKey = useMemo(readArchitectKey, []);
-  const { architect, userHome, board, boardLoading, boardError, loadError, refreshBoard } =
-    useArchitectData(architectKey);
+  const {
+    architect,
+    userHome,
+    board,
+    boardLoading,
+    boardError,
+    loadError,
+    refreshBoard,
+    retryLoad,
+  } = useArchitectData(architectKey);
   useSessionEvents();
   useDaemonRecovery(architectKey);
   useSessionRestore(architectKey);
   usePaletteSessionSwitch();
+  useErrorCenterCapture();
 
-  const { config: shortcutConfig, error: shortcutError } = useShortcutConfig();
+  const { config: shortcutConfig } = useShortcutConfig();
   useKeyDispatcher(shortcutConfig);
 
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -75,21 +88,19 @@ export default function ArchitectWindow() {
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [spawnRequest, setSpawnRequest] = useState<TicketSummary | null>(null);
-  const [ticketError, setTicketError] = useState<unknown | null>(null);
   const ticketRequestId = useRef(0);
 
   async function handleTicketSelect(ticket: TicketSummary): Promise<void> {
     if (!architectKey) return;
     const requestId = ticketRequestId.current + 1;
     ticketRequestId.current = requestId;
-    setTicketError(null);
     try {
       const next = await window.hiveryn.tickets.get(architectKey, ticket.id);
       if (ticketRequestId.current !== requestId) return;
       setSelectedTicket(next);
-    } catch (error) {
-      if (ticketRequestId.current !== requestId) return;
-      setTicketError(error);
+    } catch {
+      // Already captured centrally via the onRequest capture bridge; the
+      // detail view simply doesn't open.
     }
   }
 
@@ -116,7 +127,6 @@ export default function ArchitectWindow() {
     ticketRequestId.current += 1;
     setSelectedTicket(null);
     setSpawnRequest(null);
-    setTicketError(null);
   }, [activeSessionId]);
 
   const isLeftFocused = focusedPane === 'main-terminal';
@@ -160,16 +170,14 @@ export default function ArchitectWindow() {
 
       <main className={styles.content}>
         {loadError ? (
-          <ApiEnvelopeError error={loadError} />
+          <div className={styles.loadErrorStatus}>
+            <Text as="span">Failed to load architect — see error center</Text>
+            <Button theme="SECONDARY" onClick={() => void retryLoad()}>
+              Retry
+            </Button>
+          </div>
         ) : (
           <div className={styles.contentStack}>
-            {shortcutError ? (
-              <ApiEnvelopeError
-                className={styles.shortcutError}
-                error={shortcutError}
-                title="Shortcut Config API Error"
-              />
-            ) : null}
             <div ref={setSplitPaneEl} className={styles.splitPane}>
               {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
@@ -192,7 +200,6 @@ export default function ArchitectWindow() {
                   board={board}
                   boardLoading={boardLoading}
                   boardError={boardError}
-                  ticketError={ticketError}
                   isMaximized={isRightMaximized}
                   shortcutConfig={shortcutConfig}
                   onTicketSelect={handleTicketSelect}
@@ -209,11 +216,14 @@ export default function ArchitectWindow() {
         className={styles.bottomBar}
         left={<BottomTabs onConclude={setConcludeTarget} />}
         right={
-          <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
-            <Glyph>
-              <Plus />
-            </Glyph>
-          </IconButton>
+          <>
+            <ErrorCenterIndicator />
+            <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
+              <Glyph>
+                <Plus />
+              </Glyph>
+            </IconButton>
+          </>
         }
       />
 
@@ -252,6 +262,9 @@ export default function ArchitectWindow() {
         // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard dismiss handled by dispatcher Escape
         <div className={styles.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
+
+      <ToastHost />
+      <ErrorCenterSheet />
     </div>
   );
 }

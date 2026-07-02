@@ -57,8 +57,11 @@ src/
     state/
       sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane (per-session), active selection, pendingApprovals (per-session)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
+      errorCenterStore.ts Zustand store — durable, per-window error history (entries, unreadCount, sheetOpen); see "Error center" below
+      toastStore.ts       Zustand store — ephemeral auto-dismissing toast queue
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
+      useErrorCenterCapture.ts    Bridges daemon.onRequest + errors.onInfraEvent into errorCenterStore/toastStore
     keys/
       matchers.ts                 matchesShortcut(), isTextInputFocused(), SHIFT_MAP, CODE_MAP
       dispatcher.ts               dispatch() — single routing function for all key events; registerDynamicHandler()
@@ -104,10 +107,19 @@ src/
 Every daemon-backed IPC call follows this chain:
 
 1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws.
-2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
-3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; other API errors are surfaced through the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`), which renders the full daemon error including `status`, `code`, `details`, and `stacktrace`.
+2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log and the error center — see below), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
+3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (dialogs whose error is naturally scoped and dismissed with the dialog — `ConcludeSessionDialog`, `FreeformSessionDialog`, `ApprovalDialog`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
 
 All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, `meta.request_id`). The desktop surfaces this in the `RequestLog` panel at the bottom of every page.
+
+## Error center
+
+App errors (daemon/API envelope errors, SSE/WebSocket failures, daemon-unreachable transitions) no longer stick to the screen in a permanent banner. Each is recorded in a per-window, in-memory history and shown as a brief auto-dismissing toast; a bottom-right indicator next to the freeform `+` button badges the unread count and opens a bottom sheet with full detail (timestamp, source, message, expandable stacktrace/`request_id`, per-item dismiss, clear all). Mounted in both `ArchitectWindow` and `Launcher` (two independent renderer processes, so each gets its own store instance — scope is naturally per-window and clears on close).
+
+- `state/errorCenterStore.ts` — the durable history (`entries`, `unreadCount`, `sheetOpen`).
+- `state/toastStore.ts` — the ephemeral toast queue; auto-dismiss timers live in `components/Toast/ToastHost.tsx`, not the store.
+- `hooks/useErrorCenterCapture.ts` — the capture bridge, mounted once per window. Subscribes to `daemon.onRequest` (catches every `invoke()` envelope error app-wide — the single tap-in for daemon/API errors) and `errors.onInfraEvent` (main-process SSE/WS failures, pushed one-way from `src/main/daemon/architect-events.ts` and `src/main/daemon/session.ts` via `sender.send('errors:infra-event', payload)`, mirroring the `daemon:health-status` pattern). Daemon-unreachable transitions are pushed from `useDaemonRecovery.ts`, which already tracks that transition for session-restore purposes.
+- `components/ErrorCenterIndicator/`, `components/ErrorCenterSheet/` — the badge and bottom sheet, composed into each page's `BottomBar` `right` slot.
 
 ## Structured desktop logging
 
@@ -295,7 +307,7 @@ Separate from the approval flow, the daemon emits a `{ type: "agent_status", sta
 
 ## Keyboard shortcuts and focus model
 
-Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and the error is surfaced via the `ApiEnvelopeError` component.
+Keybindings are owned by the daemon (`GET /api/config/shortcuts`). The desktop has **no hardcoded fallbacks** — if the response is missing a required section, shortcuts are disabled and the error is pushed directly to the error center (see above); a malformed-but-200 response never reaches `daemon.onRequest`, so `useShortcutConfig` pushes it itself rather than relying on the capture bridge.
 
 ### Dispatch architecture
 

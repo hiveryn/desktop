@@ -1,4 +1,3 @@
-import { ApiEnvelopeError } from '@components';
 import { useMemo, useState } from 'react';
 import { useSessionStore } from '../../state/sessionStore';
 import { TerminalSession } from '../../terminal';
@@ -58,9 +57,10 @@ export default function SessionTerminal({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          color: 'var(--theme-text-muted)',
         }}
       >
-        <ApiEnvelopeError error={error} title="Terminal Connection Error" />
+        Terminal connection failed — see error center
       </div>
     );
   }

@@ -20,6 +20,7 @@ import type {
   DaemonHealthState,
   DaemonResult,
   DesktopConfig,
+  InfraErrorEvent,
   RendererLogPayload,
   RequestLogEntry,
   SessionRunResult,
@@ -362,6 +363,14 @@ contextBridge.exposeInMainWorld('hiveryn', {
     onRequest: (callback: RequestCallback): (() => void) => {
       requestListeners.add(callback);
       return () => requestListeners.delete(callback);
+    },
+  },
+  errors: {
+    onInfraEvent: (callback: (event: InfraErrorEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: InfraErrorEvent): void =>
+        callback(payload);
+      ipcRenderer.on('errors:infra-event', listener);
+      return () => ipcRenderer.removeListener('errors:infra-event', listener);
     },
   },
   logs: {

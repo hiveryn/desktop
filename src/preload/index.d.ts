@@ -38,6 +38,15 @@ interface RequestLogEntry {
   envelope: Envelope;
 }
 
+// ── Infra errors (SSE/WS failures currently console-only in main) ──────────
+
+interface InfraErrorEvent {
+  source: string;
+  message: string;
+  details?: Record<string, unknown>;
+  timestamp: number;
+}
+
 // ── Structured logging ─────────────────────────────────────────────────────
 
 type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -437,6 +446,9 @@ interface HiverynAPI {
     getHealthStatus: () => Promise<DaemonHealthState>;
     onHealthStatus: (callback: (state: DaemonHealthState) => void) => () => void;
     onRequest: (callback: (entry: RequestLogEntry) => void) => () => void;
+  };
+  errors: {
+    onInfraEvent: (callback: (event: InfraErrorEvent) => void) => () => void;
   };
   logs: {
     writeRenderer: (entry: RendererLogPayload) => void;

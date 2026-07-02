@@ -1,7 +1,23 @@
 import type { SessionEvent } from '@hiveryn/shared/domain';
 import type { WebContents } from 'electron';
+import type { InfraErrorEvent } from '../../shared/types';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
+
+function sendInfraError(
+  sender: WebContents,
+  source: string,
+  message: string,
+  details?: Record<string, unknown>,
+): void {
+  if (sender.isDestroyed()) return;
+  sender.send('errors:infra-event', {
+    source,
+    message,
+    details,
+    timestamp: Date.now(),
+  } satisfies InfraErrorEvent);
+}
 
 interface TerminalConnection {
   ws: WebSocket;
@@ -24,6 +40,7 @@ interface ActiveSession {
   sendToRenderer: (sessionId: string, terminalId: string, data: Uint8Array | string) => void;
   sendEventToRenderer: (event: SessionEvent) => void;
   sendTerminalClosedToRenderer: (sessionId: string, terminalId: string) => void;
+  sendInfraEvent: (message: string, details?: Record<string, unknown>) => void;
   sessionId: string;
 }
 
@@ -105,10 +122,9 @@ function startSse(session: ActiveSession, sessionId: string): void {
       if (session.sseAbort.signal.aborted) {
         return;
       }
-      console.warn('[main:session] SSE stream failed', {
-        sessionId,
-        message: err instanceof Error ? err.message : String(err),
-      });
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[main:session] SSE stream failed', { sessionId, message });
+      session.sendInfraEvent(message, { sessionId });
     })
     .finally(() => {
       session.sseRunning = false;
@@ -152,6 +168,8 @@ export function subscribe(sender: WebContents, sessionId: string): void {
         sender.send('session:event', event);
       }
     };
+    const sendInfraEvent = (message: string, details?: Record<string, unknown>): void =>
+      sendInfraError(sender, 'session-sse', message, details);
     session = {
       terminals: new Map(),
       sseAbort: new AbortController(),
@@ -159,6 +177,7 @@ export function subscribe(sender: WebContents, sessionId: string): void {
       sendToRenderer: () => {},
       sendEventToRenderer,
       sendTerminalClosedToRenderer: () => {},
+      sendInfraEvent,
       sessionId,
     };
     wcSessions.set(sessionId, session);
@@ -242,6 +261,8 @@ export function connect(
         sendToRenderer,
         sendEventToRenderer,
         sendTerminalClosedToRenderer,
+        sendInfraEvent: (message, details) =>
+          sendInfraError(sender, 'session-sse', message, details),
         sessionId,
       };
       wcSessions.set(sessionId, session);
@@ -289,6 +310,10 @@ export function connect(
       const stillActive = sessionsByWcId.get(wcId)?.get(sessionId);
       if (!stillActive || stillActive.terminals.get(terminalId) !== conn) return;
       console.warn('[main:session] error', { wcId, sessionId, terminalId, ev });
+      sendInfraError(sender, 'session-ws', 'WebSocket connection failed', {
+        sessionId,
+        terminalId,
+      });
       settle({ ok: false, message: 'WebSocket connection failed' });
     });
 

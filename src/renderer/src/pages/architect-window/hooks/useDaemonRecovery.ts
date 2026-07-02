@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { DaemonHealthStatus } from '../../../../../shared/types';
+import { useErrorCenterStore } from '../../../state/errorCenterStore';
+import { useToastStore } from '../../../state/toastStore';
 import { restoreSessionsForArchitect } from './sessionSnapshot';
 
 export function useDaemonRecovery(architectKey: string): void {
@@ -21,6 +23,17 @@ export function useDaemonRecovery(architectKey: string): void {
     const unsubscribe = window.hiveryn.daemon.onHealthStatus((state) => {
       const previousStatus = statusRef.current;
       statusRef.current = state.status;
+
+      if (previousStatus !== 'unreachable' && state.status === 'unreachable') {
+        const entry = {
+          title: 'Daemon health',
+          message: 'Daemon unreachable',
+          timestamp: Date.now(),
+        };
+        useErrorCenterStore.getState().pushError(entry);
+        useToastStore.getState().pushToast(entry);
+      }
+
       if (previousStatus !== 'unreachable' || state.status !== 'healthy') {
         return;
       }

@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useErrorCenterStore } from '../state/errorCenterStore';
+import { useToastStore } from '../state/toastStore';
 
 export type ShortcutConfig = Record<string, Record<string, string>>;
 
 export interface ShortcutConfigState {
   config: ShortcutConfig | null;
-  error: unknown | null;
 }
 
 const REQUIRED_SECTIONS = ['global', 'kanban', 'event-log'] as const;
 
 export function useShortcutConfig(): ShortcutConfigState {
   const [config, setConfig] = useState<ShortcutConfig | null>(null);
-  const [error, setError] = useState<unknown | null>(null);
 
   useEffect(() => {
     function load(): void {
@@ -21,20 +21,24 @@ export function useShortcutConfig(): ShortcutConfigState {
           for (const section of REQUIRED_SECTIONS) {
             if (!raw?.[section]) {
               setConfig(null);
-              setError(
-                new Error(
-                  `[shortcuts] daemon returned incomplete config (missing section: "${section}") — keyboard shortcuts disabled`,
-                ),
-              );
+              // A 200 with an incomplete config never rejects invoke(), so it
+              // never reaches the app-wide onRequest capture bridge — push it
+              // directly here instead.
+              const entry = {
+                title: 'Shortcut Config',
+                message: `daemon returned incomplete config (missing section: "${section}") — keyboard shortcuts disabled`,
+                timestamp: Date.now(),
+              };
+              useErrorCenterStore.getState().pushError(entry);
+              useToastStore.getState().pushToast(entry);
               return;
             }
           }
-          setError(null);
           setConfig(raw);
         })
-        .catch((err: unknown) => {
+        .catch(() => {
+          // invoke() rejections already flow through the onRequest capture bridge.
           setConfig(null);
-          setError(err);
         });
     }
 
@@ -45,5 +49,5 @@ export function useShortcutConfig(): ShortcutConfigState {
     return () => window.removeEventListener('focus', load);
   }, []);
 
-  return { config, error };
+  return { config };
 }

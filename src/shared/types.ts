@@ -254,3 +254,12 @@ export interface RequestLogEntry {
   ts: number;
   envelope: Envelope;
 }
+
+// ── Infra errors (SSE/WS failures currently console-only in main) ──────────
+
+export interface InfraErrorEvent {
+  source: string;
+  message: string;
+  details?: Record<string, unknown>;
+  timestamp: number;
+}

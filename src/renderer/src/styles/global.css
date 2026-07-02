@@ -185,6 +185,7 @@
   --z-index-maximize-backdrop: 20;
   --z-index-maximize-pane: 21;
   --z-index-page-modals: 30;
+  --z-index-toast: 40;
 
   /* ── Theme (dark-only) ───────────────────────────────────── */
   --theme-background: var(--color-black);

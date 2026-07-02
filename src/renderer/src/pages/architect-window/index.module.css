@@ -67,9 +67,12 @@ nav.appbar {
   overflow: hidden;
 }
 
-.shortcutError {
-  flex-shrink: 0;
-  max-height: 12rem;
+.loadErrorStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  margin: auto;
+  color: var(--theme-text-muted);
 }
 
 /* ── Split pane ────────────────────────────────────────────────────────────── */

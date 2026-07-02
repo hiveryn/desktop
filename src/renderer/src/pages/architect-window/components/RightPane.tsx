@@ -1,5 +1,4 @@
 import {
-  ApiEnvelopeError,
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
@@ -72,7 +71,6 @@ interface Props {
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
-  ticketError: unknown | null;
   isMaximized: boolean;
   shortcutConfig: ShortcutConfig | null;
   onTicketSelect(ticket: TicketSummary): void;
@@ -86,7 +84,6 @@ export default function RightPane({
   board,
   boardLoading,
   boardError,
-  ticketError,
   isMaximized,
   shortcutConfig,
   onTicketSelect,
@@ -325,8 +322,6 @@ export default function RightPane({
     <>
       <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
         <div className={styles.kanbanPane}>
-          {boardError ? <ApiEnvelopeError error={boardError} title="Tickets API Error" /> : null}
-          {ticketError ? <ApiEnvelopeError error={ticketError} title="Ticket API Error" /> : null}
           {!boardError || boardLoading ? (
             <KanbanBoard
               className={styles.kanbanBoard}

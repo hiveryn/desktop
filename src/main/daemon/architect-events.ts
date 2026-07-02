@@ -1,7 +1,25 @@
 import type { WebContents } from 'electron';
-import { STREAM_CONNECTED_EVENT_TYPE, type WorkspaceChangedEvent } from '../../shared/types';
+import {
+  type InfraErrorEvent,
+  STREAM_CONNECTED_EVENT_TYPE,
+  type WorkspaceChangedEvent,
+} from '../../shared/types';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
+
+function sendInfraError(
+  sender: WebContents,
+  message: string,
+  details?: Record<string, unknown>,
+): void {
+  if (sender.isDestroyed()) return;
+  sender.send('errors:infra-event', {
+    source: 'architect-events',
+    message,
+    details,
+    timestamp: Date.now(),
+  } satisfies InfraErrorEvent);
+}
 
 interface Subscription {
   wcId: number;
@@ -138,12 +156,14 @@ async function consumeArchitectEventStream(
 
     if (!response.ok) {
       console.warn('[main:architect-events] fetch returned', response.status, architectKey);
+      sendInfraError(sender, `stream fetch failed (HTTP ${response.status})`, { architectKey });
       return false;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
       console.warn('[main:architect-events] response.body is null', architectKey);
+      sendInfraError(sender, 'stream response had no body', { architectKey });
       return false;
     }
 
@@ -199,6 +219,7 @@ async function consumeArchitectEventStream(
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
       console.warn('[main:architect-events] stream error', (err as Error).message);
+      sendInfraError(sender, (err as Error).message, { architectKey });
     }
     return false;
   }

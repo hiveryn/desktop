@@ -1,5 +1,5 @@
 import type { TicketBoard } from '@hiveryn/shared/domain';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type Architect,
   STREAM_CONNECTED_EVENT_TYPE,
@@ -18,6 +18,7 @@ export interface ArchitectData {
   loadError: unknown | null;
   refreshArchitect(): Promise<void>;
   refreshBoard(): Promise<void>;
+  retryLoad(): Promise<void>;
 }
 
 export function useArchitectData(architectKey: string): ArchitectData {
@@ -45,53 +46,54 @@ export function useArchitectData(architectKey: string): ArchitectData {
     }
   }, [architectKey]);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Tokened so a stale in-flight load (from a superseded architectKey, or an
+  // earlier retryLoad() call) can't clobber state after a newer one starts.
+  const loadTokenRef = useRef(0);
 
-    async function load() {
-      if (!architectKey) {
-        setLoadError('Missing architect key');
-        setBoardLoading(false);
-        return;
-      }
+  const load = useCallback(async (): Promise<void> => {
+    const token = ++loadTokenRef.current;
 
-      setLoadError(null);
-      setBoardError(null);
-      setBoardLoading(true);
-
-      const [architectResult, userHomeResult, boardResult] = await Promise.allSettled([
-        window.hiveryn.architects.get(architectKey),
-        window.hiveryn.system.getUserHome(),
-        window.hiveryn.tickets.list(architectKey),
-      ]);
-
-      if (cancelled) return;
-
-      if (architectResult.status === 'fulfilled') {
-        setArchitect(architectResult.value);
-      } else {
-        setLoadError(architectResult.reason);
-      }
-
-      if (userHomeResult.status === 'fulfilled') {
-        setUserHome(userHomeResult.value);
-      }
-
-      if (boardResult.status === 'fulfilled') {
-        setBoard(boardResult.value);
-      } else {
-        setBoard(EMPTY_TICKET_BOARD);
-        setBoardError(boardResult.reason);
-      }
-
+    if (!architectKey) {
+      setLoadError('Missing architect key');
       setBoardLoading(false);
+      return;
     }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
+    setLoadError(null);
+    setBoardError(null);
+    setBoardLoading(true);
+
+    const [architectResult, userHomeResult, boardResult] = await Promise.allSettled([
+      window.hiveryn.architects.get(architectKey),
+      window.hiveryn.system.getUserHome(),
+      window.hiveryn.tickets.list(architectKey),
+    ]);
+
+    if (loadTokenRef.current !== token) return;
+
+    if (architectResult.status === 'fulfilled') {
+      setArchitect(architectResult.value);
+    } else {
+      setLoadError(architectResult.reason);
+    }
+
+    if (userHomeResult.status === 'fulfilled') {
+      setUserHome(userHomeResult.value);
+    }
+
+    if (boardResult.status === 'fulfilled') {
+      setBoard(boardResult.value);
+    } else {
+      setBoard(EMPTY_TICKET_BOARD);
+      setBoardError(boardResult.reason);
+    }
+
+    setBoardLoading(false);
   }, [architectKey]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   useEffect(() => {
     if (!architectKey) return;
@@ -118,5 +120,6 @@ export function useArchitectData(architectKey: string): ArchitectData {
     loadError,
     refreshArchitect,
     refreshBoard,
+    retryLoad: load,
   };
 }
