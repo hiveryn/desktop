@@ -42,6 +42,7 @@ src/
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       plugins.ts          plugins:call handler → POST /api/sessions/:id/plugins/call (routes to tabplugin)
+      repos.ts            repos:diff/repos:commitDiff → GET /api/architects/:key/repos/:repoKey/diff[/commits/:sha/diff] (native git-diff tab)
       launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the palette / tray)
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the palette
@@ -77,14 +78,15 @@ src/
         hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
-                                 ExtraTerminalStack, TicketPane, TicketWorkflow, ConcludeSessionDialog,
-                                 FreeformSessionDialog, ApprovalDialog
+                                 ExtraTerminalStack, TicketPane, TicketWorkflow, GitDiffPane,
+                                 ConcludeSessionDialog, FreeformSessionDialog, ApprovalDialog
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
       index.ts            Renderer component barrel exported through @components
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
+      DiffView/            Reusable read-only diff viewer (react-diff-view) — parsed-diff props in, no fetching; used by GitDiffPane and reusable for future commit-diff UIs. Tokenizes syntax highlighting on the main thread, or in a Web Worker (tokenize.worker.ts) above ~1500 changed lines — the renderer's only worker
     terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps
       TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected; per-pane Cmd+F find box (search addon)
       TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport
@@ -150,8 +152,8 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
-- Local sibling packages (`@hiveryn/git-diff`, `@hiveryn/shared/domain`, `@hiveryn/tabplugin`) are aliased to their source in `electron.vite.config.ts` so renderer edits hot-reload. Without this, pnpm's `node-linker=hoisted` (`.npmrc`) copies `file:../` deps into `node_modules` as stale snapshots, and source edits would not appear until reinstall.
-- Tab plugins (git-diff and future ones) must declare `react` only as a `peerDependency` (never in `dependencies` or `devDependencies`). Desktop provides the single React copy; renderer `resolve.dedupe: ['react', 'react-dom']` + Vite aliases guarantee one instance. Dual React copies cause "Cannot read properties of null (reading 'useState')" at hook call sites.
+- Local sibling packages (`@hiveryn/shared/domain`, `@hiveryn/tabplugin`) are aliased to their source in `electron.vite.config.ts` so renderer edits hot-reload. Without this, pnpm's `node-linker=hoisted` (`.npmrc`) copies `file:../` deps into `node_modules` as stale snapshots, and source edits would not appear until reinstall.
+- Third-party tab plugins (registered via `registerTabPlugin()`) must declare `react` only as a `peerDependency` (never in `dependencies` or `devDependencies`). Desktop provides the single React copy; renderer `resolve.dedupe: ['react', 'react-dom']` + Vite aliases guarantee one instance. Dual React copies cause "Cannot read properties of null (reading 'useState')" at hook call sites. This doesn't apply to native built-in tabs like `git-diff` (`GitDiffPane`) — they're regular source files in this repo, sharing the app's React instance directly with no package boundary.
 - Error boundaries exist at two levels: global (catches anything) and per-page (`key={page}` resets on navigation).
 - Keep `src/main/index.ts` as thin Electron setup only — no business logic, no inline IPC handlers.
 
@@ -230,7 +232,9 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff) are registered at startup; plugin tabs can be added via `registerTabPlugin()`. All pluggable tab components share desktop's single React instance (peerDep contract + dedupe in `electron.vite.config.ts`).
 
-**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
+**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket/git-diff; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
+
+`git-diff` is a **native** tab, not a `plugins:call`-backed one — `RightPane` renders it via a hardcoded panel like `ticket`/`TicketPane`, and its registry `content` slot is unreachable dead weight kept only so `mapTabToBarTab` has an icon to look up (same precedent as `ticket`/`TicketWorkflow`). `GitDiffPane` (`pages/architect-window/components/GitDiffPane.tsx`) is self-fetching: resolves the session's ticket → repo key, calls `repos:diff` (`src/main/ipc/repos.ts` → `GET /api/architects/{key}/repos/{repoKey}/diff`), and refetches on tab activation, manual refresh, and a debounced watch of `useEventsForActiveSession()` for file-mutating tool events (`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`ApplyPatch`). It renders the diff through the reusable `DiffView` component (`components/DiffView/`), which takes parsed-diff-shaped props with no fetching of its own.
 
 **Plugin IPC** (`plugins:call`) forwards `(sessionId, pluginType, fn, args)` to `POST /api/sessions/:id/plugins/call` (body `{ type, fn, args }`), which the daemon routes to the registered tabplugin. The daemon returns the plugin's `tabplugin.Response` envelope (`data`/`error`/`logs`/`commands`/`meta`) with HTTP 200 even when the plugin itself reports an error — only a non-2xx status (unknown session/plugin) is thrown as a transport error. The preload's `invokePluginCall()` reflects this: it returns the full envelope on 2xx (so callers can inspect `response.error`) and only throws on non-2xx.
 

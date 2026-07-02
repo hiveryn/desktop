@@ -22,6 +22,8 @@ import type {
   DesktopConfig,
   InfraErrorEvent,
   RendererLogPayload,
+  RepoCommitDiffResponse,
+  RepoDiffResponse,
   RequestLogEntry,
   SessionRunResult,
   SystemRuntime,
@@ -81,6 +83,11 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
   'plugins:call': { method: 'POST', path: '/api/sessions/:id/plugins/call' },
+  'repos:diff': { method: 'GET', path: '/api/architects/:key/repos/:repoKey/diff' },
+  'repos:commitDiff': {
+    method: 'GET',
+    path: '/api/architects/:key/repos/:repoKey/commits/:sha/diff',
+  },
   'tray:hide': { method: 'IPC', path: '/tray/hide' },
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
 };
@@ -351,6 +358,15 @@ contextBridge.exposeInMainWorld('hiveryn', {
       fn: string,
       args: Record<string, unknown>,
     ): Promise<unknown> => invokePluginCall('plugins:call', sessionId, pluginName, fn, args),
+  },
+  repos: {
+    diff: (architectKey: string, repoKey: string): Promise<RepoDiffResponse> =>
+      invoke('repos:diff', architectKey, repoKey),
+    commitDiff: (
+      architectKey: string,
+      repoKey: string,
+      sha: string,
+    ): Promise<RepoCommitDiffResponse> => invoke('repos:commitDiff', architectKey, repoKey, sha),
   },
   daemon: {
     getHealthStatus: (): Promise<DaemonHealthState> => ipcRenderer.invoke('daemon:health:get'),

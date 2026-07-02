@@ -35,3 +35,5 @@ export type { AgentProfile } from './ProfileSelector/ProfileSelector';
 export { default as ToastHost } from './Toast/ToastHost';
 export { default as ErrorCenterIndicator } from './ErrorCenterIndicator/ErrorCenterIndicator';
 export { default as ErrorCenterSheet } from './ErrorCenterSheet/ErrorCenterSheet';
+export { DiffView } from './DiffView';
+export type { DiffFileStatus, DiffSectionKind, DiffViewFile, DiffViewProps, DiffViewSection } from './DiffView';

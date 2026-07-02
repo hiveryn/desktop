@@ -202,6 +202,56 @@ export interface ArchitectInfo {
   path: string;
 }
 
+// ── Git diff (repo-scoped, native git-diff tab) ─────────────────────────────
+
+export interface RepoDiffSection {
+  kind: 'staged' | 'unstaged';
+  raw_unified_diff?: string;
+  is_binary: boolean;
+  additions: number;
+  deletions: number;
+  raw_diff_bytes: number;
+  truncated?: boolean;
+}
+
+export interface RepoDiffFile {
+  path: string;
+  old_path?: string;
+  status: 'modified' | 'new' | 'deleted' | 'renamed' | 'copied' | 'untracked';
+  is_binary: boolean;
+  additions: number;
+  deletions: number;
+  raw_diff_bytes: number;
+  truncated?: boolean;
+  raw_unified_diff?: string;
+  sections?: RepoDiffSection[];
+}
+
+export interface RepoDiffSummary {
+  files: number;
+  staged_files?: number;
+  unstaged_files?: number;
+  additions: number;
+  deletions: number;
+}
+
+export interface RepoDiffResponse {
+  repo: string;
+  repo_path: string;
+  files: RepoDiffFile[];
+  summary: RepoDiffSummary;
+}
+
+export interface RepoCommitDiffResponse {
+  repo: string;
+  repo_path: string;
+  sha: string;
+  parent_sha?: string;
+  is_merge: boolean;
+  files: RepoDiffFile[];
+  summary: RepoDiffSummary;
+}
+
 // Daemon-emitted architect event (e.g. a ticket being concluded).
 export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
 // Synthetic event the main process emits on every SSE (re)connect so the

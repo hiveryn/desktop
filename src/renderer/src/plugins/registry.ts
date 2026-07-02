@@ -1,4 +1,3 @@
-import { GitDiffTab } from '@hiveryn/git-diff';
 import type { Response } from '@hiveryn/tabplugin';
 import type { ComponentType } from 'react';
 // Imported from concrete modules, NOT the @components barrel: this module
@@ -10,6 +9,7 @@ import type { ComponentType } from 'react';
 import EventLog from '../components/EventLog/EventLog';
 import { Activity, GitDiff, Kanban, Terminal } from '../components/icons';
 import KanbanBoard from '../components/KanbanBoard/KanbanBoard';
+import GitDiffPane from '../pages/architect-window/components/GitDiffPane';
 import TicketWorkflow from '../pages/architect-window/components/TicketWorkflow';
 import SessionTerminal from '../pages/architect-window/SessionTerminal';
 import type { TabPluginComponent } from './types';
@@ -50,9 +50,13 @@ tabRegistry.set('terminal', {
   isBuiltin: true,
 });
 
+// content is only reachable if 'git-diff' were ever removed from RightPane's
+// `reserved` set — the actual rendered pane is the self-fetching GitDiffPane,
+// wired directly into RightPane (same precedent as 'ticket'/TicketWorkflow
+// below, where the real content is the separate TicketPane).
 tabRegistry.set('git-diff', {
   icon: GitDiff,
-  content: GitDiffTab,
+  content: GitDiffPane,
   isBuiltin: true,
 });
 

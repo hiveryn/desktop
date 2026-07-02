@@ -37,7 +37,6 @@ export default defineConfig({
         // which live outside the desktop root.
         allow: [
           resolve(__dirname),
-          resolve(__dirname, '../git-diff'),
           resolve(__dirname, '../shared'),
           resolve(__dirname, '../tabplugin'),
         ],
@@ -52,10 +51,6 @@ export default defineConfig({
         // Local sibling packages — alias to source so renderer edits are live
         // (HMR) instead of resolving the stale copy pnpm's hoisted linker drops
         // into node_modules. These are build-free TSX/TS modules.
-        {
-          find: '@hiveryn/git-diff',
-          replacement: resolve(__dirname, '../git-diff/desktop/index.tsx'),
-        },
         {
           find: '@hiveryn/shared/domain',
           replacement: resolve(__dirname, '../shared/domain/index.ts'),

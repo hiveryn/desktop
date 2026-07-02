@@ -9,6 +9,7 @@ import { registerPaletteIpc } from './palette';
 import { registerPluginsIpc } from './plugins';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
+import { registerReposIpc } from './repos';
 import { registerSessionIpc } from './session';
 import { registerSessionsIpc } from './sessions';
 import { registerSystemIpc } from './system';
@@ -41,5 +42,6 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerTicketsIpc();
   registerSystemIpc();
   registerPluginsIpc();
+  registerReposIpc();
   registerTrayIpc();
 }

@@ -24,6 +24,7 @@ import { useEventsForActiveSession } from '../../../state/selectors';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 import ExtraTerminalStack from './ExtraTerminalStack';
+import GitDiffPane from './GitDiffPane';
 import TicketPane from './TicketPane';
 
 const EVENT_STATUSES: EventStatus[] = [
@@ -62,6 +63,7 @@ function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
   if (tabId === 'ticket') return 'right-ticket';
+  if (tabId === 'git-diff') return 'right-git-diff';
   return `right-terminal:${tabId}`;
 }
 
@@ -136,7 +138,7 @@ export default function RightPane({
 
   const pluginTabs = useMemo(() => {
     if (!activeSession) return [];
-    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal']);
+    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal', 'git-diff']);
     return activeSession.tabs.filter((tab) => !reserved.has(tab.type) && getTabPlugin(tab.type));
   }, [activeSession]);
 
@@ -347,6 +349,16 @@ export default function RightPane({
 
       <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
         {activeSession && <TicketPane sessionId={activeSession.id} />}
+      </div>
+
+      <div className={styles.tabPanel} data-active={effectiveTab === 'git-diff'}>
+        {activeSession && (
+          <GitDiffPane
+            sessionId={activeSession.id}
+            architectKey={architect?.key}
+            isActive={effectiveTab === 'git-diff'}
+          />
+        )}
       </div>
 
       {activeSession &&

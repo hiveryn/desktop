@@ -1,0 +1,157 @@
+.root {
+  /* Map react-diff-view's own theme variables onto the app's theme so light
+     and dark mode both stay legible without patching the library's markup. */
+  --diff-background-color: var(--theme-background);
+  --diff-text-color: var(--theme-text);
+  --diff-font-family: var(--font-family-mono);
+  --diff-selection-background-color: var(--theme-selection);
+  --diff-selection-text-color: var(--theme-text);
+  --diff-gutter-insert-background-color: color-mix(in srgb, var(--theme-status-success) 14%, transparent);
+  --diff-gutter-insert-text-color: var(--theme-text-subtle);
+  --diff-gutter-delete-background-color: color-mix(in srgb, var(--theme-status-error) 14%, transparent);
+  --diff-gutter-delete-text-color: var(--theme-text-subtle);
+  --diff-gutter-selected-background-color: var(--theme-selection);
+  --diff-gutter-selected-text-color: var(--theme-text);
+  --diff-code-insert-background-color: color-mix(in srgb, var(--theme-status-success) 14%, transparent);
+  --diff-code-insert-text-color: var(--theme-status-success);
+  --diff-code-delete-background-color: color-mix(in srgb, var(--theme-status-error) 14%, transparent);
+  --diff-code-delete-text-color: var(--theme-status-error);
+  --diff-code-insert-edit-background-color: color-mix(in srgb, var(--theme-status-success) 30%, transparent);
+  --diff-code-insert-edit-text-color: var(--theme-status-success);
+  --diff-code-delete-edit-background-color: color-mix(in srgb, var(--theme-status-error) 30%, transparent);
+  --diff-code-delete-edit-text-color: var(--theme-status-error);
+  --diff-code-selected-background-color: var(--theme-selection);
+  --diff-code-selected-text-color: var(--theme-text);
+  --diff-omit-gutter-line-color: var(--theme-border-strong);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.section + .section {
+  border-top: 1px solid var(--theme-border-strong);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+  background: var(--theme-surface-1);
+  font-size: var(--font-size-xs);
+}
+
+.sectionKind {
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-text-muted);
+}
+
+.sectionStats {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.additions {
+  color: var(--theme-status-success);
+}
+
+.deletions {
+  color: var(--theme-status-error);
+}
+
+.sectionHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.viewToggle {
+  display: inline-flex;
+  border: 1px solid var(--theme-border);
+}
+
+.viewToggleButton {
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: 0.15em 0.6em;
+  cursor: pointer;
+}
+
+.viewToggleButton + .viewToggleButton {
+  border-left: 1px solid var(--theme-border);
+}
+
+.viewToggleButton[data-active] {
+  background: var(--theme-selection);
+  color: var(--theme-text);
+}
+
+.note {
+  padding: var(--space-2) var(--space-h-2);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Diff table: horizontal scroll instead of word-wrap, tight gutters ── */
+.diffScroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.diffScroll :global(.diff) {
+  table-layout: auto;
+  width: auto;
+  min-width: 100%;
+}
+
+.diffScroll :global(.diff-gutter-col) {
+  width: 3.5ch;
+}
+
+.diffScroll :global(.diff-code) {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* A pure add/delete file (e.g. a new or fully-removed file) never populates
+   one side of the unified gutter — collapse that always-blank column instead
+   of reserving a fixed-width gutter for it on every row. */
+.diffScroll[data-diff-type='add'] :global(.diff-unified colgroup col.diff-gutter-col:first-child) {
+  visibility: collapse;
+}
+
+.diffScroll[data-diff-type='delete'] :global(.diff-unified colgroup col.diff-gutter-col:nth-child(2)) {
+  visibility: collapse;
+}
+
+.rawFallback {
+  margin: 0;
+  overflow: auto;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-h-2);
+  color: var(--theme-text-muted);
+  background: var(--theme-background);
+  white-space: pre;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
