@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { useErrorCenterStore } from '../state/errorCenterStore';
-import { useToastStore } from '../state/toastStore';
 
 const CHANNEL_TITLES: Record<string, string> = {
   'config:shortcuts': 'Shortcut Config',
@@ -43,15 +42,13 @@ interface PushableEntry {
 
 function push(entry: PushableEntry): void {
   useErrorCenterStore.getState().pushError(entry);
-  useToastStore.getState().pushToast({ title: entry.title, message: entry.message });
 }
 
 // Mounted once per architect window. Bridges the two currently-silent error
 // sources (daemon/API envelope errors via the existing onRequest plumbing,
 // and main-process SSE/WS failures via errors:infra-event) into the error
-// center + toast stores. Daemon-unreachable is handled in useDaemonRecovery,
-// which already tracks the health-status transition this would otherwise
-// duplicate.
+// center. Daemon-unreachable is handled in useDaemonRecovery, which already
+// tracks the health-status transition this would otherwise duplicate.
 export function useErrorCenterCapture(): void {
   useEffect(() => {
     const unsubscribeRequest = window.hiveryn.daemon.onRequest((entry) => {

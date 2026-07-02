@@ -10,7 +10,6 @@ import {
   Navigation,
   Plus,
   Text,
-  ToastHost,
 } from '@components';
 import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -263,7 +262,6 @@ export default function ArchitectWindow() {
         <div className={styles.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
 
-      <ToastHost />
       <ErrorCenterSheet />
     </div>
   );

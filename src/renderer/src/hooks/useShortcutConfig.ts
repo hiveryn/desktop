@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useErrorCenterStore } from '../state/errorCenterStore';
-import { useToastStore } from '../state/toastStore';
 
 export type ShortcutConfig = Record<string, Record<string, string>>;
 
@@ -30,7 +29,6 @@ export function useShortcutConfig(): ShortcutConfigState {
                 timestamp: Date.now(),
               };
               useErrorCenterStore.getState().pushError(entry);
-              useToastStore.getState().pushToast(entry);
               return;
             }
           }

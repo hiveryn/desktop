@@ -9,7 +9,6 @@ import {
   Navigation,
   ProfileSelector,
   Text,
-  ToastHost,
 } from '@components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useErrorCenterCapture } from '../hooks/useErrorCenterCapture';
@@ -181,7 +180,6 @@ export default function Launcher() {
         onClose={handleProfileSelectorClose}
       />
 
-      <ToastHost />
       <ErrorCenterSheet />
     </div>
   );
