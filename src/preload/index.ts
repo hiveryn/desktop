@@ -20,6 +20,8 @@ import type {
   DaemonHealthState,
   DaemonResult,
   DesktopConfig,
+  FsFileResponse,
+  FsTreeResponse,
   InfraErrorEvent,
   RendererLogPayload,
   RepoCommitDiffResponse,
@@ -90,6 +92,9 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   },
   'tray:hide': { method: 'IPC', path: '/tray/hide' },
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
+  'fs:listDir': { method: 'GET', path: '/api/fs/tree?path=:path' },
+  'fs:readFile': { method: 'GET', path: '/api/fs/file?path=:path' },
+  'fs:pickDirectory': { method: 'IPC', path: '/fs/pick-directory' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -358,6 +363,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
       fn: string,
       args: Record<string, unknown>,
     ): Promise<unknown> => invokePluginCall('plugins:call', sessionId, pluginName, fn, args),
+  },
+  fs: {
+    listDir: (path: string): Promise<FsTreeResponse> => invoke('fs:listDir', path),
+    readFile: (path: string): Promise<FsFileResponse> => invoke('fs:readFile', path),
+    pickDirectory: (): Promise<string | null> => invoke('fs:pickDirectory'),
   },
   repos: {
     diff: (architectKey: string, repoKey: string): Promise<RepoDiffResponse> =>

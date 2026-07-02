@@ -1,0 +1,90 @@
+.pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--theme-text);
+  background: var(--theme-background);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.backButton,
+.collapseButton,
+.refreshButton {
+  flex-shrink: 0;
+}
+
+.refreshButton {
+  margin-left: auto;
+}
+
+/* ── Wide: two-pane split ────────────────────────────────────── */
+.split {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--theme-border);
+}
+
+/* Collapsed: viewer takes the full width; the tree stays mounted so its
+   expansion state (and fetched levels) survive reopening. */
+.split[data-collapsed] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.split[data-collapsed] .sidebar {
+  display: none;
+}
+
+.viewerPane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.emptyViewer {
+  padding: var(--space-4) var(--space-h-2);
+  color: var(--theme-text-muted);
+}
+
+/* ── Narrow: drill-down single pane ──────────────────────────── */
+.single {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

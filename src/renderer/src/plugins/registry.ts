@@ -7,8 +7,9 @@ import type { ComponentType } from 'react';
 // would hit the temporal dead zone ("Cannot access 'Kanban' before
 // initialization").
 import EventLog from '../components/EventLog/EventLog';
-import { Activity, GitDiff, Kanban, Terminal } from '../components/icons';
+import { Activity, Folder, GitDiff, Kanban, Terminal } from '../components/icons';
 import KanbanBoard from '../components/KanbanBoard/KanbanBoard';
+import FilesPane from '../pages/architect-window/components/files/FilesPane';
 import GitDiffPane from '../pages/architect-window/components/GitDiffPane';
 import TicketWorkflow from '../pages/architect-window/components/TicketWorkflow';
 import SessionTerminal from '../pages/architect-window/SessionTerminal';
@@ -57,6 +58,14 @@ tabRegistry.set('terminal', {
 tabRegistry.set('git-diff', {
   icon: GitDiff,
   content: GitDiffPane,
+  isBuiltin: true,
+});
+
+// Same reserved-set precedent as 'git-diff': the rendered pane is the
+// self-fetching FilesPane wired directly into RightPane.
+tabRegistry.set('files', {
+  icon: Folder,
+  content: FilesPane,
   isBuiltin: true,
 });
 

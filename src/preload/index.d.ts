@@ -380,6 +380,33 @@ interface RepoCommitDiffResponse {
   summary: RepoDiffSummary;
 }
 
+// ── Filesystem browse (native files tab) ────────────────────────────────────
+
+type FsEntryKind = 'file' | 'dir' | 'symlink' | 'other';
+
+interface FsEntry {
+  name: string;
+  kind: FsEntryKind;
+  size: number;
+  mtime: string;
+  ignored?: boolean;
+}
+
+interface FsTreeResponse {
+  path: string;
+  entries: FsEntry[];
+  total: number;
+  truncated?: boolean;
+}
+
+interface FsFileResponse {
+  path: string;
+  contentType: string;
+  size: number;
+  truncated: boolean;
+  bytes: Uint8Array;
+}
+
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
@@ -491,6 +518,11 @@ interface HiverynAPI {
       fn: string,
       args: Record<string, unknown>,
     ) => Promise<unknown>;
+  };
+  fs: {
+    listDir: (path: string) => Promise<FsTreeResponse>;
+    readFile: (path: string) => Promise<FsFileResponse>;
+    pickDirectory: () => Promise<string | null>;
   };
   repos: {
     diff: (architectKey: string, repoKey: string) => Promise<RepoDiffResponse>;

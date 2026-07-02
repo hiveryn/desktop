@@ -19,7 +19,7 @@ export { default as Navigation } from './Navigation/Navigation';
 export { default as LinkButton } from './LinkButton/LinkButton';
 export { default as IconButton } from './IconButton/IconButton';
 export { default as Glyph } from './Glyph/Glyph';
-export { Sun, Moon, Back, Forward, Close, Search, Settings, Plus, Refresh, Check, ChevronRight, Ellipsis, Kanban, Activity, AgentIdle, AgentWaiting, AgentStopped, Terminal, TicketIcon, GitDiff, AlertTriangle } from './icons';
+export { Sun, Moon, Back, Forward, Close, Search, Settings, Plus, Refresh, Check, ChevronRight, Ellipsis, Kanban, Activity, AgentIdle, AgentWaiting, AgentStopped, Terminal, TicketIcon, GitDiff, AlertTriangle, Folder } from './icons';
 export { default as EventLog } from './EventLog/EventLog';
 export type { SessionEvent, EventStatus, EventLogProps } from './EventLog/EventLog';
 export { default as TabBar } from './TabBar/TabBar';

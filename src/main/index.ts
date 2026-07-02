@@ -28,6 +28,35 @@ function configureWindow(window: BrowserWindow): void {
     shell.openExternal(details.url);
     return { action: 'deny' };
   });
+
+  // The renderer is an SPA — in-window navigation (e.g. clicking a plain
+  // anchor in rendered markdown) is a bug. Block everything except reloads of
+  // the renderer itself (Vite full-reload uses location.reload(), which fires
+  // will-navigate too); hand web/mail links to the OS default handler.
+  window.webContents.on('will-navigate', (event, url) => {
+    if (isSelfNavigation(url, window.webContents.getURL())) return;
+    event.preventDefault();
+    if (/^(https?|mailto):/.test(url)) {
+      void shell.openExternal(url);
+    }
+  });
+}
+
+function isSelfNavigation(url: string, currentUrl: string): boolean {
+  let target: URL;
+  let current: URL;
+  try {
+    target = new URL(url);
+    current = new URL(currentUrl);
+  } catch {
+    return false;
+  }
+  // file: URLs all share the opaque 'null' origin, so compare paths — only a
+  // reload of the packaged renderer entry itself counts as self.
+  if (target.protocol === 'file:') {
+    return current.protocol === 'file:' && target.pathname === current.pathname;
+  }
+  return target.origin !== 'null' && target.origin === current.origin;
 }
 
 function loadRoute(window: BrowserWindow, route: string): void {

@@ -1,0 +1,44 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.segmentWrap {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.separator {
+  padding: 0 0.5ch;
+  color: var(--theme-text-subtle);
+}
+
+.segment {
+  border: 0;
+  padding: 0;
+  color: var(--theme-text-muted);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.segment:hover {
+  color: var(--theme-text);
+  text-decoration: underline;
+}
+
+.segment:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: 1px;
+}
+
+.segment[data-current] {
+  color: var(--theme-text);
+}

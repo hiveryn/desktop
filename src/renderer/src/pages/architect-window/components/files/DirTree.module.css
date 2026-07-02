@@ -1,0 +1,14 @@
+.tree {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+}
+
+.levelMessage {
+  padding: var(--space-1) var(--space-h-2);
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}

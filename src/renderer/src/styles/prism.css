@@ -1,0 +1,81 @@
+/*
+ * Prism/refractor token colors, mapped to the app's theme tokens so they
+ * follow the terminal palette. Global on purpose: both the files-tab
+ * CodeViewer and the git-diff DiffView emit `token` classNames.
+ */
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--theme-text-subtle);
+  font-style: italic;
+}
+
+.token.keyword,
+.token.atrule,
+.token.rule,
+.token.important {
+  color: var(--theme-ansi-magenta);
+}
+
+.token.string,
+.token.char,
+.token.attr-value,
+.token.template-string,
+.token.regex {
+  color: var(--theme-ansi-green);
+}
+
+.token.function,
+.token.class-name,
+.token.function-variable {
+  color: var(--theme-ansi-blue);
+}
+
+.token.number,
+.token.boolean,
+.token.constant,
+.token.symbol {
+  color: var(--theme-ansi-yellow);
+}
+
+.token.operator,
+.token.punctuation {
+  color: var(--theme-text-muted);
+}
+
+.token.property,
+.token.tag,
+.token.builtin,
+.token.namespace,
+.token.selector {
+  color: var(--theme-ansi-cyan);
+}
+
+.token.attr-name,
+.token.variable,
+.token.parameter {
+  color: var(--theme-ansi-bright-yellow);
+}
+
+.token.deleted {
+  color: var(--theme-ansi-red);
+}
+
+.token.inserted {
+  color: var(--theme-ansi-green);
+}
+
+.token.url,
+.token.entity {
+  color: var(--theme-ansi-bright-cyan);
+}
+
+.token.bold {
+  font-weight: 600;
+}
+
+.token.italic {
+  font-style: italic;
+}

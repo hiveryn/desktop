@@ -3,6 +3,7 @@ import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
 import { registerConfigIpc } from './config';
 import { registerDaemonIpc } from './daemon';
+import { registerFsIpc } from './fs';
 import { registerLauncherIpc } from './launcher';
 import { registerLogsIpc } from './logs';
 import { registerPaletteIpc } from './palette';
@@ -41,6 +42,7 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerTerminalsIpc();
   registerTicketsIpc();
   registerSystemIpc();
+  registerFsIpc();
   registerPluginsIpc();
   registerReposIpc();
   registerTrayIpc();

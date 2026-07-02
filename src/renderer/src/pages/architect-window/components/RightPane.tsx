@@ -24,6 +24,7 @@ import { useEventsForActiveSession } from '../../../state/selectors';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
 import ExtraTerminalStack from './ExtraTerminalStack';
+import FilesPane from './files/FilesPane';
 import GitDiffPane from './GitDiffPane';
 import TicketPane from './TicketPane';
 
@@ -64,6 +65,7 @@ function tabIdToFocusId(tabId: string): string {
   if (tabId === 'event-log') return 'right-event-log';
   if (tabId === 'ticket') return 'right-ticket';
   if (tabId === 'git-diff') return 'right-git-diff';
+  if (tabId === 'files') return 'right-files';
   return `right-terminal:${tabId}`;
 }
 
@@ -138,7 +140,7 @@ export default function RightPane({
 
   const pluginTabs = useMemo(() => {
     if (!activeSession) return [];
-    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal', 'git-diff']);
+    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal', 'git-diff', 'files']);
     return activeSession.tabs.filter((tab) => !reserved.has(tab.type) && getTabPlugin(tab.type));
   }, [activeSession]);
 
@@ -357,6 +359,16 @@ export default function RightPane({
             sessionId={activeSession.id}
             architectKey={architect?.key}
             isActive={effectiveTab === 'git-diff'}
+          />
+        )}
+      </div>
+
+      <div className={styles.tabPanel} data-active={effectiveTab === 'files'}>
+        {activeSession && architect && (
+          <FilesPane
+            sessionId={activeSession.id}
+            architect={architect}
+            isActive={effectiveTab === 'files'}
           />
         )}
       </div>

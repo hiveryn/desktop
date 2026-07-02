@@ -1,0 +1,206 @@
+/* ── Code viewer ─────────────────────────────────────────────── */
+.code {
+  margin: 0;
+  padding: var(--space-2) 0;
+  min-width: 0;
+  overflow: auto;
+  flex: 1;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--theme-text);
+  background: var(--theme-background);
+  counter-reset: line;
+  tab-size: 4;
+}
+
+.code code {
+  display: block;
+  min-width: fit-content;
+  font: inherit;
+}
+
+.codeLine {
+  display: block;
+  min-height: 1lh;
+  padding-right: var(--space-h-2);
+  white-space: pre;
+  counter-increment: line;
+}
+
+.codeLine::before {
+  content: counter(line);
+  display: inline-block;
+  width: 4ch;
+  margin-right: var(--space-h-2);
+  padding-right: 1ch;
+  color: var(--theme-text-subtle);
+  text-align: right;
+  user-select: none;
+}
+
+/* ── Markdown viewer ─────────────────────────────────────────── */
+.markdownViewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.markdownBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2) var(--space-h-2);
+  font-family: var(--font-family-sans, sans-serif);
+}
+
+.markdownBody img {
+  max-width: 100%;
+}
+
+/* Floating rendered/source toggle: faint until the viewer is hovered. */
+.modeToggle {
+  position: absolute;
+  z-index: 5;
+  right: var(--space-h-2);
+  bottom: var(--space-2);
+  display: flex;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-background);
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+
+.markdownViewer:hover .modeToggle,
+.modeToggle:focus-within {
+  opacity: 1;
+}
+
+.modeToggleButton {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  padding: var(--space-1);
+  color: var(--theme-text-muted);
+  background: transparent;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.modeToggleButton[data-active] {
+  color: var(--theme-text);
+  background: var(--theme-selection);
+}
+
+.modeToggleButton:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
+}
+
+/* ── Frontmatter strip ───────────────────────────────────────── */
+.frontmatter {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0 var(--space-h-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-h-2);
+  border: 1px solid var(--theme-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+.frontmatter dt {
+  color: var(--theme-text-subtle);
+}
+
+.frontmatter dd {
+  margin: 0;
+  color: var(--theme-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── Mermaid diagrams ────────────────────────────────────────── */
+.mermaid {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-2) 0;
+  overflow: auto;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaidLoading {
+  padding: var(--space-2);
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
+.mermaidError {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--theme-status-error);
+  color: var(--theme-status-error);
+  font-size: var(--font-size-xs);
+}
+
+.mermaidError pre {
+  margin: 0;
+  color: var(--theme-text-muted);
+  overflow: auto;
+}
+
+/* ── Image viewer ────────────────────────────────────────────── */
+.imageViewer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2) var(--space-h-2);
+}
+
+.imageViewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ── Markdown images ─────────────────────────────────────────── */
+.imageLoading,
+.imageError {
+  font-size: var(--font-size-xs);
+  color: var(--theme-text-subtle);
+}
+
+.imageError {
+  color: var(--theme-status-error);
+}
+
+/* ── Binary / can't-preview note ─────────────────────────────── */
+.binaryNote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-h-2);
+  color: var(--theme-text-muted);
+}
+
+.binaryTitle {
+  color: var(--theme-text);
+}
+
+.binaryMeta {
+  font-size: var(--font-size-xs);
+  color: var(--theme-text-subtle);
+}

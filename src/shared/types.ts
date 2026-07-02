@@ -252,6 +252,35 @@ export interface RepoCommitDiffResponse {
   summary: RepoDiffSummary;
 }
 
+// ── Filesystem browse (native files tab) ────────────────────────────────────
+
+export type FsEntryKind = 'file' | 'dir' | 'symlink' | 'other';
+
+export interface FsEntry {
+  name: string;
+  kind: FsEntryKind;
+  size: number;
+  mtime: string;
+  ignored?: boolean;
+}
+
+export interface FsTreeResponse {
+  path: string;
+  entries: FsEntry[];
+  total: number;
+  truncated?: boolean;
+}
+
+// /api/fs/file returns raw bytes (not an envelope); the main process folds the
+// body + sniffed headers into this shape so it can cross IPC as one payload.
+export interface FsFileResponse {
+  path: string;
+  contentType: string;
+  size: number;
+  truncated: boolean;
+  bytes: Uint8Array;
+}
+
 // Daemon-emitted architect event (e.g. a ticket being concluded).
 export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
 // Synthetic event the main process emits on every SSE (re)connect so the

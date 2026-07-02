@@ -19,3 +19,4 @@ export { default as Terminal } from './Terminal';
 export { default as TicketIcon } from './TicketIcon';
 export { default as GitDiff } from './GitDiff';
 export { default as AlertTriangle } from './AlertTriangle';
+export { default as Folder } from './Folder';

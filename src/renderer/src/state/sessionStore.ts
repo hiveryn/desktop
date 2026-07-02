@@ -107,6 +107,7 @@ function focusIdForTab(tab: string): string {
   if (tab === 'kanban') return 'right-kanban';
   if (tab === 'event-log') return 'right-event-log';
   if (tab === 'ticket') return 'right-ticket';
+  if (tab === 'files') return 'right-files';
   return `right-terminal:${tab}`;
 }
 

@@ -19,12 +19,12 @@ The renderer has **no Node.js access**. It can only call functions exposed on `w
 ```
 src/
   main/
-    index.ts              Electron app setup — window creation, registerIpc(), createTray(), global shortcut
+    index.ts              Electron app setup — window creation, registerIpc(), createTray(), global shortcut, navigation guard (blocks in-window navigation; external links → default browser)
     tray.ts               Menu bar Tray + frameless popover window (loads #/tray); doubles as the centered ⌥Space palette
     globalShortcut.ts     OS-global palette shortcut — reads os-global.palette, registers via globalShortcut, surfaces failures
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
-      client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
+      client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws; daemonFetchRaw() for raw-bytes endpoints (envelope errors, raw success body)
       health.ts           Daemon health polling — GET /api/health, broadcasts daemon:health-status
       sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-session per webContents
@@ -43,6 +43,7 @@ src/
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       plugins.ts          plugins:call handler → POST /api/sessions/:id/plugins/call (routes to tabplugin)
       repos.ts            repos:diff/repos:commitDiff → GET /api/architects/:key/repos/:repoKey/diff[/commits/:sha/diff] (native git-diff tab)
+      fs.ts               fs:listDir/fs:readFile → GET /api/fs/tree + /api/fs/file (raw bytes via daemonFetchRaw); fs:pickDirectory → native directory dialog (native files tab)
       launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the palette / tray)
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the palette
@@ -59,6 +60,7 @@ src/
       sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane (per-session), active selection, pendingApprovals (per-session)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
       errorCenterStore.ts Zustand store — durable, per-window error history (entries, unreadCount, sheetOpen); see "Error center" below
+      filesStore.ts       Zustand store — per-session files-tab view state (root, current dir, open file, expanded dirs) + window-lifetime custom picker roots
     hooks/
       useShortcutConfig.ts        Fetches keybindings from daemon; exposes ShortcutConfig type
       useErrorCenterCapture.ts    Bridges daemon.onRequest + errors.onInfraEvent into errorCenterStore
@@ -78,7 +80,11 @@ src/
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketPane, TicketWorkflow, GitDiffPane,
-                                 ConcludeSessionDialog, FreeformSessionDialog, ApprovalDialog
+                                 ConcludeSessionDialog, FreeformSessionDialog, ApprovalDialog,
+                                 files/ (native files tab — FilesPane, DirTree/DirListing,
+                                 RootPicker, Breadcrumb, FileViewer + viewer registry:
+                                 code/markdown/image/binary; classify.ts dispatches on
+                                 Content-Type + extension + UTF-8 probe)
       dashboard/          Dashboard page
       agent-profiles/     Agent Profiles page — index, profile-card, profile-form, schema
     components/
@@ -95,8 +101,9 @@ src/
      styles/
        global.css          Renderer global styles imported through @styles/global.css
        reset.css           Shared reset imported by global.css
+       prism.css           Prism/refractor token colors mapped to theme tokens — global, colors both the files-tab CodeViewer and DiffView
      plugins/
-       registry.ts         Tab plugin registry — maps tab type → component; built-ins registered (incl. git-diff)
+       registry.ts         Tab plugin registry — maps tab type → component; built-ins registered (incl. git-diff, files)
        types.ts            TabPluginComponent type
        sessionContext.ts   buildSessionContext() — SessionContext for plugin tab components
    shared/
@@ -228,11 +235,13 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 ## Pluggable tab component system
 
-Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff) are registered at startup; plugin tabs can be added via `registerTabPlugin()`. All pluggable tab components share desktop's single React instance (peerDep contract + dedupe in `electron.vite.config.ts`).
+Tab types from the daemon (`SessionTab.type`) are no longer hardcoded. `src/renderer/src/plugins/registry.ts` maps each tab type string to a React component (icon + content). Built-in tabs (kanban, event-log, ticket, terminal, git-diff, files) are registered at startup; plugin tabs can be added via `registerTabPlugin()`. All pluggable tab components share desktop's single React instance (peerDep contract + dedupe in `electron.vite.config.ts`).
 
-**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket/git-diff; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
+**`RightPane.mapTabToBarTab`** uses `getTabPlugin(type)` to look up the icon component for the `TabBar`. Unknown tab types return `null` (filtered out of the tab bar). For any registered tab type beyond the hardcoded panes (kanban/event-log/ticket/git-diff/files; terminals are handled by `ExtraTerminalStack`), `RightPane` renders the plugin's `content` component generically, passing `session` (a `SessionContext` built via `buildSessionContext()`) and `call` (from `createPluginCall(sessionId, type)`).
 
 `git-diff` is a **native** tab, not a `plugins:call`-backed one — `RightPane` renders it via a hardcoded panel like `ticket`/`TicketPane`, and its registry `content` slot is unreachable dead weight kept only so `mapTabToBarTab` has an icon to look up (same precedent as `ticket`/`TicketWorkflow`). `GitDiffPane` (`pages/architect-window/components/GitDiffPane.tsx`) is self-fetching: resolves the session's ticket → repo key, calls `repos:diff` (`src/main/ipc/repos.ts` → `GET /api/architects/{key}/repos/{repoKey}/diff`), and refetches on tab activation, manual refresh, and a debounced watch of `useEventsForActiveSession()` for file-mutating tool events (`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`ApplyPatch`). It renders the diff through the reusable `DiffView` component (`components/DiffView/`), which takes parsed-diff-shaped props with no fetching of its own.
+
+`files` is the second native tab (same reserved-set wiring): a read-only file explorer/viewer over the daemon's global `GET /api/fs/tree` + `GET /api/fs/file` endpoints. `FilesPane` (`pages/architect-window/components/files/`) self-measures with a ResizeObserver — two-pane lazy tree + viewer when wide, drill-down single pane when narrow — and keeps per-session state (picker root, current dir, open file, expanded dirs) in `state/filesStore.ts` so tab/session switches don't reset. The root picker offers the architect workspace (`architect.path`), each repo, and Electron-dialog custom paths (`fs:pickDirectory`). Viewers dispatch by classified kind via `viewerRegistry.ts` (`Map<kind, component>`): refractor-highlighted code (reusing `DiffView/languages.ts` + global `styles/prism.css` token colors), markdown (react-markdown + remark-gfm with frontmatter strip, mermaid diagrams via lazily-imported `mermaid`, relative links/images resolved through the daemon, fragment links scroll-to-heading — never `location.hash`, which the app routes on), images/svg via blob URLs (CSP allows `img-src blob: https:`), and a binary/undecodable fallback. Enable it by adding `- type: files` to a session type in `~/.hiveryn/tabs.yaml` — no daemon changes.
 
 **Plugin IPC** (`plugins:call`) forwards `(sessionId, pluginType, fn, args)` to `POST /api/sessions/:id/plugins/call` (body `{ type, fn, args }`), which the daemon routes to the registered tabplugin. The daemon returns the plugin's `tabplugin.Response` envelope (`data`/`error`/`logs`/`commands`/`meta`) with HTTP 200 even when the plugin itself reports an error — only a non-2xx status (unknown session/plugin) is thrown as a transport error. The preload's `invokePluginCall()` reflects this: it returns the full envelope on 2xx (so callers can inspect `response.error`) and only throws on non-2xx.
 
