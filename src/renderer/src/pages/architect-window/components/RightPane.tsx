@@ -111,21 +111,34 @@ export default function RightPane({
 
   // ── Plugin tab session context ──────────────────────────────────────────
   const [sessionTicket, setSessionTicket] = useState<Ticket | null>(null);
+  // undefined = ticket fetch in flight (or session isn't a ticket session yet);
+  // settles to the ticket's repo, or null once we know there isn't one.
+  const [sessionTicketRepo, setSessionTicketRepo] = useState<string | null | undefined>(null);
+
+  // Reset synchronously (during render, not in an effect) when the active
+  // session changes, so children — whose effects run before this component's
+  // own effects — never observe a stale previous session's ticket data.
+  const ticketResetSessionIdRef = useRef<string | undefined>(undefined);
+  if (activeSession?.id !== ticketResetSessionIdRef.current) {
+    ticketResetSessionIdRef.current = activeSession?.id;
+    setSessionTicket(null);
+    setSessionTicketRepo(activeSession?.type === 'ticket' ? undefined : null);
+  }
 
   useEffect(() => {
-    if (activeSession?.type !== 'ticket') {
-      setSessionTicket(null);
-      return;
-    }
+    if (activeSession?.type !== 'ticket') return;
     let cancelled = false;
-    setSessionTicket(null);
     window.hiveryn.sessions.getTicket(activeSession.id).then(
       (t) => {
-        if (!cancelled) setSessionTicket(t);
+        if (!cancelled) {
+          setSessionTicket(t);
+          setSessionTicketRepo(t.repo ?? null);
+        }
       },
       () => {
         // Ticket fetch errors are surfaced by TicketPane; the plugin tab simply
         // renders without ticket context until it succeeds.
+        if (!cancelled) setSessionTicketRepo(null);
       },
     );
     return () => {
@@ -369,6 +382,7 @@ export default function RightPane({
             sessionId={activeSession.id}
             architect={architect}
             isActive={effectiveTab === 'files'}
+            ticketRepo={sessionTicketRepo}
           />
         )}
       </div>

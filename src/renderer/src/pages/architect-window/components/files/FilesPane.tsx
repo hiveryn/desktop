@@ -22,9 +22,11 @@ interface Props {
   sessionId: string;
   architect: Architect;
   isActive: boolean;
+  /** undefined = ticket lookup still in flight; null = no ticket repo. */
+  ticketRepo: string | null | undefined;
 }
 
-export default function FilesPane({ sessionId, architect, isActive }: Props) {
+export default function FilesPane({ sessionId, architect, isActive, ticketRepo }: Props) {
   const customRoots = useFilesStore((s) => s.customRoots);
   const slice = useFilesStore((s) => s.bySession[sessionId]);
   const addCustomRoot = useFilesStore((s) => s.addCustomRoot);
@@ -56,10 +58,23 @@ export default function FilesPane({ sessionId, architect, isActive }: Props) {
     [architect, customRoots],
   );
 
-  // First time this session's tab is used, default to the workspace root.
+  // First time this session's tab is used, default to the ticket's repo (if
+  // any) so ticket sessions open in the repo they're scoped to rather than
+  // the architect workspace root.
   useEffect(() => {
-    if (!slice) setRoot(sessionId, 'workspace', architect.path);
-  }, [slice, sessionId, architect.path, setRoot]);
+    if (slice) return;
+    // Ticket lookup still in flight — wait rather than locking in the
+    // workspace root before we know whether this session has a repo.
+    if (ticketRepo === undefined) return;
+    const ticketRepoPath = ticketRepo
+      ? architect.repos?.find((r) => r.key === ticketRepo)?.path
+      : undefined;
+    if (ticketRepoPath) {
+      setRoot(sessionId, `repo:${ticketRepo}`, ticketRepoPath);
+    } else {
+      setRoot(sessionId, 'workspace', architect.path);
+    }
+  }, [slice, sessionId, architect.path, architect.repos, ticketRepo, setRoot]);
 
   // ── Responsive mode (self-measured; no width signal in the tab framework) ─
   const paneRef = useRef<HTMLDivElement>(null);
