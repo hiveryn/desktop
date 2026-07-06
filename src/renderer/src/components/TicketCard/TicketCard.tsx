@@ -16,20 +16,24 @@ interface TicketCardProps extends React.HTMLAttributes<HTMLDivElement> {
   selected?: boolean;
 }
 
-const TicketCard: React.FC<TicketCardProps> = ({ ticket, selected, className, ...rest }) => {
-  const classes = [styles.root, selected ? styles.selected : undefined, className]
-    .filter(Boolean)
-    .join(' ');
+const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
+  ({ ticket, selected, className, ...rest }, ref) => {
+    const classes = [styles.root, selected ? styles.selected : undefined, className]
+      .filter(Boolean)
+      .join(' ');
 
-  return (
-    <div className={classes} {...rest}>
-      <div className={styles.title}>{ticket.title}</div>
-      <div className={styles.meta}>
-        <span className={styles.repo}>{ticket.repo ?? ''}</span>
-        <span className={styles.time}>{formatTime(ticket.updated ?? '')}</span>
+    return (
+      <div ref={ref} className={classes} {...rest}>
+        <div className={styles.title}>{ticket.title}</div>
+        <div className={styles.meta}>
+          <span className={styles.repo}>{ticket.repo ?? ''}</span>
+          <span className={styles.time}>{formatTime(ticket.updated ?? '')}</span>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
+
+TicketCard.displayName = 'TicketCard';
 
 export default TicketCard;

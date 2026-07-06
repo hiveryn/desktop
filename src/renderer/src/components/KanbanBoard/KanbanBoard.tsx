@@ -27,6 +27,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   className,
   ...rest
 }) => {
+  const activeCardRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    activeCardRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selectedTicketId]);
+
   if (loading) {
     return (
       <div className={[styles.state, className].filter(Boolean).join(' ')} {...rest}>
@@ -51,17 +57,35 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     <div className={classes} {...rest}>
       <KanbanColumn title="Backlog" count={board.backlog.length} focused={focusedColumn === 0}>
         {board.backlog.map(t => (
-          <TicketCard key={t.id} ticket={t} selected={t.id === selectedTicketId} onClick={() => onTicketSelect?.(t)} />
+          <TicketCard
+            key={t.id}
+            ticket={t}
+            selected={t.id === selectedTicketId}
+            ref={t.id === selectedTicketId ? activeCardRef : undefined}
+            onClick={() => onTicketSelect?.(t)}
+          />
         ))}
       </KanbanColumn>
       <KanbanColumn title="In Progress" count={board.progress.length} accent="warning" focused={focusedColumn === 1}>
         {board.progress.map(t => (
-          <TicketCard key={t.id} ticket={t} selected={t.id === selectedTicketId} onClick={() => onTicketSelect?.(t)} />
+          <TicketCard
+            key={t.id}
+            ticket={t}
+            selected={t.id === selectedTicketId}
+            ref={t.id === selectedTicketId ? activeCardRef : undefined}
+            onClick={() => onTicketSelect?.(t)}
+          />
         ))}
       </KanbanColumn>
       <KanbanColumn title="Done" count={board.done.length} accent="success" focused={focusedColumn === 2}>
         {board.done.map(t => (
-          <TicketCard key={t.id} ticket={t} selected={t.id === selectedTicketId} onClick={() => onTicketSelect?.(t)} />
+          <TicketCard
+            key={t.id}
+            ticket={t}
+            selected={t.id === selectedTicketId}
+            ref={t.id === selectedTicketId ? activeCardRef : undefined}
+            onClick={() => onTicketSelect?.(t)}
+          />
         ))}
       </KanbanColumn>
     </div>
