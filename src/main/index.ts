@@ -6,7 +6,7 @@ import { loadAndRegisterGlobalShortcut } from './globalShortcut';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
-import { createTray } from './tray';
+import { createTray, stopTrayStatusPoll } from './tray';
 
 app.setPath('userData', join(DESKTOP_RUNTIME_HOME, 'desktop'));
 if (IS_DESKTOP_DEVELOPMENT) {
@@ -263,6 +263,7 @@ app.whenReady().then(() => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   daemonHealth.stop();
+  stopTrayStatusPoll();
   shutdownDesktopLogging();
 });
 
