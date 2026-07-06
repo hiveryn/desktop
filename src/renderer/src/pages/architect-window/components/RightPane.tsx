@@ -372,6 +372,7 @@ export default function RightPane({
             sessionId={activeSession.id}
             architectKey={architect?.key}
             isActive={effectiveTab === 'git-diff'}
+            shortcutConfig={shortcutConfig}
           />
         )}
       </div>

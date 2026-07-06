@@ -172,6 +172,8 @@ function tabIdToFocusId(tabId: string): string {
   if (tabId === 'kanban') return 'right-kanban';
   if (tabId === 'event-log') return 'right-event-log';
   if (tabId === 'ticket') return 'right-ticket';
+  if (tabId === 'git-diff') return 'right-git-diff';
+  if (tabId === 'files') return 'right-files';
   return `right-terminal:${tabId}`;
 }
 

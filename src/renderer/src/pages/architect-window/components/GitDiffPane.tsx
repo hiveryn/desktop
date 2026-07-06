@@ -2,7 +2,11 @@ import type { DiffViewFile, DiffViewSection } from '@components';
 import { DiffView, GitDiff, IconButton, Refresh } from '@components';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RepoDiffFile, RepoDiffResponse } from '../../../../../shared/types';
+import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
+import { registerDynamicHandler } from '../../../keys/dispatcher';
+import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { useEventsForActiveSession } from '../../../state/selectors';
+import { useSessionStore } from '../../../state/sessionStore';
 import styles from './GitDiffPane.module.css';
 
 // Tool names normalized by agentruntime (agentruntime/adapter/*/normalize.go)
@@ -59,15 +63,18 @@ interface Props {
   sessionId: string;
   architectKey: string | undefined;
   isActive: boolean;
+  shortcutConfig: ShortcutConfig | null;
 }
 
-export default function GitDiffPane({ sessionId, architectKey, isActive }: Props) {
+export default function GitDiffPane({ sessionId, architectKey, isActive, shortcutConfig }: Props) {
   const [home, setHome] = useState('');
   const [repo, setRepo] = useState<string | null | undefined>(undefined); // undefined = unknown yet
   const [data, setData] = useState<RepoDiffResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const diffPaneRef = useRef<HTMLDivElement>(null);
+  const fileButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     window.hiveryn.system.getUserHome().then(setHome, () => {});
@@ -137,6 +144,59 @@ export default function GitDiffPane({ sessionId, architectKey, isActive }: Props
     return data.files.find((f) => f.path === selectedPath) ?? data.files[0] ?? null;
   }, [data, selectedPath]);
 
+  useEffect(() => {
+    const path = selectedFile?.path;
+    if (!path) return;
+    fileButtonRefs.current.get(path)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedFile?.path]);
+
+  const isGitDiffFocused = useSessionStore((s) => s.focusedPane === 'right-git-diff');
+  const shortcutConfigRef = useRef(shortcutConfig);
+  shortcutConfigRef.current = shortcutConfig;
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const selectedFileRef = useRef(selectedFile);
+  selectedFileRef.current = selectedFile;
+
+  useEffect(() => {
+    if (!isGitDiffFocused) return;
+    return registerDynamicHandler((e) => {
+      const cfg = shortcutConfigRef.current;
+      if (!cfg) return 'passthrough';
+      if (e.repeat) return 'passthrough';
+      if (isTextInputFocused()) return 'passthrough';
+      // Modifier-bearing combos belong to global shortcuts.
+      if (e.metaKey || e.ctrlKey || e.altKey) return 'passthrough';
+
+      const gitDiffCfg = cfg['git-diff'] ?? {};
+      const DOWN = gitDiffCfg.down ?? 'j';
+      const UP = gitDiffCfg.up ?? 'k';
+      const SCROLL_DOWN = gitDiffCfg['scroll-down'] ?? 'shift+j';
+      const SCROLL_UP = gitDiffCfg['scroll-up'] ?? 'shift+k';
+
+      if (matchesShortcut(e, SCROLL_DOWN)) {
+        diffPaneRef.current?.scrollBy({ top: diffPaneRef.current.clientHeight * 0.5 });
+        return 'consumed';
+      }
+      if (matchesShortcut(e, SCROLL_UP)) {
+        diffPaneRef.current?.scrollBy({ top: -diffPaneRef.current.clientHeight * 0.5 });
+        return 'consumed';
+      }
+
+      if (matchesShortcut(e, DOWN) || matchesShortcut(e, UP)) {
+        const files = dataRef.current?.files ?? [];
+        if (files.length === 0) return 'consumed';
+        const idx = files.findIndex((f) => f.path === selectedFileRef.current?.path);
+        const delta = matchesShortcut(e, DOWN) ? 1 : -1;
+        const nextIdx = idx === -1 ? 0 : (idx + delta + files.length) % files.length;
+        setSelectedPath(files[nextIdx].path);
+        return 'consumed';
+      }
+
+      return 'passthrough';
+    });
+  }, [isGitDiffFocused]);
+
   if (repo === null) {
     return (
       <div className={styles.pane}>
@@ -200,6 +260,10 @@ export default function GitDiffPane({ sessionId, architectKey, isActive }: Props
               <button
                 type="button"
                 key={file.path}
+                ref={(el) => {
+                  if (el) fileButtonRefs.current.set(file.path, el);
+                  else fileButtonRefs.current.delete(file.path);
+                }}
                 className={styles.fileCard}
                 data-selected={file.path === selectedFile?.path || undefined}
                 onClick={() => setSelectedPath(file.path)}
@@ -223,7 +287,7 @@ export default function GitDiffPane({ sessionId, architectKey, isActive }: Props
             ))}
           </aside>
 
-          <div className={styles.diffPane}>
+          <div className={styles.diffPane} ref={diffPaneRef}>
             {selectedFile && (
               <DiffView key={selectedFile.path} file={toDiffViewFile(selectedFile)} />
             )}
