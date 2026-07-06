@@ -1,110 +1,102 @@
-import type { FsEntry } from '../../../../../../shared/types';
+import { useMemo } from 'react';
 import styles from './DirTree.module.css';
 import EntryRow from './EntryRow';
-import { useDirListing } from './useDirListing';
-
-export function sortEntries(entries: FsEntry[]): FsEntry[] {
-  return [...entries].sort((a, b) => {
-    const aDir = a.kind === 'dir' ? 0 : 1;
-    const bDir = b.kind === 'dir' ? 0 : 1;
-    if (aDir !== bDir) return aDir - bDir;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-export function joinPath(dir: string, name: string): string {
-  return dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
-}
+import type { DirNodeState, VisibleRow } from './useDirTreeData';
 
 interface DirTreeProps {
   rootPath: string;
-  expandedDirs: string[];
+  rows: VisibleRow[];
+  nodes: Map<string, DirNodeState>;
   selectedPath: string | null;
-  refreshSeq: number;
+  cursorPath: string | null;
   onOpenFile(path: string): void;
   onToggleDir(path: string): void;
+  rowRef?(path: string, node: HTMLElement | null): void;
 }
 
-// Lazy tree sidebar: each expanded level is its own DirLevel with its own
-// one-level fetch; collapsing unmounts children, so re-expanding refetches.
-export default function DirTree(props: DirTreeProps) {
-  return (
-    <div className={styles.tree}>
-      <DirLevel path={props.rootPath} depth={0} {...props} />
-    </div>
-  );
+type RenderItem =
+  | { kind: 'row'; row: VisibleRow }
+  | { kind: 'banner'; key: string; message: string };
+
+function bannerMessage(node: DirNodeState | undefined): string | null {
+  if (node?.error) return 'Failed to load directory — see error center';
+  if (!node?.data) return node?.loading ? 'Loading…' : null;
+  if (node.data.truncated) {
+    return `Showing ${node.data.entries.length} of ${node.data.total} entries`;
+  }
+  return null;
 }
 
-interface DirLevelProps extends DirTreeProps {
-  path: string;
-  depth: number;
+// Interleaves each directory's loading/error/truncated banner right after
+// the last row of its subtree (or immediately after its own row, if it has
+// no children yet) — matching where the old per-level DirLevel components
+// used to render these messages, now computed from the flat row list via a
+// depth-based stack instead of component nesting.
+function buildRenderItems(
+  rootPath: string,
+  rows: VisibleRow[],
+  nodes: Map<string, DirNodeState>,
+): RenderItem[] {
+  const items: RenderItem[] = [];
+  const stack: Array<{ path: string; depth: number }> = [{ path: rootPath, depth: -1 }];
+
+  const closeTo = (depth: number): void => {
+    while (stack.length > 0 && stack[stack.length - 1].depth >= depth) {
+      const dir = stack.pop();
+      if (!dir) break;
+      const message = bannerMessage(nodes.get(dir.path));
+      if (message) items.push({ kind: 'banner', key: `${dir.path}:banner`, message });
+    }
+  };
+
+  for (const row of rows) {
+    closeTo(row.depth);
+    items.push({ kind: 'row', row });
+    if (row.expanded) stack.push({ path: row.path, depth: row.depth });
+  }
+  closeTo(-Infinity);
+
+  return items;
 }
 
-function DirLevel({
-  path,
-  depth,
+// Flat tree sidebar rendered from `rows`/`nodes` — the shared fetch cache
+// (useDirTreeData) is owned by FilesPane so the keyboard handler can walk
+// the exact same visible-row list this component renders from.
+export default function DirTree({
   rootPath,
-  expandedDirs,
+  rows,
+  nodes,
   selectedPath,
-  refreshSeq,
+  cursorPath,
   onOpenFile,
   onToggleDir,
-}: DirLevelProps) {
-  const { data, loading, error } = useDirListing(path, refreshSeq);
-
-  if (error) {
-    return <div className={styles.levelMessage}>Failed to load directory — see error center</div>;
-  }
-  if (!data) {
-    return loading ? <div className={styles.levelMessage}>Loading…</div> : null;
-  }
+  rowRef,
+}: DirTreeProps) {
+  const items = useMemo(() => buildRenderItems(rootPath, rows, nodes), [rootPath, rows, nodes]);
 
   return (
-    <>
-      {sortEntries(data.entries).map((entry) => {
-        const entryPath = joinPath(path, entry.name);
-        if (entry.kind === 'dir') {
-          const expanded = expandedDirs.includes(entryPath);
-          return (
-            <div key={entry.name}>
-              <EntryRow
-                entry={entry}
-                depth={depth}
-                expanded={expanded}
-                onClick={() => onToggleDir(entryPath)}
-              />
-              {expanded && (
-                <DirLevel
-                  path={entryPath}
-                  depth={depth + 1}
-                  rootPath={rootPath}
-                  expandedDirs={expandedDirs}
-                  selectedPath={selectedPath}
-                  refreshSeq={refreshSeq}
-                  onOpenFile={onOpenFile}
-                  onToggleDir={onToggleDir}
-                />
-              )}
-            </div>
-          );
-        }
-        return (
-          <EntryRow
-            key={entry.name}
-            entry={entry}
-            depth={depth}
-            selected={entry.kind === 'file' && selectedPath === entryPath}
-            onClick={() => {
-              if (entry.kind === 'file') onOpenFile(entryPath);
-            }}
-          />
-        );
-      })}
-      {data.truncated && (
-        <div className={styles.levelMessage}>
-          Showing {data.entries.length} of {data.total} entries
-        </div>
+    <div className={styles.tree}>
+      {items.map((item) =>
+        item.kind === 'banner' ? (
+          <div key={item.key} className={styles.levelMessage}>
+            {item.message}
+          </div>
+        ) : (
+          <div key={item.row.path} ref={(el) => rowRef?.(item.row.path, el)}>
+            <EntryRow
+              entry={item.row.entry}
+              depth={item.row.depth}
+              expanded={item.row.entry.kind === 'dir' ? item.row.expanded : undefined}
+              selected={item.row.entry.kind === 'file' && selectedPath === item.row.path}
+              cursor={cursorPath === item.row.path}
+              onClick={() => {
+                if (item.row.entry.kind === 'dir') onToggleDir(item.row.path);
+                else onOpenFile(item.row.path);
+              }}
+            />
+          </div>
+        ),
       )}
-    </>
+    </div>
   );
 }

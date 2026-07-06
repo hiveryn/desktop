@@ -383,6 +383,7 @@ export default function RightPane({
             architect={architect}
             isActive={effectiveTab === 'files'}
             ticketRepo={sessionTicketRepo}
+            shortcutConfig={shortcutConfig}
           />
         )}
       </div>

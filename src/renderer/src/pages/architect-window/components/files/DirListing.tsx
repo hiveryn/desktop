@@ -1,19 +1,37 @@
-import { joinPath, sortEntries } from './DirTree';
+import { useEffect, useRef } from 'react';
+import type { FsTreeResponse } from '../../../../../../shared/types';
 import styles from './DirTree.module.css';
+import { joinPath, sortEntries } from './dirTreeUtils';
 import EntryRow from './EntryRow';
-import { useDirListing } from './useDirListing';
 
 interface Props {
   path: string;
-  refreshSeq: number;
+  data: FsTreeResponse | null;
+  loading: boolean;
+  error: unknown | null;
+  cursorPath: string | null;
   onOpenFile(path: string): void;
   onEnterDir(path: string): void;
 }
 
-// Flat one-directory listing for the narrow drill-down mode. Same rows and
-// fetch hook as the tree, recomposed without nesting.
-export default function DirListing({ path, refreshSeq, onOpenFile, onEnterDir }: Props) {
-  const { data, loading, error } = useDirListing(path, refreshSeq);
+// Flat one-directory listing for the narrow drill-down mode. Fetch state is
+// owned by FilesPane (lifted up so the keyboard handler can read the same
+// sorted entries this component renders, without a second fetch).
+export default function DirListing({
+  path,
+  data,
+  loading,
+  error,
+  cursorPath,
+  onOpenFile,
+  onEnterDir,
+}: Props) {
+  const rowRefs = useRef(new Map<string, HTMLElement>());
+
+  useEffect(() => {
+    if (!cursorPath) return;
+    rowRefs.current.get(cursorPath)?.scrollIntoView({ block: 'nearest' });
+  }, [cursorPath]);
 
   if (error) {
     return <div className={styles.levelMessage}>Failed to load directory — see error center</div>;
@@ -27,14 +45,22 @@ export default function DirListing({ path, refreshSeq, onOpenFile, onEnterDir }:
       {sortEntries(data.entries).map((entry) => {
         const entryPath = joinPath(path, entry.name);
         return (
-          <EntryRow
+          <div
             key={entry.name}
-            entry={entry}
-            onClick={() => {
-              if (entry.kind === 'dir') onEnterDir(entryPath);
-              else if (entry.kind === 'file') onOpenFile(entryPath);
+            ref={(el) => {
+              if (el) rowRefs.current.set(entryPath, el);
+              else rowRefs.current.delete(entryPath);
             }}
-          />
+          >
+            <EntryRow
+              entry={entry}
+              cursor={cursorPath === entryPath}
+              onClick={() => {
+                if (entry.kind === 'dir') onEnterDir(entryPath);
+                else if (entry.kind === 'file') onOpenFile(entryPath);
+              }}
+            />
+          </div>
         );
       })}
       {data.truncated && (

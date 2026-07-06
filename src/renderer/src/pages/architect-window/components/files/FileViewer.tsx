@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { classify, formatBytes } from './classify';
 import styles from './FileViewer.module.css';
 import { useFileContent } from './useFileContent';
@@ -10,13 +10,33 @@ interface Props {
   onOpenFile?(path: string): void;
 }
 
+export interface FileViewerHandle {
+  scrollHalfPage(direction: 'up' | 'down'): void;
+}
+
 function fileName(path: string): string {
   return path.split('/').pop() ?? path;
 }
 
-export default function FileViewer({ path, refreshSeq, onOpenFile }: Props) {
+const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
+  { path, refreshSeq, onOpenFile },
+  ref,
+) {
   const { data, loading, error } = useFileContent(path, refreshSeq);
   const classified = useMemo(() => (data ? classify(data) : null), [data]);
+  const scrollNodeRef = useRef<HTMLElement | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollHalfPage(direction) {
+        const node = scrollNodeRef.current;
+        if (!node) return;
+        node.scrollBy({ top: (direction === 'down' ? 1 : -1) * node.clientHeight * 0.5 });
+      },
+    }),
+    [],
+  );
 
   if (error) {
     return <div className={styles.message}>Failed to load file — see error center</div>;
@@ -52,8 +72,13 @@ export default function FileViewer({ path, refreshSeq, onOpenFile }: Props) {
           text={classified.text}
           language={classified.language}
           onOpenFile={onOpenFile}
+          scrollRef={(node) => {
+            scrollNodeRef.current = node;
+          }}
         />
       </div>
     </div>
   );
-}
+});
+
+export default FileViewer;

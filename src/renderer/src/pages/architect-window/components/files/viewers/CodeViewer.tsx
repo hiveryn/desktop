@@ -13,7 +13,7 @@ registerLanguages();
 const HIGHLIGHT_MAX_BYTES = 512 * 1024;
 const HIGHLIGHT_MAX_LINES = 10_000;
 
-export default function CodeViewer({ file, text, language }: ViewerProps) {
+export default function CodeViewer({ file, text, language, scrollRef }: ViewerProps) {
   const lines = useMemo<ReactNode[][]>(() => {
     if (text === null) {
       throw new Error(`CodeViewer requires decoded text for ${file.path}`);
@@ -33,7 +33,7 @@ export default function CodeViewer({ file, text, language }: ViewerProps) {
   }, [text, language, file.path]);
 
   return (
-    <pre className={styles.code}>
+    <pre ref={scrollRef} className={styles.code}>
       <code>
         {lines.map((line, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and the text is immutable per mount

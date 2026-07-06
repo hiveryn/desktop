@@ -13,6 +13,10 @@ export interface ViewerProps {
   language?: string;
   // Open another file in the explorer (e.g. a relative markdown link).
   onOpenFile?(path: string): void;
+  // Reports the viewer's scrollable root node (or null on unmount) so
+  // FileViewer can drive Shift+J/Shift+K half-page scrolling. Attached to
+  // whichever element each viewer already scrolls internally.
+  scrollRef?(node: HTMLElement | null): void;
 }
 
 // Viewer dispatch by classified kind. Future kinds (image, pdf) are one

@@ -27,6 +27,11 @@
   box-shadow: inset 2px 0 0 var(--theme-focus-ring);
 }
 
+.row[data-cursor] {
+  outline: 1px solid var(--theme-focus-ring);
+  outline-offset: -1px;
+}
+
 .row[data-ignored] {
   opacity: 0.45;
 }

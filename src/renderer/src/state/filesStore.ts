@@ -16,6 +16,10 @@ export interface FilesSessionState {
   currentDir: string;
   openFilePath: string | null;
   expandedDirs: string[];
+  // Vim-style keyboard cursor row. Independent of openFilePath — moving the
+  // cursor with j/k never opens a file — but kept in sync at click/open call
+  // sites so mouse and keyboard interaction never diverge.
+  cursorPath: string | null;
 }
 
 interface FilesState {
@@ -31,6 +35,7 @@ interface FilesActions {
   setCurrentDir(sessionId: string, dir: string): void;
   setOpenFile(sessionId: string, path: string | null): void;
   toggleExpanded(sessionId: string, dir: string): void;
+  setCursorPath(sessionId: string, path: string | null): void;
 }
 
 type FilesStore = FilesState & FilesActions;
@@ -67,6 +72,7 @@ export const useFilesStore = create<FilesStore>((set) => ({
           currentDir: rootPath,
           openFilePath: null,
           expandedDirs: [],
+          cursorPath: null,
         },
       },
     }));
@@ -100,5 +106,13 @@ export const useFilesStore = create<FilesStore>((set) => ({
         },
       };
     });
+  },
+  setCursorPath(sessionId, path) {
+    set((state) => ({
+      bySession: {
+        ...state.bySession,
+        [sessionId]: { ...requireSessionState(state, sessionId), cursorPath: path },
+      },
+    }));
   },
 }));

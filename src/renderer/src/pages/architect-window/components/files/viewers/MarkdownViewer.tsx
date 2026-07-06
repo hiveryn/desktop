@@ -82,7 +82,11 @@ const codeIcon = (
 export default function MarkdownViewer(props: ViewerProps) {
   const [mode, setMode] = useState<MarkdownMode>('rendered');
   const bodyRef = useRef<HTMLDivElement>(null);
-  const { file, text, onOpenFile } = props;
+  const { file, text, onOpenFile, scrollRef } = props;
+  const setBodyRef = (node: HTMLDivElement | null): void => {
+    bodyRef.current = node;
+    scrollRef?.(node);
+  };
   const parsed = useMemo(() => (text === null ? null : extractFrontmatter(text)), [text]);
   if (text === null || parsed === null) {
     throw new Error(`MarkdownViewer requires decoded text for ${file.path}`);
@@ -153,7 +157,7 @@ export default function MarkdownViewer(props: ViewerProps) {
   return (
     <div className={styles.markdownViewer}>
       {mode === 'rendered' ? (
-        <div ref={bodyRef} className={`${styles.markdownBody} ${mdStyles.markdown}`}>
+        <div ref={setBodyRef} className={`${styles.markdownBody} ${mdStyles.markdown}`}>
           {parsed.pairs && parsed.pairs.length > 0 && (
             <dl className={styles.frontmatter}>
               {parsed.pairs.map(([key, value], i) => (
@@ -183,7 +187,7 @@ export default function MarkdownViewer(props: ViewerProps) {
           </ReactMarkdown>
         </div>
       ) : (
-        <CodeViewer file={file} text={text} language="markdown" />
+        <CodeViewer file={file} text={text} language="markdown" scrollRef={scrollRef} />
       )}
       <div className={styles.modeToggle}>
         <button

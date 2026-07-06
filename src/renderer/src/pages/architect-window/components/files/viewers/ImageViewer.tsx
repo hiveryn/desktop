@@ -6,7 +6,7 @@ import styles from './Viewers.module.css';
 // Renders the already-fetched bytes via a blob URL — same technique as
 // MarkdownImage, but for the file itself. Serving svg through <img> also
 // inherently disables any embedded scripting.
-export default function ImageViewer({ file, text }: ViewerProps) {
+export default function ImageViewer({ file, text, scrollRef }: ViewerProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -21,11 +21,11 @@ export default function ImageViewer({ file, text }: ViewerProps) {
   }, [file]);
 
   // The browser couldn't decode it (e.g. TIFF) — fall back to the note.
-  if (failed) return <BinaryNote file={file} text={text} />;
+  if (failed) return <BinaryNote file={file} text={text} scrollRef={scrollRef} />;
   if (!url) return null;
 
   return (
-    <div className={styles.imageViewer}>
+    <div ref={scrollRef} className={styles.imageViewer}>
       <img src={url} alt={file.path} onError={() => setFailed(true)} />
     </div>
   );
