@@ -19,9 +19,23 @@ const architectWindows = new Map<string, BrowserWindow>();
 
 initializeDesktopLogging();
 
+// Bring a window to the front. On macOS, window.show()/focus() alone won't raise
+// a window when another app is frontmost — the app itself must be activated first.
+// steal: true pulls focus even from the currently-active app, which is exactly the
+// case after selecting a target from the global (⌥Space) palette while another app
+// is in front.
+function raiseWindow(window: BrowserWindow): void {
+  if (process.platform === 'darwin') {
+    app.focus({ steal: true });
+  }
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
 function configureWindow(window: BrowserWindow): void {
   window.on('ready-to-show', () => {
-    window.show();
+    raiseWindow(window);
   });
 
   window.webContents.setWindowOpenHandler((details) => {
@@ -69,7 +83,7 @@ function loadRoute(window: BrowserWindow, route: string): void {
 
 function createLauncherWindow(): BrowserWindow {
   if (launcherWindow && !launcherWindow.isDestroyed()) {
-    launcherWindow.focus();
+    raiseWindow(launcherWindow);
     return launcherWindow;
   }
 
@@ -105,7 +119,7 @@ function createLauncherWindow(): BrowserWindow {
 function createArchitectWindow(architectKey: string): BrowserWindow {
   const existing = architectWindows.get(architectKey);
   if (existing && !existing.isDestroyed()) {
-    existing.focus();
+    raiseWindow(existing);
     return existing;
   }
 
@@ -153,6 +167,16 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId(
     IS_DESKTOP_DEVELOPMENT ? 'com.hiveryn.desktop.dev' : 'com.hiveryn.desktop',
   );
+
+  // A bare Electron binary (`make prod` — electron-vite preview, no .app bundle)
+  // launches without a foreground activation policy, so it never registers in
+  // cmd+tab or the dock. A packaged build inherits 'regular' from its Info.plist;
+  // force it here for unpackaged runs so the app is switchable and dock-visible.
+  // (Name/icon still come from the bundle, so unpackaged shows as "Electron".)
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.setActivationPolicy('regular');
+    void app.dock?.show();
+  }
 
   // On macOS, Electron's default Window menu binds Cmd+M to "Minimize Window",
   // which fires before any renderer keydown event — preventing the renderer from
