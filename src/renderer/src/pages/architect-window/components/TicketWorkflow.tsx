@@ -104,14 +104,16 @@ export default function TicketWorkflow({
   // Global `quit` shortcut (default: q) — dismisses the open dialog. Only
   // registered while a dialog is actually open so 'q' keystrokes elsewhere
   // (terminals, kanban, etc.) are not swallowed.
-  const dialogOpen = selectedTicket !== null || showProfileSelector;
+  const dialogOpen = selectedTicket !== null || showProfileSelector || spawnError !== null;
   useEffect(() => {
     if (!dialogOpen) return;
     const binding = shortcutConfig?.global?.quit;
     if (!binding) return;
     return registerDynamicHandler((e) => {
       if (!matchesShortcut(e, binding)) return 'passthrough';
-      if (showProfileSelector) {
+      if (spawnError) {
+        setSpawnError(null);
+      } else if (showProfileSelector) {
         handleProfileSelectorClose();
       } else if (selectedTicket) {
         onCloseTicket();
@@ -123,6 +125,7 @@ export default function TicketWorkflow({
     shortcutConfig,
     showProfileSelector,
     selectedTicket,
+    spawnError,
     onCloseTicket,
     handleProfileSelectorClose,
   ]);
@@ -151,6 +154,7 @@ export default function TicketWorkflow({
           title="Worker Spawn API Error"
           className={styles.error}
           style={{ position: 'fixed', bottom: 48, left: 16, zIndex: 100 }}
+          onDismiss={() => setSpawnError(null)}
         />
       ) : null}
     </>

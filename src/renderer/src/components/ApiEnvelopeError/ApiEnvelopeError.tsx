@@ -1,4 +1,7 @@
 import type { CSSProperties } from 'react';
+import Glyph from '../Glyph/Glyph';
+import IconButton from '../IconButton/IconButton';
+import { Close } from '../icons';
 import styles from './ApiEnvelopeError.module.css';
 
 interface EnvelopeLikeError extends Error {
@@ -13,6 +16,7 @@ interface ApiEnvelopeErrorProps {
   title?: string;
   className?: string;
   style?: CSSProperties;
+  onDismiss?: () => void;
 }
 
 function normalizeError(error: unknown): Record<string, unknown> {
@@ -44,10 +48,20 @@ export default function ApiEnvelopeError({
   title = 'API Error',
   className,
   style,
+  onDismiss,
 }: ApiEnvelopeErrorProps) {
   return (
     <section className={[styles.root, className].filter(Boolean).join(' ')} style={style} role="alert">
-      <div className={styles.header}>{title}</div>
+      <div className={styles.header}>
+        <span>{title}</span>
+        {onDismiss && (
+          <IconButton className={styles.dismiss} onClick={onDismiss} aria-label="Dismiss error">
+            <Glyph>
+              <Close />
+            </Glyph>
+          </IconButton>
+        )}
+      </div>
       <div className={styles.message}>{errorTitle(error)}</div>
       <pre className={styles.body}>{JSON.stringify(normalizeError(error), null, 2)}</pre>
     </section>
