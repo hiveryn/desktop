@@ -68,15 +68,26 @@ export function useDirTreeData(
     setNodes(new Map());
   }, [rootPath, refreshSeq]);
 
+  // The fetch effect must NOT depend on `nodes`: it calls setNodes below to
+  // mark directories loading, and if `nodes` were a dep that write would tear
+  // down this run, flip `cancelled` in cleanup, and drop the in-flight listDir
+  // result — leaving the node stuck `{ data: null, loading: true }` forever.
+  // Instead compute `missing` inside the functional updater (reading the live
+  // map, not a stale closure) and depend only on stable trigger deps. This
+  // mirrors useDirListing's [path, refreshSeq] pattern.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshSeq is a trigger dep (drives refetch after the reset effect clears nodes); nodes is read via the setNodes updater, not the closure
   useEffect(() => {
-    const missing = reachable.filter((path) => !nodes.has(path));
-    if (missing.length === 0) return;
+    if (reachable.length === 0) return;
     let cancelled = false;
+    let missing: string[] = [];
     setNodes((prev) => {
+      missing = reachable.filter((path) => !prev.has(path));
+      if (missing.length === 0) return prev;
       const next = new Map(prev);
       for (const path of missing) next.set(path, { data: null, loading: true, error: null });
       return next;
     });
+    if (missing.length === 0) return;
     for (const path of missing) {
       window.hiveryn.fs.listDir(path).then(
         (data) => {
@@ -92,7 +103,7 @@ export function useDirTreeData(
     return () => {
       cancelled = true;
     };
-  }, [reachable, nodes]);
+  }, [reachable, refreshSeq]);
 
   const rows = useMemo(() => {
     if (!rootPath) return [];
