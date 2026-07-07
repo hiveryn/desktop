@@ -232,7 +232,12 @@ export default function FilesPane({
       const LEFT = filesCfg.left ?? 'h';
       const SCROLL_DOWN = filesCfg['scroll-down'] ?? 'shift+j';
       const SCROLL_UP = filesCfg['scroll-up'] ?? 'shift+k';
+      const REFRESH = filesCfg.refresh ?? 'r';
 
+      if (matchesShortcut(e, REFRESH)) {
+        setRefreshSeq((seq) => seq + 1);
+        return 'consumed';
+      }
       if (matchesShortcut(e, SCROLL_DOWN)) {
         fileViewerRef.current?.scrollHalfPage('down');
         return 'consumed';

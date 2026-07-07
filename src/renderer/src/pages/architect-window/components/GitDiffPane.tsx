@@ -157,6 +157,8 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
   dataRef.current = data;
   const selectedFileRef = useRef(selectedFile);
   selectedFileRef.current = selectedFile;
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
 
   useEffect(() => {
     if (!isGitDiffFocused) return;
@@ -173,7 +175,12 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
       const UP = gitDiffCfg.up ?? 'k';
       const SCROLL_DOWN = gitDiffCfg['scroll-down'] ?? 'shift+j';
       const SCROLL_UP = gitDiffCfg['scroll-up'] ?? 'shift+k';
+      const REFRESH = gitDiffCfg.refresh ?? 'r';
 
+      if (matchesShortcut(e, REFRESH)) {
+        void refetchRef.current();
+        return 'consumed';
+      }
       if (matchesShortcut(e, SCROLL_DOWN)) {
         diffPaneRef.current?.scrollBy({ top: diffPaneRef.current.clientHeight * 0.5 });
         return 'consumed';
