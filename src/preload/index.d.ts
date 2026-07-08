@@ -526,14 +526,6 @@ interface HiverynAPI {
   tabs: {
     list: (sessionId: string) => Promise<SessionTab[]>;
   };
-  plugins: {
-    call: (
-      sessionId: string,
-      pluginName: string,
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<unknown>;
-  };
   fs: {
     listDir: (path: string) => Promise<FsTreeResponse>;
     search: (path: string, query: string) => Promise<FsSearchResponse>;

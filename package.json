@@ -26,7 +26,6 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@fontsource-variable/geist-mono": "^5.1.1",
     "@hiveryn/shared": "file:../shared",
-    "@hiveryn/tabplugin": "file:../tabplugin",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-unicode11": "^0.9.0",

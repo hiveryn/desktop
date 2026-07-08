@@ -1,8 +1,6 @@
 import type { ComponentType } from 'react';
 
 export interface TabPluginComponent {
-  // biome-ignore lint/suspicious/noExplicitAny: plugin components accept arbitrary props by tab type
+  // biome-ignore lint/suspicious/noExplicitAny: icon components have type-specific props
   icon: ComponentType<any>;
-  // biome-ignore lint/suspicious/noExplicitAny: plugin components accept arbitrary props by tab type
-  content: ComponentType<any>;
 }

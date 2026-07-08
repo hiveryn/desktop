@@ -35,11 +35,7 @@ export default defineConfig({
       fs: {
         // Allow serving source from the sibling local packages aliased below,
         // which live outside the desktop root.
-        allow: [
-          resolve(__dirname),
-          resolve(__dirname, '../shared'),
-          resolve(__dirname, '../tabplugin'),
-        ],
+        allow: [resolve(__dirname), resolve(__dirname, '../shared')],
       },
     },
     define: {
@@ -54,10 +50,6 @@ export default defineConfig({
         {
           find: '@hiveryn/shared/domain',
           replacement: resolve(__dirname, '../shared/domain/index.ts'),
-        },
-        {
-          find: '@hiveryn/tabplugin',
-          replacement: resolve(__dirname, '../tabplugin/index.ts'),
         },
         {
           find: '@components',

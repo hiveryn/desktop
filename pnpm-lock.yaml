@@ -20,9 +20,6 @@ importers:
       '@hiveryn/shared':
         specifier: file:../shared
         version: file:../shared
-      '@hiveryn/tabplugin':
-        specifier: file:../tabplugin
-        version: file:../tabplugin
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
@@ -639,9 +636,6 @@ packages:
 
   '@hiveryn/shared@file:../shared':
     resolution: {directory: ../shared, type: directory}
-
-  '@hiveryn/tabplugin@file:../tabplugin':
-    resolution: {directory: ../tabplugin, type: directory}
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -3263,10 +3257,6 @@ snapshots:
   '@fontsource-variable/geist-mono@5.2.7': {}
 
   '@hiveryn/shared@file:../shared': {}
-
-  '@hiveryn/tabplugin@file:../tabplugin':
-    dependencies:
-      '@hiveryn/shared': file:../shared
 
   '@iconify/types@2.0.0': {}
 

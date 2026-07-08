@@ -6,20 +6,13 @@ import {
   TabBar,
   type TabBarTab,
 } from '@components';
-import type {
-  SessionEvent,
-  SessionTab,
-  Ticket,
-  TicketBoard,
-  TicketSummary,
-} from '@hiveryn/shared/domain';
+import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Architect } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
-import { createPluginCall, getTabPlugin } from '../../../plugins/registry';
-import { buildSessionContext } from '../../../plugins/sessionContext';
+import { getTabPlugin } from '../../../plugins/registry';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -109,8 +102,6 @@ export default function RightPane({
     [events],
   );
 
-  // ── Plugin tab session context ──────────────────────────────────────────
-  const [sessionTicket, setSessionTicket] = useState<Ticket | null>(null);
   // undefined = ticket fetch in flight (or session isn't a ticket session yet);
   // settles to the ticket's repo, or null once we know there isn't one.
   const [sessionTicketRepo, setSessionTicketRepo] = useState<string | null | undefined>(null);
@@ -121,7 +112,6 @@ export default function RightPane({
   const ticketResetSessionIdRef = useRef<string | undefined>(undefined);
   if (activeSession?.id !== ticketResetSessionIdRef.current) {
     ticketResetSessionIdRef.current = activeSession?.id;
-    setSessionTicket(null);
     setSessionTicketRepo(activeSession?.type === 'ticket' ? undefined : null);
   }
 
@@ -131,13 +121,10 @@ export default function RightPane({
     window.hiveryn.sessions.getTicket(activeSession.id).then(
       (t) => {
         if (!cancelled) {
-          setSessionTicket(t);
           setSessionTicketRepo(t.repo ?? null);
         }
       },
       () => {
-        // Ticket fetch errors are surfaced by TicketPane; the plugin tab simply
-        // renders without ticket context until it succeeds.
         if (!cancelled) setSessionTicketRepo(null);
       },
     );
@@ -145,17 +132,6 @@ export default function RightPane({
       cancelled = true;
     };
   }, [activeSession?.id, activeSession?.type]);
-
-  const sessionContext = useMemo(() => {
-    if (!activeSession || !architect) return null;
-    return buildSessionContext(activeSession, architect, sessionTicket);
-  }, [activeSession, architect, sessionTicket]);
-
-  const pluginTabs = useMemo(() => {
-    if (!activeSession) return [];
-    const reserved = new Set(['kanban', 'event-log', 'ticket', 'terminal', 'git-diff', 'files']);
-    return activeSession.tabs.filter((tab) => !reserved.has(tab.type) && getTabPlugin(tab.type));
-  }, [activeSession]);
 
   const hasAnySplit = useMemo(
     () => activeSession?.tabs.some((tab) => isSplitTerminalTab(tab)) ?? false,
@@ -388,22 +364,6 @@ export default function RightPane({
           />
         )}
       </div>
-
-      {activeSession &&
-        sessionContext &&
-        pluginTabs.map((tab) => {
-          const plugin = getTabPlugin(tab.type);
-          if (!plugin) return null;
-          const Content = plugin.content;
-          return (
-            <div key={tab.type} className={styles.tabPanel} data-active={effectiveTab === tab.type}>
-              <Content
-                session={sessionContext}
-                call={createPluginCall(activeSession.id, tab.type)}
-              />
-            </div>
-          );
-        })}
 
       <ExtraTerminalStack
         mode="primary"

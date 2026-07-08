@@ -7,7 +7,6 @@ import { registerFsIpc } from './fs';
 import { registerLauncherIpc } from './launcher';
 import { registerLogsIpc } from './logs';
 import { registerPaletteIpc } from './palette';
-import { registerPluginsIpc } from './plugins';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
 import { registerReposIpc } from './repos';
@@ -43,7 +42,6 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerTicketsIpc();
   registerSystemIpc();
   registerFsIpc();
-  registerPluginsIpc();
   registerReposIpc();
   registerTrayIpc();
 }
