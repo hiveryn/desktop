@@ -64,8 +64,66 @@
   color: var(--theme-status-error);
 }
 
+.collapseButton,
 .refreshButton {
   flex-shrink: 0;
+}
+
+/* ── Error states ────────────────────────────────────────────── */
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-h-2);
+  color: var(--theme-status-error);
+  overflow-wrap: anywhere;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-h-2);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+  color: var(--theme-status-error);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.retryButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--theme-brand);
+  font-size: var(--font-size-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── "/" filter over changed files ───────────────────────────── */
+.filterBar {
+  display: flex;
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.filterInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-h-2);
+  font: inherit;
+  color: inherit;
+  background: var(--theme-background-input);
+}
+
+.filterInput:focus {
+  outline: 1px solid var(--theme-focus-ring);
+  outline-offset: -1px;
 }
 
 /* ── Empty state ─────────────────────────────────────────────── */
@@ -98,18 +156,34 @@
 .fileList {
   display: flex;
   flex-direction: column;
+  padding: var(--space-1) 0;
   border-right: 1px solid var(--theme-border);
 }
 
-/* ── File card ───────────────────────────────────────────────── */
-.fileCard {
+/* Collapsed: the diff takes the full width; the list stays mounted so its
+   collapse/cursor state survives reopening. */
+.workspace[data-collapsed] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace[data-collapsed] .fileList {
+  display: none;
+}
+
+.listMessage {
+  padding: var(--space-1) var(--space-h-2);
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Tree rows (mirrors files/EntryRow) ──────────────────────── */
+.row {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  gap: 1ch;
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--theme-border);
-  padding: var(--space-2) var(--space-h-2);
+  padding: var(--space-1) var(--space-h-2);
   color: inherit;
   background: transparent;
   font: inherit;
@@ -118,69 +192,135 @@
   transition: background 100ms ease;
 }
 
-.fileCard:hover {
+.row:hover {
   background: var(--theme-surface-raised);
 }
 
-.fileCard:focus-visible {
+.row:focus-visible {
   outline: 1px solid var(--theme-focused-foreground);
   outline-offset: -1px;
 }
 
-.fileCard[data-selected] {
+.row[data-selected] {
   background: var(--theme-selection);
   box-shadow: inset 2px 0 0 var(--theme-focus-ring);
 }
 
-.fileName {
-  display: block;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  font-size: var(--font-size-sm);
-  line-height: 1.35;
+.row[data-cursor] {
+  outline: 1px solid var(--theme-focus-ring);
+  outline-offset: -1px;
 }
 
-/* ── Status & section badges ─────────────────────────────────── */
-.fileBadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  align-items: center;
+.glyph {
+  flex-shrink: 0;
+  width: 1ch;
+  color: var(--theme-text-subtle);
 }
 
-.statusBadge,
-.sectionBadge {
-  width: fit-content;
-  padding: 0 0.5ch;
-  border: 1px solid currentColor;
-  font-size: 9px;
-  line-height: 1.45;
-  letter-spacing: var(--letter-spacing-caps);
-  text-transform: uppercase;
-}
-
-.statusBadge[data-status="modified"] {
-  color: var(--theme-text-muted);
-}
-
-.statusBadge[data-status="new"],
-.statusBadge[data-status="untracked"],
-.statusBadge[data-status="copied"] {
-  color: var(--theme-status-success);
-}
-
-.statusBadge[data-status="deleted"] {
-  color: var(--theme-status-error);
-}
-
-.statusBadge[data-status="renamed"] {
+.dirLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--theme-status-info);
 }
 
-.sectionBadge[data-kind="staged"] {
+/* Compressed-chain ancestors of a dir label read quieter than its leaf. */
+.dirPrefix {
+  color: var(--theme-text-subtle);
+}
+
+.fileName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row[data-status="deleted"] .fileName {
+  color: var(--theme-text-muted);
+  text-decoration: line-through;
+}
+
+/* ── Status marker + stage dots ──────────────────────────────── */
+.statusChar {
+  flex-shrink: 0;
+  width: 1ch;
+  text-align: center;
+}
+
+.statusChar[data-status="modified"] {
+  color: var(--theme-text-muted);
+}
+
+.statusChar[data-status="new"],
+.statusChar[data-status="untracked"],
+.statusChar[data-status="copied"] {
   color: var(--theme-status-success);
 }
 
-.sectionBadge[data-kind="unstaged"] {
+.statusChar[data-status="deleted"] {
+  color: var(--theme-status-error);
+}
+
+.statusChar[data-status="renamed"] {
+  color: var(--theme-status-info);
+}
+
+/* Staged/unstaged is per-section, not per-file — a file can show both dots.
+   Off-state dots stay rendered (near-invisible) so the column never shifts. */
+.stageDots {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+}
+
+.stageDots > span {
+  color: var(--theme-border);
+}
+
+.stageDots > span[data-kind="staged"][data-on] {
+  color: var(--theme-status-success);
+}
+
+.stageDots > span[data-kind="unstaged"][data-on] {
   color: var(--theme-status-warning);
+}
+
+/* ── Filter match rows (mirrors files/SearchResults) ─────────── */
+.matchRow {
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+  width: 100%;
+  border: 0;
+  padding: var(--space-1) var(--space-h-2);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.matchRow:hover {
+  background: var(--theme-surface-raised);
+}
+
+.matchRow[data-selected] {
+  background: var(--theme-selection);
+  box-shadow: inset 2px 0 0 var(--theme-focus-ring);
+}
+
+.matchBase {
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matchDir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
 }

@@ -9,9 +9,11 @@ import {
 } from 'react';
 import type { Architect, FsEntry, FsSearchMatch } from '../../../../../../shared/types';
 import type { ShortcutConfig } from '../../../../hooks/useShortcutConfig';
+import { createChordMatcher } from '../../../../keys/chords';
 import { registerDynamicHandler } from '../../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../../keys/matchers';
 import { useFilesStore } from '../../../../state/filesStore';
+import { usePaneLayoutStore } from '../../../../state/paneLayoutStore';
 import { useSessionStore } from '../../../../state/sessionStore';
 import Breadcrumb from './Breadcrumb';
 import DirListing from './DirListing';
@@ -138,7 +140,9 @@ export default function FilesPane({
   }, []);
   const wide = paneWidth === null || paneWidth >= WIDE_MIN_WIDTH;
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Window-lifetime preference — survives session switches and pane remounts.
+  const sidebarCollapsed = usePaneLayoutStore((s) => s.filesSidebarCollapsed);
+  const toggleSidebar = usePaneLayoutStore((s) => s.toggleFilesSidebar);
 
   // ── Refetch on tab activation + manual refresh ────────────────────────────
   const [refreshSeq, setRefreshSeq] = useState(0);
@@ -320,9 +324,10 @@ export default function FilesPane({
   const wideRef = useRef(wide);
   wideRef.current = wide;
 
-  // Pending chord prefix (e.g. the first "g" of "g g"), keyed by the binding
-  // it belongs to. Cleared by any key that doesn't continue the chord.
-  const chordRef = useRef<{ binding: string; index: number; at: number } | null>(null);
+  // Pending chord prefix (e.g. the first "g" of "g g") lives inside the
+  // matcher; begin() clears it, so any key that doesn't continue the chord
+  // is handled normally.
+  const chordRef = useRef(createChordMatcher(CHORD_TIMEOUT_MS));
 
   const handleOpenFileRef = useRef(handleOpenFile);
   handleOpenFileRef.current = handleOpenFile;
@@ -373,11 +378,14 @@ export default function FilesPane({
       const SEARCH = filesCfg.search ?? '/';
       const TOGGLE_SIDEBAR = filesCfg['toggle-sidebar'] ?? 'b';
 
+      // Any key that reaches the handler resets the pending chord prefix
+      // (match() below may re-arm it).
+      chordRef.current.begin(e);
+
       // Escape closes an open search even when focus has wandered off the
       // input (its own onKeyDown covers the focused case via the text-input
       // guard above). Only consumed while a search is open.
       if (searchOpenRef.current && e.key === 'Escape') {
-        chordRef.current = null;
         setSearchOpen(false);
         setSearchQuery('');
         setSearchSel(0);
@@ -386,13 +394,11 @@ export default function FilesPane({
       // Tab (and Shift+Tab) hop back into the search input; the input's own
       // Tab handler blurs it — together they toggle typing ↔ list navigation.
       if (searchOpenRef.current && e.key === 'Tab') {
-        chordRef.current = null;
         searchInputRef.current?.focus();
         return 'consumed';
       }
       if (matchesShortcut(e, SEARCH)) {
         // Already open: re-focus the input (e.g. after clicking elsewhere).
-        chordRef.current = null;
         setSearchOpen(true);
         searchInputRef.current?.focus();
         return 'consumed';
@@ -429,36 +435,12 @@ export default function FilesPane({
         };
       })();
 
-      // Chord bindings are space-separated combos ("g g"). Any key that does
-      // not continue the pending chord clears it and is handled normally.
-      const pendingChord = chordRef.current;
-      chordRef.current = null;
-      const matchSequence = (binding: string): 'matched' | 'pending' | 'no' => {
-        const steps = binding.split(' ').filter(Boolean);
-        if (steps.length <= 1) return matchesShortcut(e, binding) ? 'matched' : 'no';
-        const continueIdx =
-          pendingChord?.binding === binding && e.timeStamp - pendingChord.at < CHORD_TIMEOUT_MS
-            ? pendingChord.index
-            : 0;
-        // A key that breaks the pending chord may still start it over
-        // (e.g. "g g g" after a stray prefix) — fall back to step 0.
-        const idx = matchesShortcut(e, steps[continueIdx])
-          ? continueIdx
-          : matchesShortcut(e, steps[0])
-            ? 0
-            : -1;
-        if (idx === -1) return 'no';
-        if (idx === steps.length - 1) return 'matched';
-        chordRef.current = { binding, index: idx + 1, at: e.timeStamp };
-        return 'pending';
-      };
-
-      const topMatch = matchSequence(TOP);
+      const topMatch = chordRef.current.match(TOP);
       if (topMatch !== 'no') {
         if (topMatch === 'matched' && nav.length > 0) nav.set(0);
         return 'consumed';
       }
-      const bottomMatch = matchSequence(BOTTOM);
+      const bottomMatch = chordRef.current.match(BOTTOM);
       if (bottomMatch !== 'no') {
         if (bottomMatch === 'matched' && nav.length > 0) nav.set(nav.length - 1);
         return 'consumed';
@@ -470,7 +452,7 @@ export default function FilesPane({
       }
       if (matchesShortcut(e, TOGGLE_SIDEBAR)) {
         // Mirrors the header collapse button, which only exists in wide mode.
-        if (wideRef.current) setSidebarCollapsed((prev) => !prev);
+        if (wideRef.current) usePaneLayoutStore.getState().toggleFilesSidebar();
         return 'consumed';
       }
       if (matchesShortcut(e, SCROLL_DOWN)) {
@@ -655,7 +637,7 @@ export default function FilesPane({
         {wide && (
           <IconButton
             className={styles.collapseButton}
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            onClick={toggleSidebar}
             aria-label={sidebarCollapsed ? 'Show file tree' : 'Hide file tree'}
             title={sidebarCollapsed ? 'Show file tree' : 'Hide file tree'}
           >
