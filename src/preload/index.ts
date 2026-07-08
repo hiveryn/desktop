@@ -21,6 +21,7 @@ import type {
   DaemonResult,
   DesktopConfig,
   FsFileResponse,
+  FsSearchResponse,
   FsTreeResponse,
   InfraErrorEvent,
   RendererLogPayload,
@@ -94,6 +95,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
   'fs:listDir': { method: 'GET', path: '/api/fs/tree?path=:path' },
   'fs:readFile': { method: 'GET', path: '/api/fs/file?path=:path' },
+  'fs:search': { method: 'GET', path: '/api/fs/search?path=:path&q=:q' },
   'fs:pickDirectory': { method: 'IPC', path: '/fs/pick-directory' },
 };
 
@@ -366,6 +368,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   fs: {
     listDir: (path: string): Promise<FsTreeResponse> => invoke('fs:listDir', path),
+    search: (path: string, query: string): Promise<FsSearchResponse> =>
+      invoke('fs:search', path, query),
     readFile: (path: string): Promise<FsFileResponse> => invoke('fs:readFile', path),
     pickDirectory: (): Promise<string | null> => invoke('fs:pickDirectory'),
   },

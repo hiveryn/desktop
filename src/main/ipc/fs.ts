@@ -1,5 +1,10 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
-import type { DaemonResult, FsFileResponse, FsTreeResponse } from '../../shared/types';
+import type {
+  DaemonResult,
+  FsFileResponse,
+  FsSearchResponse,
+  FsTreeResponse,
+} from '../../shared/types';
 import { daemonFetch, daemonFetchRaw } from '../daemon/client';
 import { errorResult, ok, withData } from './results';
 
@@ -8,6 +13,15 @@ export function registerFsIpc(): void {
     'fs:listDir',
     async (_event, path: string): Promise<DaemonResult<FsTreeResponse>> => {
       return daemonFetch<FsTreeResponse>(`/api/fs/tree?path=${encodeURIComponent(path)}`);
+    },
+  );
+
+  ipcMain.handle(
+    'fs:search',
+    async (_event, path: string, query: string): Promise<DaemonResult<FsSearchResponse>> => {
+      return daemonFetch<FsSearchResponse>(
+        `/api/fs/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(query)}`,
+      );
     },
   );
 

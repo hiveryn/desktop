@@ -407,6 +407,21 @@ interface FsFileResponse {
   bytes: Uint8Array;
 }
 
+interface FsSearchMatch {
+  /** Relative to the searched root, "/"-separated. */
+  path: string;
+}
+
+interface FsSearchResponse {
+  root: string;
+  query: string;
+  matches: FsSearchMatch[];
+  /** All matches found, before the limit cap. */
+  total: number;
+  /** Candidate collection hit the daemon's walk budget; matches may be incomplete. */
+  truncated?: boolean;
+}
+
 // ── Window API ─────────────────────────────────────────────────────────────
 
 interface HiverynAPI {
@@ -521,6 +536,7 @@ interface HiverynAPI {
   };
   fs: {
     listDir: (path: string) => Promise<FsTreeResponse>;
+    search: (path: string, query: string) => Promise<FsSearchResponse>;
     readFile: (path: string) => Promise<FsFileResponse>;
     pickDirectory: () => Promise<string | null>;
   };

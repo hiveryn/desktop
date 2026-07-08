@@ -271,6 +271,21 @@ export interface FsTreeResponse {
   truncated?: boolean;
 }
 
+export interface FsSearchMatch {
+  /** Relative to the searched root, "/"-separated. */
+  path: string;
+}
+
+export interface FsSearchResponse {
+  root: string;
+  query: string;
+  matches: FsSearchMatch[];
+  /** All matches found, before the limit cap. */
+  total: number;
+  /** Candidate collection hit the daemon's walk budget; matches may be incomplete. */
+  truncated?: boolean;
+}
+
 // /api/fs/file returns raw bytes (not an envelope); the main process folds the
 // body + sniffed headers into this shape so it can cross IPC as one payload.
 export interface FsFileResponse {

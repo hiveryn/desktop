@@ -1,6 +1,13 @@
 import { Back, Forward, IconButton, Refresh } from '@components';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Architect, FsEntry } from '../../../../../../shared/types';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { Architect, FsEntry, FsSearchMatch } from '../../../../../../shared/types';
 import type { ShortcutConfig } from '../../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../../keys/matchers';
@@ -13,12 +20,21 @@ import { joinPath, sortEntries } from './dirTreeUtils';
 import styles from './FilesPane.module.css';
 import FileViewer, { type FileViewerHandle } from './FileViewer';
 import RootPicker, { type RootOption } from './RootPicker';
+import SearchResults from './SearchResults';
 import { useDirListing } from './useDirListing';
 import { useDirTreeData } from './useDirTreeData';
+import { useFileSearch } from './useFileSearch';
 
 // Below this pane width the two-pane layout collapses into the drill-down
 // single-pane mode. Self-measured — the tab framework has no width signal.
 const WIDE_MIN_WIDTH = 640;
+
+// Max gap between the keys of a chord binding (e.g. "g g") before the pending
+// prefix expires and the next key is handled on its own.
+const CHORD_TIMEOUT_MS = 1000;
+
+// Rows moved by the { / } jump keys (clamped at the list edges, no wrap).
+const JUMP_ROWS = 6;
 
 const EMPTY_EXPANDED: string[] = [];
 
@@ -58,6 +74,7 @@ export default function FilesPane({
   const setCurrentDir = useFilesStore((s) => s.setCurrentDir);
   const setOpenFile = useFilesStore((s) => s.setOpenFile);
   const toggleExpanded = useFilesStore((s) => s.toggleExpanded);
+  const expandDirs = useFilesStore((s) => s.expandDirs);
   const setCursorPath = useFilesStore((s) => s.setCursorPath);
 
   const isFilesFocused = useSessionStore((s) => s.focusedPane === 'right-files');
@@ -111,7 +128,10 @@ export default function FilesPane({
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
-      if (width !== undefined) setPaneWidth(width);
+      // A hidden tab panel (display:none while another right tab is active)
+      // measures 0. Ignore it — otherwise the pane latches into narrow mode
+      // before its first visible paint and only corrects on the next resize.
+      if (width !== undefined && width > 0) setPaneWidth(width);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -142,12 +162,46 @@ export default function FilesPane({
 
   // ── Shared tree/listing fetch state — one instance, consumed by both the
   // renderer (DirTree/DirListing) and the keyboard handler below ───────────
-  const { rows, nodes } = useDirTreeData(rootPath, expandedDirs, refreshSeq);
+  const {
+    rows,
+    nodes,
+    settled: treeSettled,
+    retry,
+  } = useDirTreeData(rootPath, expandedDirs, refreshSeq);
   const narrowListing = useDirListing(slice && !wide ? currentDir : null, refreshSeq);
   const narrowEntries = useMemo(
     () => sortEntries(narrowListing.data?.entries ?? []),
     [narrowListing.data],
   );
+
+  // ── "/" filename search ───────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSel, setSearchSel] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const trimmedQuery = searchQuery.trim();
+  const search = useFileSearch(searchOpen ? rootPath : '', trimmedQuery);
+  // Search replaces the tree/listing only once there's something to match.
+  const searchActive = searchOpen && trimmedQuery !== '';
+
+  // The pane instance is shared across sessions — never carry an open search
+  // (or its query) over to another session's or root's context.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId/rootPath are trigger deps, not read inside the effect
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchSel(0);
+  }, [sessionId, rootPath]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  // Keep the selection inside the (possibly shrunk) result list.
+  const matchCount = search.data?.matches.length ?? 0;
+  useEffect(() => {
+    setSearchSel((sel) => (matchCount === 0 ? 0 : Math.min(sel, matchCount - 1)));
+  }, [matchCount]);
 
   const handleSelectRoot = (root: RootOption): void => {
     setRoot(sessionId, root.id, root.path);
@@ -185,6 +239,59 @@ export default function FilesPane({
     }
   };
 
+  const closeSearch = (): void => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchSel(0);
+  };
+
+  const openSearchResult = (relPath: string): void => {
+    const abs = joinPath(rootPath, relPath);
+    // Expand every ancestor between the root and the file so the tree shows
+    // the opened result in place instead of an orphaned selection.
+    const rootPrefix = rootPath.endsWith('/') ? rootPath : `${rootPath}/`;
+    const ancestors: string[] = [];
+    for (let dir = parentDir(abs); dir !== rootPath && dir.startsWith(rootPrefix); ) {
+      ancestors.push(dir);
+      dir = parentDir(dir);
+    }
+    if (ancestors.length > 0) expandDirs(sessionId, ancestors);
+    handleOpenFile(abs);
+    closeSearch();
+  };
+
+  const handleSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
+    const searchMatches = search.data?.matches ?? [];
+    const consume = (): void => {
+      e.preventDefault();
+      // Without this the event still bubbles to the document-level key
+      // dispatcher, which re-handles it against post-handler DOM state —
+      // Tab's blur() below, for instance, made the pane handler see a
+      // blurred input and re-focus it in the same keystroke.
+      e.stopPropagation();
+    };
+    if (e.key === 'ArrowDown') {
+      consume();
+      setSearchSel((sel) => Math.min(sel + 1, Math.max(searchMatches.length - 1, 0)));
+    } else if (e.key === 'ArrowUp') {
+      consume();
+      setSearchSel((sel) => Math.max(sel - 1, 0));
+    } else if (e.key === 'Enter') {
+      consume();
+      const match = searchMatches[searchSel];
+      if (match) openSearchResult(match.path);
+    } else if (e.key === 'Escape') {
+      consume();
+      closeSearch();
+    } else if (e.key === 'Tab') {
+      // Hand off to list navigation: once the input is blurred, the pane
+      // handler routes j/k, gg/G, {/} and o/Enter to the visible rows.
+      // Tab from the list side re-focuses the input (see the key handler).
+      consume();
+      searchInputRef.current?.blur();
+    }
+  };
+
   // ── Pane-local keyboard shortcuts ────────────────────────────────────────
   const shortcutConfigRef = useRef(shortcutConfig);
   shortcutConfigRef.current = shortcutConfig;
@@ -204,14 +311,39 @@ export default function FilesPane({
   const currentDirRef = useRef(currentDir);
   currentDirRef.current = currentDir;
 
+  const rootPathRef = useRef(rootPath);
+  rootPathRef.current = rootPath;
+
+  const openFilePathRef = useRef(openFilePath);
+  openFilePathRef.current = openFilePath;
+
   const wideRef = useRef(wide);
   wideRef.current = wide;
+
+  // Pending chord prefix (e.g. the first "g" of "g g"), keyed by the binding
+  // it belongs to. Cleared by any key that doesn't continue the chord.
+  const chordRef = useRef<{ binding: string; index: number; at: number } | null>(null);
 
   const handleOpenFileRef = useRef(handleOpenFile);
   handleOpenFileRef.current = handleOpenFile;
 
   const handleToggleDirRef = useRef(handleToggleDir);
   handleToggleDirRef.current = handleToggleDir;
+
+  const searchOpenRef = useRef(searchOpen);
+  searchOpenRef.current = searchOpen;
+
+  const searchActiveRef = useRef(searchActive);
+  searchActiveRef.current = searchActive;
+
+  const searchSelRef = useRef(searchSel);
+  searchSelRef.current = searchSel;
+
+  const searchMatchesRef = useRef<FsSearchMatch[]>([]);
+  searchMatchesRef.current = search.data?.matches ?? [];
+
+  const openSearchResultRef = useRef(openSearchResult);
+  openSearchResultRef.current = openSearchResult;
 
   const fileViewerRef = useRef<FileViewerHandle>(null);
 
@@ -230,12 +362,115 @@ export default function FilesPane({
       const UP = filesCfg.up ?? 'k';
       const RIGHT = filesCfg.right ?? 'l';
       const LEFT = filesCfg.left ?? 'h';
+      const OPEN = filesCfg.open ?? 'o';
       const SCROLL_DOWN = filesCfg['scroll-down'] ?? 'shift+j';
       const SCROLL_UP = filesCfg['scroll-up'] ?? 'shift+k';
       const REFRESH = filesCfg.refresh ?? 'r';
+      const TOP = filesCfg.top ?? 'g g';
+      const BOTTOM = filesCfg.bottom ?? 'shift+g';
+      const JUMP_DOWN = filesCfg['jump-down'] ?? 'shift+]';
+      const JUMP_UP = filesCfg['jump-up'] ?? 'shift+[';
+      const SEARCH = filesCfg.search ?? '/';
+      const TOGGLE_SIDEBAR = filesCfg['toggle-sidebar'] ?? 'b';
+
+      // Escape closes an open search even when focus has wandered off the
+      // input (its own onKeyDown covers the focused case via the text-input
+      // guard above). Only consumed while a search is open.
+      if (searchOpenRef.current && e.key === 'Escape') {
+        chordRef.current = null;
+        setSearchOpen(false);
+        setSearchQuery('');
+        setSearchSel(0);
+        return 'consumed';
+      }
+      // Tab (and Shift+Tab) hop back into the search input; the input's own
+      // Tab handler blurs it — together they toggle typing ↔ list navigation.
+      if (searchOpenRef.current && e.key === 'Tab') {
+        chordRef.current = null;
+        searchInputRef.current?.focus();
+        return 'consumed';
+      }
+      if (matchesShortcut(e, SEARCH)) {
+        // Already open: re-focus the input (e.g. after clicking elsewhere).
+        chordRef.current = null;
+        setSearchOpen(true);
+        searchInputRef.current?.focus();
+        return 'consumed';
+      }
+
+      const sid = sessionIdRef.current;
+
+      // The movement keys drive whichever row list is on screen: active
+      // search results take precedence (they replace the tree/listing),
+      // otherwise the tree (wide) or the flat listing (narrow).
+      const inResults = searchActiveRef.current;
+      const nav = ((): { length: number; index: number; set(i: number): void } => {
+        if (inResults) {
+          return {
+            length: searchMatchesRef.current.length,
+            index: searchSelRef.current,
+            set: (i) => setSearchSel(i),
+          };
+        }
+        if (wideRef.current) {
+          const treeRows = rowsRef.current;
+          return {
+            length: treeRows.length,
+            index: treeRows.findIndex((r) => r.path === cursorPathRef.current),
+            set: (i) => setCursorPath(sid, treeRows[i].path),
+          };
+        }
+        const entries = narrowEntriesRef.current;
+        const dir = currentDirRef.current;
+        return {
+          length: entries.length,
+          index: entries.findIndex((en) => joinPath(dir, en.name) === cursorPathRef.current),
+          set: (i) => setCursorPath(sid, joinPath(dir, entries[i].name)),
+        };
+      })();
+
+      // Chord bindings are space-separated combos ("g g"). Any key that does
+      // not continue the pending chord clears it and is handled normally.
+      const pendingChord = chordRef.current;
+      chordRef.current = null;
+      const matchSequence = (binding: string): 'matched' | 'pending' | 'no' => {
+        const steps = binding.split(' ').filter(Boolean);
+        if (steps.length <= 1) return matchesShortcut(e, binding) ? 'matched' : 'no';
+        const continueIdx =
+          pendingChord?.binding === binding && e.timeStamp - pendingChord.at < CHORD_TIMEOUT_MS
+            ? pendingChord.index
+            : 0;
+        // A key that breaks the pending chord may still start it over
+        // (e.g. "g g g" after a stray prefix) — fall back to step 0.
+        const idx = matchesShortcut(e, steps[continueIdx])
+          ? continueIdx
+          : matchesShortcut(e, steps[0])
+            ? 0
+            : -1;
+        if (idx === -1) return 'no';
+        if (idx === steps.length - 1) return 'matched';
+        chordRef.current = { binding, index: idx + 1, at: e.timeStamp };
+        return 'pending';
+      };
+
+      const topMatch = matchSequence(TOP);
+      if (topMatch !== 'no') {
+        if (topMatch === 'matched' && nav.length > 0) nav.set(0);
+        return 'consumed';
+      }
+      const bottomMatch = matchSequence(BOTTOM);
+      if (bottomMatch !== 'no') {
+        if (bottomMatch === 'matched' && nav.length > 0) nav.set(nav.length - 1);
+        return 'consumed';
+      }
 
       if (matchesShortcut(e, REFRESH)) {
         setRefreshSeq((seq) => seq + 1);
+        return 'consumed';
+      }
+      if (matchesShortcut(e, TOGGLE_SIDEBAR)) {
+        // Mirrors the header collapse button, which only exists in wide mode.
+        if (wideRef.current) setSidebarCollapsed((prev) => !prev);
         return 'consumed';
       }
       if (matchesShortcut(e, SCROLL_DOWN)) {
@@ -247,38 +482,67 @@ export default function FilesPane({
         return 'consumed';
       }
 
-      const sid = sessionIdRef.current;
-      const cursor = cursorPathRef.current;
+      if (matchesShortcut(e, DOWN)) {
+        const idx = wrapIndex(nav.index, 1, nav.length);
+        if (idx !== -1) nav.set(idx);
+        return 'consumed';
+      }
+      if (matchesShortcut(e, UP)) {
+        const idx = wrapIndex(nav.index, -1, nav.length);
+        if (idx !== -1) nav.set(idx);
+        return 'consumed';
+      }
+      if (matchesShortcut(e, JUMP_DOWN)) {
+        // No cursor yet (-1) behaves like jumping from before the first row.
+        if (nav.length > 0) nav.set(Math.min(nav.index + JUMP_ROWS, nav.length - 1));
+        return 'consumed';
+      }
+      if (matchesShortcut(e, JUMP_UP)) {
+        const start = nav.index === -1 ? nav.length : nav.index;
+        if (nav.length > 0) nav.set(Math.max(start - JUMP_ROWS, 0));
+        return 'consumed';
+      }
+
+      // Open: files open in the viewer; directories toggle (wide) / drill
+      // in (narrow). Enter is always accepted alongside the configured key.
+      if (matchesShortcut(e, OPEN) || e.key === 'Enter') {
+        if (inResults) {
+          const match = searchMatchesRef.current[searchSelRef.current];
+          if (match) openSearchResultRef.current(match.path);
+          return 'consumed';
+        }
+        if (wideRef.current) {
+          const row = rowsRef.current.find((r) => r.path === cursorPathRef.current);
+          if (row) {
+            if (row.entry.kind === 'dir') handleToggleDirRef.current(row.path);
+            else handleOpenFileRef.current(row.path);
+          }
+        } else {
+          const dir = currentDirRef.current;
+          const entry = narrowEntriesRef.current.find(
+            (en) => joinPath(dir, en.name) === cursorPathRef.current,
+          );
+          if (entry) {
+            const entryPath = joinPath(dir, entry.name);
+            if (entry.kind === 'dir') setCurrentDir(sid, entryPath);
+            else handleOpenFileRef.current(entryPath);
+          }
+        }
+        return 'consumed';
+      }
+
+      // l/h are tree/listing motions — inert while search results are shown.
+      if (inResults) return 'passthrough';
 
       if (wideRef.current) {
         const treeRows = rowsRef.current;
+        const cursor = cursorPathRef.current;
 
-        if (matchesShortcut(e, DOWN)) {
-          const idx = wrapIndex(
-            treeRows.findIndex((r) => r.path === cursor),
-            1,
-            treeRows.length,
-          );
-          if (idx !== -1) setCursorPath(sid, treeRows[idx].path);
-          return 'consumed';
-        }
-        if (matchesShortcut(e, UP)) {
-          const idx = wrapIndex(
-            treeRows.findIndex((r) => r.path === cursor),
-            -1,
-            treeRows.length,
-          );
-          if (idx !== -1) setCursorPath(sid, treeRows[idx].path);
-          return 'consumed';
-        }
         if (matchesShortcut(e, RIGHT)) {
+          // Directories only — opening files is OPEN/Enter's job.
           const row = treeRows.find((r) => r.path === cursor);
-          if (row) {
-            if (row.entry.kind === 'dir') {
-              if (!row.expanded) handleToggleDirRef.current(row.path);
-            } else {
-              handleOpenFileRef.current(row.path);
-            }
+          if (row && row.entry.kind === 'dir' && !row.expanded) {
+            handleToggleDirRef.current(row.path);
           }
           return 'consumed';
         }
@@ -300,43 +564,32 @@ export default function FilesPane({
         const dir = currentDirRef.current;
         const pathOf = (name: string): string => joinPath(dir, name);
 
-        if (matchesShortcut(e, DOWN)) {
-          const idx = wrapIndex(
-            entries.findIndex((en) => pathOf(en.name) === cursor),
-            1,
-            entries.length,
-          );
-          if (idx !== -1) setCursorPath(sid, pathOf(entries[idx].name));
-          return 'consumed';
-        }
-        if (matchesShortcut(e, UP)) {
-          const idx = wrapIndex(
-            entries.findIndex((en) => pathOf(en.name) === cursor),
-            -1,
-            entries.length,
-          );
-          if (idx !== -1) setCursorPath(sid, pathOf(entries[idx].name));
-          return 'consumed';
-        }
         if (matchesShortcut(e, RIGHT)) {
-          const entry = entries.find((en) => pathOf(en.name) === cursor);
-          if (entry) {
-            const entryPath = pathOf(entry.name);
-            if (entry.kind === 'dir') setCurrentDir(sid, entryPath);
-            else handleOpenFileRef.current(entryPath);
-          }
+          // Directories only — opening files is OPEN/Enter's job.
+          const entry = entries.find((en) => pathOf(en.name) === cursorPathRef.current);
+          if (entry && entry.kind === 'dir') setCurrentDir(sid, pathOf(entry.name));
           return 'consumed';
         }
         if (matchesShortcut(e, LEFT)) {
-          const parent = parentDir(dir);
-          if (parent !== dir) setCurrentDir(sid, parent);
+          // With a file open, LEFT first returns to the directory listing
+          // (mirrors the header back button)…
+          if (openFilePathRef.current !== null) {
+            setOpenFile(sid, null);
+            return 'consumed';
+          }
+          // …then walks up, but never above the picker root: the breadcrumb
+          // (correctly) refuses to render dirs outside the root.
+          if (dir !== rootPathRef.current) {
+            const parent = parentDir(dir);
+            if (parent !== dir) setCurrentDir(sid, parent);
+          }
           return 'consumed';
         }
       }
 
       return 'passthrough';
     });
-  }, [isFilesFocused, setCursorPath, setCurrentDir]);
+  }, [isFilesFocused, setCursorPath, setCurrentDir, setOpenFile]);
 
   // ── Keep the cursor row scrolled into view (wide mode; narrow mode does
   // its own equivalent inside DirListing) ───────────────────────────────────
@@ -345,22 +598,44 @@ export default function FilesPane({
     if (node) rowRefsMap.current.set(path, node);
     else rowRefsMap.current.delete(path);
   }, []);
+  // `rows` is a trigger dep so a cursor row that appears only after its
+  // ancestors finish loading (search-result reveal) still gets scrolled to.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rows is a trigger dep, read via rowRefsMap
   useEffect(() => {
     if (!wide || !cursorPath) return;
     rowRefsMap.current.get(cursorPath)?.scrollIntoView({ block: 'nearest' });
-  }, [wide, cursorPath]);
+  }, [wide, cursorPath, rows]);
 
   // ── Re-clamp the cursor whenever it points at a path that's no longer
-  // visible (collapsed elsewhere, refresh reshuffle, root/dir change) ───────
+  // visible (collapsed elsewhere, refresh reshuffle, root/dir change) — but
+  // never while listings are still settling: a search result's just-expanded
+  // ancestors haven't produced their rows yet, and clamping early would
+  // steal the cursor from the file before its row can appear. `treeSettled`
+  // flips false in the same render an expansion happens (computed from
+  // reachable-vs-loaded, not fetch flags), so there is no one-commit gap.
+  // Narrow mode equivalently waits until the listing has data or an error.
+  const narrowSettled = narrowListing.data !== null || narrowListing.error !== null;
   useEffect(() => {
     if (!slice) return;
+    if (wide ? !treeSettled : !narrowSettled) return;
     const visiblePaths = wide
       ? rows.map((r) => r.path)
       : narrowEntries.map((e) => joinPath(currentDir, e.name));
     if (cursorPath !== null && visiblePaths.includes(cursorPath)) return;
     const fallback = visiblePaths[0] ?? null;
     if (fallback !== cursorPath) setCursorPath(sessionId, fallback);
-  }, [slice, wide, rows, narrowEntries, currentDir, cursorPath, sessionId, setCursorPath]);
+  }, [
+    slice,
+    wide,
+    treeSettled,
+    narrowSettled,
+    rows,
+    narrowEntries,
+    currentDir,
+    cursorPath,
+    sessionId,
+    setCursorPath,
+  ]);
 
   if (!slice) return null;
 
@@ -408,19 +683,44 @@ export default function FilesPane({
         </IconButton>
       </header>
 
+      {searchOpen && (
+        <div className={styles.searchBar}>
+          <input
+            ref={searchInputRef}
+            className={styles.searchInput}
+            type="text"
+            placeholder="Search files by name…"
+            spellCheck={false}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+          />
+        </div>
+      )}
+
       {wide ? (
         <div className={styles.split} data-collapsed={sidebarCollapsed || undefined}>
           <aside className={styles.sidebar}>
-            <DirTree
-              rootPath={rootPath}
-              rows={rows}
-              nodes={nodes}
-              selectedPath={openFilePath}
-              cursorPath={cursorPath}
-              onOpenFile={handleOpenFile}
-              onToggleDir={handleToggleDir}
-              rowRef={setRowRef}
-            />
+            {searchActive ? (
+              <SearchResults
+                search={search}
+                selectedIndex={searchSel}
+                onHover={setSearchSel}
+                onOpen={openSearchResult}
+              />
+            ) : (
+              <DirTree
+                rootPath={rootPath}
+                rows={rows}
+                nodes={nodes}
+                selectedPath={openFilePath}
+                cursorPath={cursorPath}
+                onOpenFile={handleOpenFile}
+                onToggleDir={handleToggleDir}
+                onRetry={retry}
+                rowRef={setRowRef}
+              />
+            )}
           </aside>
           <div className={styles.viewerPane}>
             {openFilePath ? (
@@ -437,7 +737,14 @@ export default function FilesPane({
         </div>
       ) : (
         <div className={styles.single}>
-          {openFilePath ? (
+          {searchActive ? (
+            <SearchResults
+              search={search}
+              selectedIndex={searchSel}
+              onHover={setSearchSel}
+              onOpen={openSearchResult}
+            />
+          ) : openFilePath ? (
             <FileViewer
               ref={fileViewerRef}
               path={openFilePath}
@@ -453,6 +760,7 @@ export default function FilesPane({
               cursorPath={cursorPath}
               onOpenFile={handleOpenFile}
               onEnterDir={(path) => setCurrentDir(sessionId, path)}
+              onRetry={() => setRefreshSeq((seq) => seq + 1)}
             />
           )}
         </div>

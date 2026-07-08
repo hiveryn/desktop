@@ -36,6 +36,30 @@
   margin-left: auto;
 }
 
+/* ── "/" filename search ─────────────────────────────────────── */
+.searchBar {
+  display: flex;
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-h-2);
+  font: inherit;
+  color: inherit;
+  background: var(--theme-background-input);
+}
+
+.searchInput:focus {
+  outline: 1px solid var(--theme-focus-ring);
+  outline-offset: -1px;
+}
+
 /* ── Wide: two-pane split ────────────────────────────────────── */
 .split {
   display: grid;

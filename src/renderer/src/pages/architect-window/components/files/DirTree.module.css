@@ -12,3 +12,14 @@
   color: var(--theme-text-subtle);
   font-size: var(--font-size-xs);
 }
+
+.retryButton {
+  margin-left: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--theme-brand);
+  font-size: var(--font-size-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}

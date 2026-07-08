@@ -11,18 +11,28 @@ interface DirTreeProps {
   cursorPath: string | null;
   onOpenFile(path: string): void;
   onToggleDir(path: string): void;
+  onRetry(path: string): void;
   rowRef?(path: string, node: HTMLElement | null): void;
 }
 
 type RenderItem =
   | { kind: 'row'; row: VisibleRow }
-  | { kind: 'banner'; key: string; message: string };
+  | { kind: 'banner'; key: string; message: string; retryPath?: string };
 
-function bannerMessage(node: DirNodeState | undefined): string | null {
-  if (node?.error) return 'Failed to load directory — see error center';
-  if (!node?.data) return node?.loading ? 'Loading…' : null;
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function bannerFor(
+  path: string,
+  node: DirNodeState | undefined,
+): Omit<RenderItem & { kind: 'banner' }, 'kind' | 'key'> | null {
+  if (node?.error) {
+    return { message: `Failed to load: ${errorText(node.error)}`, retryPath: path };
+  }
+  if (!node?.data) return node?.loading ? { message: 'Loading…' } : null;
   if (node.data.truncated) {
-    return `Showing ${node.data.entries.length} of ${node.data.total} entries`;
+    return { message: `Showing ${node.data.entries.length} of ${node.data.total} entries` };
   }
   return null;
 }
@@ -44,8 +54,8 @@ function buildRenderItems(
     while (stack.length > 0 && stack[stack.length - 1].depth >= depth) {
       const dir = stack.pop();
       if (!dir) break;
-      const message = bannerMessage(nodes.get(dir.path));
-      if (message) items.push({ kind: 'banner', key: `${dir.path}:banner`, message });
+      const banner = bannerFor(dir.path, nodes.get(dir.path));
+      if (banner) items.push({ kind: 'banner', key: `${dir.path}:banner`, ...banner });
     }
   };
 
@@ -70,6 +80,7 @@ export default function DirTree({
   cursorPath,
   onOpenFile,
   onToggleDir,
+  onRetry,
   rowRef,
 }: DirTreeProps) {
   const items = useMemo(() => buildRenderItems(rootPath, rows, nodes), [rootPath, rows, nodes]);
@@ -80,6 +91,17 @@ export default function DirTree({
         item.kind === 'banner' ? (
           <div key={item.key} className={styles.levelMessage}>
             {item.message}
+            {item.retryPath !== undefined && (
+              <button
+                type="button"
+                className={styles.retryButton}
+                onClick={() => {
+                  if (item.retryPath !== undefined) onRetry(item.retryPath);
+                }}
+              >
+                Retry
+              </button>
+            )}
           </div>
         ) : (
           <div key={item.row.path} ref={(el) => rowRef?.(item.row.path, el)}>

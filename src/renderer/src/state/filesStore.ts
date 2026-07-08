@@ -35,6 +35,8 @@ interface FilesActions {
   setCurrentDir(sessionId: string, dir: string): void;
   setOpenFile(sessionId: string, path: string | null): void;
   toggleExpanded(sessionId: string, dir: string): void;
+  /** Union `dirs` into expandedDirs — used to reveal a search result in the tree. */
+  expandDirs(sessionId: string, dirs: string[]): void;
   setCursorPath(sessionId: string, path: string | null): void;
 }
 
@@ -103,6 +105,19 @@ export const useFilesStore = create<FilesStore>((set) => ({
         bySession: {
           ...state.bySession,
           [sessionId]: { ...existing, expandedDirs: expanded },
+        },
+      };
+    });
+  },
+  expandDirs(sessionId, dirs) {
+    set((state) => {
+      const existing = requireSessionState(state, sessionId);
+      const missing = dirs.filter((d) => !existing.expandedDirs.includes(d));
+      if (missing.length === 0) return state;
+      return {
+        bySession: {
+          ...state.bySession,
+          [sessionId]: { ...existing, expandedDirs: [...existing.expandedDirs, ...missing] },
         },
       };
     });

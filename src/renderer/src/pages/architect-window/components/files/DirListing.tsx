@@ -12,6 +12,7 @@ interface Props {
   cursorPath: string | null;
   onOpenFile(path: string): void;
   onEnterDir(path: string): void;
+  onRetry(): void;
 }
 
 // Flat one-directory listing for the narrow drill-down mode. Fetch state is
@@ -25,6 +26,7 @@ export default function DirListing({
   cursorPath,
   onOpenFile,
   onEnterDir,
+  onRetry,
 }: Props) {
   const rowRefs = useRef(new Map<string, HTMLElement>());
 
@@ -34,7 +36,14 @@ export default function DirListing({
   }, [cursorPath]);
 
   if (error) {
-    return <div className={styles.levelMessage}>Failed to load directory — see error center</div>;
+    return (
+      <div className={styles.levelMessage}>
+        Failed to load: {error instanceof Error ? error.message : String(error)}
+        <button type="button" className={styles.retryButton} onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    );
   }
   if (!data) {
     return loading ? <div className={styles.levelMessage}>Loading…</div> : null;

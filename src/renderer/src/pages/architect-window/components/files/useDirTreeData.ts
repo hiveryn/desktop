@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FsEntry, FsTreeResponse } from '../../../../../../shared/types';
 import { joinPath, sortEntries } from './dirTreeUtils';
 
@@ -18,6 +18,15 @@ export interface VisibleRow {
 export interface DirTreeData {
   rows: VisibleRow[];
   nodes: Map<string, DirNodeState>;
+  /**
+   * True once every reachable directory has a settled listing (data or
+   * error). False from the very render an expansion makes new dirs
+   * reachable — before their fetches are even marked — which is what lets
+   * the cursor re-clamp reliably wait out `rows` that are still growing.
+   */
+  settled: boolean;
+  /** Drop one directory's cached state (typically a failed load) and refetch it. */
+  retry(path: string): void;
 }
 
 function parentOf(path: string): string {
@@ -52,6 +61,35 @@ export function useDirTreeData(
   refreshSeq: number,
 ): DirTreeData {
   const [nodes, setNodes] = useState<Map<string, DirNodeState>>(() => new Map());
+  // Bumped by retry() so the fetch effect re-runs after a node is evicted.
+  const [retrySeq, setRetrySeq] = useState(0);
+
+  // Fetch bookkeeping lives in refs, NOT in `nodes`. The state map cannot be
+  // trusted for "what has been requested": reading it via a setNodes updater
+  // is timing-dependent (React only invokes updaters synchronously when the
+  // update queue is empty — with a reset queued in the same flush, the
+  // updater runs later at render time and the effect would see nothing to
+  // fetch), and depending on `nodes` directly would re-trigger the effect on
+  // every result. `requested` is the set of paths with a fetch issued (in
+  // flight or settled) for the current generation; `generation` invalidates
+  // in-flight results on root change / refresh — the ONLY events that make a
+  // result stale, since results are keyed by absolute path. There is no
+  // per-effect-run cancellation: a fetch issued for the current generation
+  // always lands, even if its dir was collapsed meanwhile (the cache
+  // deliberately survives collapse).
+  const requestedRef = useRef<Set<string>>(new Set());
+  const generationRef = useRef(0);
+
+  const retry = useCallback((path: string) => {
+    requestedRef.current.delete(path);
+    setNodes((prev) => {
+      if (!prev.has(path)) return prev;
+      const next = new Map(prev);
+      next.delete(path);
+      return next;
+    });
+    setRetrySeq((seq) => seq + 1);
+  }, []);
 
   const reachable = useMemo(() => {
     if (!rootPath) return [];
@@ -63,47 +101,50 @@ export function useDirTreeData(
     return paths;
   }, [rootPath, expandedDirs]);
 
+  // Declared before the fetch effect: effects run in order, so on a root
+  // change / refresh the generation bumps and the caches clear before the
+  // fetch effect (re-)issues requests for the new generation.
   // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath/refreshSeq are trigger deps, not read inside the effect
   useEffect(() => {
+    generationRef.current += 1;
+    requestedRef.current = new Set();
     setNodes(new Map());
   }, [rootPath, refreshSeq]);
 
-  // The fetch effect must NOT depend on `nodes`: it calls setNodes below to
-  // mark directories loading, and if `nodes` were a dep that write would tear
-  // down this run, flip `cancelled` in cleanup, and drop the in-flight listDir
-  // result — leaving the node stuck `{ data: null, loading: true }` forever.
-  // Instead compute `missing` inside the functional updater (reading the live
-  // map, not a stale closure) and depend only on stable trigger deps. This
-  // mirrors useDirListing's [path, refreshSeq] pattern.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshSeq is a trigger dep (drives refetch after the reset effect clears nodes); nodes is read via the setNodes updater, not the closure
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshSeq/retrySeq are trigger deps (drive refetch after the reset/retry clears the bookkeeping), not read inside the effect
   useEffect(() => {
-    if (reachable.length === 0) return;
-    let cancelled = false;
-    let missing: string[] = [];
+    const generation = generationRef.current;
+    const requested = requestedRef.current;
+    const missing = reachable.filter((path) => !requested.has(path));
+    if (missing.length === 0) return;
+    for (const path of missing) requested.add(path);
     setNodes((prev) => {
-      missing = reachable.filter((path) => !prev.has(path));
-      if (missing.length === 0) return prev;
       const next = new Map(prev);
       for (const path of missing) next.set(path, { data: null, loading: true, error: null });
       return next;
     });
-    if (missing.length === 0) return;
     for (const path of missing) {
       window.hiveryn.fs.listDir(path).then(
         (data) => {
-          if (cancelled) return;
+          if (generationRef.current !== generation) return;
           setNodes((prev) => new Map(prev).set(path, { data, loading: false, error: null }));
         },
         (err) => {
-          if (cancelled) return;
+          if (generationRef.current !== generation) return;
           setNodes((prev) => new Map(prev).set(path, { data: null, loading: false, error: err }));
         },
       );
     }
-    return () => {
-      cancelled = true;
-    };
-  }, [reachable, refreshSeq]);
+  }, [reachable, refreshSeq, retrySeq]);
+
+  const settled = useMemo(
+    () =>
+      reachable.every((path) => {
+        const node = nodes.get(path);
+        return node !== undefined && !node.loading;
+      }),
+    [reachable, nodes],
+  );
 
   const rows = useMemo(() => {
     if (!rootPath) return [];
@@ -123,5 +164,5 @@ export function useDirTreeData(
     return result;
   }, [rootPath, expandedDirs, nodes]);
 
-  return { rows, nodes };
+  return { rows, nodes, settled, retry };
 }
