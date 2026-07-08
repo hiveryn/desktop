@@ -3,6 +3,7 @@ import {
   Button,
   Caption,
   DevBadge,
+  ErrorBoundary,
   ErrorCenterIndicator,
   ErrorCenterSheet,
   Glyph,
@@ -193,18 +194,20 @@ export default function ArchitectWindow() {
                 data-focused={isRightFocused || undefined}
                 data-maximized={isRightMaximized || undefined}
               >
-                <RightPane
-                  architectKey={architectKey}
-                  architect={architect}
-                  board={board}
-                  boardLoading={boardLoading}
-                  boardError={boardError}
-                  isMaximized={isRightMaximized}
-                  shortcutConfig={shortcutConfig}
-                  onTicketSelect={handleTicketSelect}
-                  onSpawnTicket={handleSpawnTicket}
-                  onRefreshBoard={() => void refreshBoard()}
-                />
+                <ErrorBoundary paneLabel="Right Pane" resetKeys={[activeSessionId]}>
+                  <RightPane
+                    architectKey={architectKey}
+                    architect={architect}
+                    board={board}
+                    boardLoading={boardLoading}
+                    boardError={boardError}
+                    isMaximized={isRightMaximized}
+                    shortcutConfig={shortcutConfig}
+                    onTicketSelect={handleTicketSelect}
+                    onSpawnTicket={handleSpawnTicket}
+                    onRefreshBoard={() => void refreshBoard()}
+                  />
+                </ErrorBoundary>
               </div>
             </div>
           </div>

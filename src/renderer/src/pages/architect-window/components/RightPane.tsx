@@ -1,4 +1,5 @@
 import {
+  ErrorBoundary,
   EventLog,
   type SessionEvent as EventLogSessionEvent,
   type EventStatus,
@@ -13,6 +14,7 @@ import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { getTabPlugin } from '../../../plugins/registry';
+import { useFilesStore } from '../../../state/filesStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import styles from '../index.module.css';
@@ -95,6 +97,13 @@ export default function RightPane({
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
 
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
+  // Sourced only to give the Files pane's ErrorBoundary resetKeys that match
+  // the exact values (currentDir walking outside rootPath) that can crash it.
+  const filesSlice = useFilesStore((s) =>
+    activeSession ? s.bySession[activeSession.id] : undefined,
+  );
+  const filesRootPath = filesSlice?.rootPath;
+  const filesCurrentDir = filesSlice?.currentDir;
   const events = useEventsForActiveSession();
   const eventLogEvents = useMemo(
     () =>
@@ -316,52 +325,67 @@ export default function RightPane({
       <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
         <div className={styles.kanbanPane}>
           {!boardError || boardLoading ? (
-            <KanbanBoard
-              className={styles.kanbanBoard}
-              board={board}
-              loading={boardLoading}
-              emptyMessage="No tickets yet"
-              selectedTicketId={selectedTicketId}
-              focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
-              onTicketSelect={onTicketSelect}
-            />
+            <ErrorBoundary paneLabel="Kanban">
+              <KanbanBoard
+                className={styles.kanbanBoard}
+                board={board}
+                loading={boardLoading}
+                emptyMessage="No tickets yet"
+                selectedTicketId={selectedTicketId}
+                focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
+                onTicketSelect={onTicketSelect}
+              />
+            </ErrorBoundary>
           ) : null}
         </div>
       </div>
 
       <div className={styles.tabPanel} data-active={effectiveTab === 'event-log'}>
-        <EventLog
-          className={styles.eventLog}
-          events={eventLogEvents}
-          selectedEventId={selectedEventId}
-          externalToggle={eventLogToggle}
-        />
+        <ErrorBoundary paneLabel="Event Log">
+          <EventLog
+            className={styles.eventLog}
+            events={eventLogEvents}
+            selectedEventId={selectedEventId}
+            externalToggle={eventLogToggle}
+          />
+        </ErrorBoundary>
       </div>
 
       <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
-        {activeSession && <TicketPane sessionId={activeSession.id} />}
+        {activeSession && (
+          <ErrorBoundary paneLabel="Ticket" resetKeys={[activeSession.id]}>
+            <TicketPane sessionId={activeSession.id} />
+          </ErrorBoundary>
+        )}
       </div>
 
       <div className={styles.tabPanel} data-active={effectiveTab === 'git-diff'}>
         {activeSession && (
-          <GitDiffPane
-            sessionId={activeSession.id}
-            architectKey={architect?.key}
-            isActive={effectiveTab === 'git-diff'}
-            shortcutConfig={shortcutConfig}
-          />
+          <ErrorBoundary paneLabel="Git Diff" resetKeys={[activeSession.id]}>
+            <GitDiffPane
+              sessionId={activeSession.id}
+              architectKey={architect?.key}
+              isActive={effectiveTab === 'git-diff'}
+              shortcutConfig={shortcutConfig}
+            />
+          </ErrorBoundary>
         )}
       </div>
 
       <div className={styles.tabPanel} data-active={effectiveTab === 'files'}>
         {activeSession && architect && (
-          <FilesPane
-            sessionId={activeSession.id}
-            architect={architect}
-            isActive={effectiveTab === 'files'}
-            ticketRepo={sessionTicketRepo}
-            shortcutConfig={shortcutConfig}
-          />
+          <ErrorBoundary
+            paneLabel="Files"
+            resetKeys={[activeSession.id, filesRootPath, filesCurrentDir]}
+          >
+            <FilesPane
+              sessionId={activeSession.id}
+              architect={architect}
+              isActive={effectiveTab === 'files'}
+              ticketRepo={sessionTicketRepo}
+              shortcutConfig={shortcutConfig}
+            />
+          </ErrorBoundary>
         )}
       </div>
 

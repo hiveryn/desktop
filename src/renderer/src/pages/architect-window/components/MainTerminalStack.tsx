@@ -1,4 +1,4 @@
-import { Button, Caption } from '@components';
+import { Button, Caption, ErrorBoundary } from '@components';
 import { useMemo } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
 import { refreshSessionFromDaemon } from '../hooks/sessionSnapshot';
@@ -45,16 +45,18 @@ export default function MainTerminalStack({ className }: Props) {
               overflow: 'hidden',
             }}
           >
-            <SessionTerminal
-              sessionId={session.id}
-              terminalId={terminalId}
-              paneId="main-terminal"
-              visible={isVisible}
-              focused={isFocused}
-              onDisconnected={() => {
-                void refreshSessionFromDaemon(session.id);
-              }}
-            />
+            <ErrorBoundary paneLabel="Terminal" resetKeys={[session.id, terminalId]}>
+              <SessionTerminal
+                sessionId={session.id}
+                terminalId={terminalId}
+                paneId="main-terminal"
+                visible={isVisible}
+                focused={isFocused}
+                onDisconnected={() => {
+                  void refreshSessionFromDaemon(session.id);
+                }}
+              />
+            </ErrorBoundary>
           </div>
         );
       })}

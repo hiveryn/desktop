@@ -1,0 +1,45 @@
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3);
+}
+
+.card {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  color: var(--theme-status-error);
+  margin-bottom: var(--space-3);
+}
+
+.message {
+  overflow-wrap: anywhere;
+  margin-bottom: var(--space-3);
+}
+
+.stack {
+  margin: 0 0 var(--space-3);
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--theme-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+}
+
+.hint {
+  font-size: var(--font-size-sm);
+}

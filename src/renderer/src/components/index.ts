@@ -1,6 +1,8 @@
 export { default as Button } from './Button/Button';
 export { default as DevBadge } from './DevBadge/DevBadge';
 export { default as ApiEnvelopeError } from './ApiEnvelopeError/ApiEnvelopeError';
+export { default as ErrorBoundary } from './ErrorBoundary/ErrorBoundary';
+export type { ErrorBoundaryProps } from './ErrorBoundary/ErrorBoundary';
 export { default as ArchitectCard } from './ArchitectCard/ArchitectCard';
 export type { ArchitectCardData } from './ArchitectCard/ArchitectCard';
 export { useTerminalSimulate } from './TerminalPane/useTerminalSimulate';
