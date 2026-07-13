@@ -23,6 +23,7 @@ import type {
   FsFileResponse,
   FsSearchResponse,
   FsTreeResponse,
+  FsWriteResponse,
   InfraErrorEvent,
   RendererLogPayload,
   RepoCommitDiffResponse,
@@ -94,6 +95,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
   'fs:listDir': { method: 'GET', path: '/api/fs/tree?path=:path' },
   'fs:readFile': { method: 'GET', path: '/api/fs/file?path=:path' },
+  'fs:writeFile': { method: 'PUT', path: '/api/fs/file?path=:path' },
   'fs:search': { method: 'GET', path: '/api/fs/search?path=:path&q=:q' },
   'fs:pickDirectory': { method: 'IPC', path: '/fs/pick-directory' },
 };
@@ -316,6 +318,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
     search: (path: string, query: string): Promise<FsSearchResponse> =>
       invoke('fs:search', path, query),
     readFile: (path: string): Promise<FsFileResponse> => invoke('fs:readFile', path),
+    writeFile: (path: string, content: string): Promise<FsWriteResponse> =>
+      invoke('fs:writeFile', path, content),
     pickDirectory: (): Promise<string | null> => invoke('fs:pickDirectory'),
   },
   repos: {

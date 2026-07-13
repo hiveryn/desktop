@@ -359,8 +359,14 @@ export default function FilesPane({
       if (!cfg) return 'passthrough';
       if (e.repeat) return 'passthrough';
       if (isTextInputFocused()) return 'passthrough';
-      // Modifier-bearing combos belong to global shortcuts.
-      if (e.metaKey || e.ctrlKey || e.altKey) return 'passthrough';
+      // Modifier-bearing combos belong to global shortcuts — except save,
+      // which reaches the open editor even while focus sits on the tree.
+      // (With the editor itself focused, its own Mod-s keymap handles this.)
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        const SAVE = cfg.files?.save ?? 'cmd+s';
+        if (matchesShortcut(e, SAVE) && fileViewerRef.current?.saveEditor()) return 'consumed';
+        return 'passthrough';
+      }
 
       const filesCfg = cfg.files ?? {};
       const DOWN = filesCfg.down ?? 'j';
@@ -377,6 +383,7 @@ export default function FilesPane({
       const JUMP_UP = filesCfg['jump-up'] ?? 'shift+[';
       const SEARCH = filesCfg.search ?? '/';
       const TOGGLE_SIDEBAR = filesCfg['toggle-sidebar'] ?? 'b';
+      const EDIT = filesCfg.edit ?? 'i';
 
       // Any key that reaches the handler resets the pending chord prefix
       // (match() below may re-arm it).
@@ -461,6 +468,12 @@ export default function FilesPane({
       }
       if (matchesShortcut(e, SCROLL_UP)) {
         fileViewerRef.current?.scrollHalfPage('up');
+        return 'consumed';
+      }
+      // Hand focus into the open file's editor (vim normal mode). Escape in
+      // the editor's normal mode blurs it, handing focus back to the tree.
+      if (matchesShortcut(e, EDIT)) {
+        fileViewerRef.current?.focusEditor();
         return 'consumed';
       }
 

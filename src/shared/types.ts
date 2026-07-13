@@ -296,6 +296,14 @@ export interface FsFileResponse {
   bytes: Uint8Array;
 }
 
+// PUT /api/fs/file result. Overwrite-only on the daemon side: saving can only
+// edit files that already exist.
+export interface FsWriteResponse {
+  path: string;
+  size: number;
+  mtime: string;
+}
+
 // Daemon-emitted architect event (e.g. a ticket being concluded).
 export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
 // Synthetic event the main process emits on every SSE (re)connect so the

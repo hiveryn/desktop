@@ -1,8 +1,8 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { classify, formatBytes } from './classify';
 import styles from './FileViewer.module.css';
 import { useFileContent } from './useFileContent';
-import { viewerRegistry } from './viewerRegistry';
+import { type CodeEditorHandle, viewerRegistry } from './viewerRegistry';
 
 interface Props {
   path: string;
@@ -12,6 +12,10 @@ interface Props {
 
 export interface FileViewerHandle {
   scrollHalfPage(direction: 'up' | 'down'): void;
+  /** Focus the embedded editor. No-op when the open file isn't editable. */
+  focusEditor(): void;
+  /** Trigger a save on the embedded editor. Returns false when there is none. */
+  saveEditor(): boolean;
 }
 
 function fileName(path: string): string {
@@ -25,6 +29,14 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
   const { data, loading, error } = useFileContent(path, refreshSeq);
   const classified = useMemo(() => (data ? classify(data) : null), [data]);
   const scrollNodeRef = useRef<HTMLElement | null>(null);
+  const editorHandleRef = useRef<CodeEditorHandle | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  const setEditorHandle = useCallback((handle: CodeEditorHandle | null) => {
+    editorHandleRef.current = handle;
+    // Editor unmounted (switched to a non-code file) — nothing dirty to show.
+    if (handle === null) setDirty(false);
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -33,6 +45,14 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
         const node = scrollNodeRef.current;
         if (!node) return;
         node.scrollBy({ top: (direction === 'down' ? 1 : -1) * node.clientHeight * 0.5 });
+      },
+      focusEditor() {
+        editorHandleRef.current?.focus();
+      },
+      saveEditor() {
+        if (!editorHandleRef.current) return false;
+        void editorHandleRef.current.save();
+        return true;
       },
     }),
     [],
@@ -56,6 +76,11 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
         <span className={styles.name} title={path}>
           {fileName(path)}
         </span>
+        {dirty && (
+          <span className={styles.dirtyDot} title="Unsaved changes — :w or Cmd+S to save">
+            ●
+          </span>
+        )}
         <span className={styles.meta}>
           {data.contentType} · {formatBytes(data.size)}
         </span>
@@ -75,6 +100,8 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
           scrollRef={(node) => {
             scrollNodeRef.current = node;
           }}
+          editorRef={setEditorHandle}
+          onDirtyChange={setDirty}
         />
       </div>
     </div>

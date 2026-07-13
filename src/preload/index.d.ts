@@ -407,6 +407,12 @@ interface FsFileResponse {
   bytes: Uint8Array;
 }
 
+interface FsWriteResponse {
+  path: string;
+  size: number;
+  mtime: string;
+}
+
 interface FsSearchMatch {
   /** Relative to the searched root, "/"-separated. */
   path: string;
@@ -530,6 +536,7 @@ interface HiverynAPI {
     listDir: (path: string) => Promise<FsTreeResponse>;
     search: (path: string, query: string) => Promise<FsSearchResponse>;
     readFile: (path: string) => Promise<FsFileResponse>;
+    writeFile: (path: string, content: string) => Promise<FsWriteResponse>;
     pickDirectory: () => Promise<string | null>;
   };
   repos: {

@@ -1,10 +1,20 @@
 import mdStyles from '@styles/markdown.module.css';
 import type { ComponentProps, MouseEvent, ReactNode } from 'react';
-import { Children, Fragment, isValidElement, useMemo, useRef, useState } from 'react';
+import {
+  Children,
+  Fragment,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ViewerProps } from '../viewerRegistry';
-import CodeViewer from './CodeViewer';
+import { getEditorBuffer } from '../editorBuffers';
+import type { CodeEditorHandle, ViewerProps } from '../viewerRegistry';
+import CodeEditor from './CodeEditor';
 import MarkdownImage, { resolveRelative } from './MarkdownImage';
 import Mermaid from './Mermaid';
 import styles from './Viewers.module.css';
@@ -82,11 +92,64 @@ const codeIcon = (
 export default function MarkdownViewer(props: ViewerProps) {
   const [mode, setMode] = useState<MarkdownMode>('rendered');
   const bodyRef = useRef<HTMLDivElement>(null);
-  const { file, text, onOpenFile, scrollRef } = props;
+  const { file, text, onOpenFile, scrollRef, editorRef, onDirtyChange } = props;
   const setBodyRef = (node: HTMLDivElement | null): void => {
     bodyRef.current = node;
     scrollRef?.(node);
   };
+
+  // Source mode embeds the same editor code files use, but its handle is
+  // captured here rather than reported straight up to FileViewer so this
+  // viewer can wrap it: entering edit mode (the `i` key / focus request) first
+  // flips to source view, and a save requested while rendered flips to source,
+  // mounts the editor, then writes. The editor only mounts in source mode.
+  const innerRef = useRef<CodeEditorHandle | null>(null);
+  const pendingRef = useRef<'focus' | 'save' | null>(null);
+  const pendingSaveResolveRef = useRef<((saved: boolean) => void) | null>(null);
+  // The viewer instance persists across markdown-file switches (same kind →
+  // no remount), so the handle closures read the live path through a ref.
+  const filePathRef = useRef(file.path);
+  filePathRef.current = file.path;
+
+  const setInnerHandle = useCallback((handle: CodeEditorHandle | null): void => {
+    innerRef.current = handle;
+    if (!handle || pendingRef.current === null) return;
+    const action = pendingRef.current;
+    pendingRef.current = null;
+    if (action === 'focus') {
+      handle.focus();
+    } else {
+      const resolve = pendingSaveResolveRef.current;
+      pendingSaveResolveRef.current = null;
+      void handle.save().then((saved) => resolve?.(saved));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!editorRef) return;
+    editorRef({
+      focus: () => {
+        if (innerRef.current) {
+          innerRef.current.focus();
+        } else {
+          pendingRef.current = 'focus';
+          setMode('source');
+        }
+      },
+      save: () => {
+        if (innerRef.current) return innerRef.current.save();
+        // Rendered mode with the editor unmounted: only bother mounting it to
+        // flush if there are stashed unsaved edits.
+        if (!getEditorBuffer(filePathRef.current)?.dirty) return Promise.resolve(true);
+        return new Promise<boolean>((resolve) => {
+          pendingSaveResolveRef.current = resolve;
+          pendingRef.current = 'save';
+          setMode('source');
+        });
+      },
+    });
+    return () => editorRef(null);
+  }, [editorRef]);
   const parsed = useMemo(() => (text === null ? null : extractFrontmatter(text)), [text]);
   if (text === null || parsed === null) {
     throw new Error(`MarkdownViewer requires decoded text for ${file.path}`);
@@ -187,7 +250,13 @@ export default function MarkdownViewer(props: ViewerProps) {
           </ReactMarkdown>
         </div>
       ) : (
-        <CodeViewer file={file} text={text} language="markdown" scrollRef={scrollRef} />
+        <CodeEditor
+          file={file}
+          text={text}
+          scrollRef={scrollRef}
+          editorRef={setInnerHandle}
+          onDirtyChange={onDirtyChange}
+        />
       )}
       <div className={styles.modeToggle}>
         <button

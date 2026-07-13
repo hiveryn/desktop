@@ -4,6 +4,7 @@ import type {
   FsFileResponse,
   FsSearchResponse,
   FsTreeResponse,
+  FsWriteResponse,
 } from '../../shared/types';
 import { daemonFetch, daemonFetchRaw } from '../daemon/client';
 import { errorResult, ok, withData } from './results';
@@ -30,6 +31,16 @@ export function registerFsIpc(): void {
     async (_event, path: string): Promise<DaemonResult<FsFileResponse>> => {
       const result = await daemonFetchRaw(`/api/fs/file?path=${encodeURIComponent(path)}`);
       return withData(result, result.envelope.data ? { path, ...result.envelope.data } : null);
+    },
+  );
+
+  ipcMain.handle(
+    'fs:writeFile',
+    async (_event, path: string, content: string): Promise<DaemonResult<FsWriteResponse>> => {
+      return daemonFetch<FsWriteResponse>(`/api/fs/file?path=${encodeURIComponent(path)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      });
     },
   );
 
