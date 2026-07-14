@@ -93,7 +93,7 @@ export function registerSessionsIpc(): void {
         body: JSON.stringify({
           body: params.body,
           commits: params.commits,
-          rejected: params.rejected,
+          outcome: params.outcome,
           rejection_reason: params.rejection_reason,
         }),
       });

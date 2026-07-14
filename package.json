@@ -31,7 +31,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@fontsource-variable/geist-mono": "^5.1.1",
-    "@hiveryn/shared": "file:../shared",
+    "@hiveryn/shared": "link:../shared",
     "@lezer/highlight": "^1.2.3",
     "@replit/codemirror-vim": "^6.3.0",
     "@xterm/addon-fit": "^0.11.0",

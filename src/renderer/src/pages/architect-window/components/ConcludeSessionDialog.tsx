@@ -1,4 +1,5 @@
 import { ApiEnvelopeError, Button, Dialog } from '@components';
+import type { TicketOutcome } from '@hiveryn/shared/domain';
 import { useState } from 'react';
 import type { SessionRecord } from '../../../state/sessionStore';
 import styles from './ConcludeSessionDialog.module.css';
@@ -22,7 +23,7 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
 
   async function conclude(params: {
     body: string;
-    rejected: boolean;
+    outcome?: TicketOutcome;
     rejectionReason: string;
   }): Promise<void> {
     setSubmitting(true);
@@ -31,7 +32,7 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
       await window.hiveryn.sessions.conclude(session.id, {
         body: params.body,
         commits: [],
-        rejected: params.rejected,
+        outcome: params.outcome,
         rejection_reason: params.rejectionReason,
       });
       onClose();
@@ -111,7 +112,7 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
         intent="destructive"
         footerLeft={moveToBacklogButton}
         onConfirm={() =>
-          void conclude({ body: body.trim(), rejected: true, rejectionReason: reason.trim() })
+          void conclude({ body: body.trim(), outcome: 'rejected', rejectionReason: reason.trim() })
         }
         onCancel={onClose}
       >
@@ -142,7 +143,7 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
         theme="SECONDARY"
         intent="destructive"
         isDisabled={submitting}
-        onClick={() => void conclude({ body: '', rejected: false, rejectionReason: '' })}
+        onClick={() => void conclude({ body: '', rejectionReason: '' })}
       >
         DISCARD
       </Button>
@@ -153,7 +154,7 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
       title="Conclude Session"
       confirmLabel="CONCLUDE"
       confirmDisabled={!body.trim() || submitting}
-      onConfirm={() => void conclude({ body: body.trim(), rejected: false, rejectionReason: '' })}
+      onConfirm={() => void conclude({ body: body.trim(), rejectionReason: '' })}
       onCancel={onClose}
       footerLeft={discardButton}
     >

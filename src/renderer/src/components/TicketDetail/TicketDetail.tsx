@@ -89,10 +89,16 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
           {conclusion.commits.map((commit) => `${commit.repo}: ${commit.sha}`).join(', ')}
         </span>
       </>}
-      {conclusion.rejected && <>
+      {conclusion.outcome === 'rejected' && <>
         <span className={styles.fieldLabel}>rejected</span>
         <span className={[styles.fieldValue, styles.rejected].join(' ')}>
           {conclusion.rejection_reason || 'yes'}
+        </span>
+      </>}
+      {conclusion.outcome === 'exploratory' && <>
+        <span className={styles.fieldLabel}>exploratory</span>
+        <span className={[styles.fieldValue, styles.exploratory].join(' ')}>
+          no commits
         </span>
       </>}
     </div>
@@ -177,10 +183,14 @@ const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSp
             <button
               role="tab"
               aria-selected={activeTab === 'conclusion'}
-              className={[styles.tab, activeTab === 'conclusion' ? styles.tabActive : undefined, ticket.conclusion?.rejected ? styles.tabRejected : undefined].filter(Boolean).join(' ')}
+              className={[styles.tab, activeTab === 'conclusion' ? styles.tabActive : undefined, ticket.conclusion?.outcome === 'rejected' ? styles.tabRejected : undefined, ticket.conclusion?.outcome === 'exploratory' ? styles.tabExploratory : undefined].filter(Boolean).join(' ')}
               onClick={() => setActiveTab('conclusion')}
             >
-              {ticket.conclusion?.rejected ? 'Conclusion — Rejected' : 'Conclusion'}
+              {ticket.conclusion?.outcome === 'rejected'
+                ? 'Conclusion — Rejected'
+                : ticket.conclusion?.outcome === 'exploratory'
+                  ? 'Conclusion — Exploratory'
+                  : 'Conclusion'}
             </button>
           </div>
         )}

@@ -170,10 +170,15 @@ interface CommitRef {
   repo: string;
 }
 
+type TicketOutcome = 'completed' | 'exploratory' | 'rejected';
+
 interface ConcludeSessionParams {
   body: string;
   commits: CommitRef[];
-  rejected: boolean;
+  // Only ticket rejection sets an outcome; architect/freeform conclusions omit it
+  // (the daemon ignores it for architect sessions and rejects a non-empty one for
+  // freeform).
+  outcome?: TicketOutcome;
   rejection_reason: string;
 }
 
@@ -182,7 +187,7 @@ interface TicketConclusion {
   concluded_at: string;
   agent?: string;
   profile?: string;
-  rejected: boolean;
+  outcome: TicketOutcome;
   rejection_reason?: string;
   commits: CommitRef[];
   body: string;

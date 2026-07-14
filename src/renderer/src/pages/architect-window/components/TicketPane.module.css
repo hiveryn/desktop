@@ -70,6 +70,15 @@
   border-color: var(--theme-status-success);
 }
 
+.status_exploratory .statusDot {
+  background: var(--theme-status-info);
+}
+
+.status_exploratory {
+  color: var(--theme-status-info);
+  border-color: var(--theme-status-info);
+}
+
 .fieldGrid {
   display: grid;
   grid-template-columns: 8ch 1fr;
@@ -107,6 +116,10 @@
 
 .rejected {
   color: var(--theme-status-error);
+}
+
+.exploratory {
+  color: var(--theme-status-info);
 }
 
 .warningList {

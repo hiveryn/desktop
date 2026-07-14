@@ -38,12 +38,18 @@ const ConclusionSection: React.FC<{ conclusion: TicketConclusion }> = ({ conclus
           </span>
         </>
       )}
-      {conclusion.rejected && (
+      {conclusion.outcome === 'rejected' && (
         <>
           <span className={styles.fieldLabel}>rejected</span>
           <span className={[styles.fieldValue, styles.rejected].join(' ')}>
             {conclusion.rejection_reason || 'yes'}
           </span>
+        </>
+      )}
+      {conclusion.outcome === 'exploratory' && (
+        <>
+          <span className={styles.fieldLabel}>exploratory</span>
+          <span className={[styles.fieldValue, styles.exploratory].join(' ')}>no commits</span>
         </>
       )}
     </div>
@@ -95,13 +101,19 @@ export default function TicketPane({ sessionId }: Props) {
 
   if (!ticket) return null;
 
+  // A done ticket concluded as exploratory ("done, no commits") reads distinctly
+  // from a completed one — cyan badge, its own label.
+  const isExploratory = ticket.status === 'done' && ticket.conclusion?.outcome === 'exploratory';
+  const statusClass = isExploratory ? styles.status_exploratory : styles[`status_${ticket.status}`];
+  const statusLabel = isExploratory ? 'exploratory' : ticket.status;
+
   return (
     <div className={styles.pane}>
       <div className={styles.header}>
         <span className={styles.title}>{ticket.title}</span>
-        <span className={[styles.statusBadge, styles[`status_${ticket.status}`]].join(' ')}>
+        <span className={[styles.statusBadge, statusClass].join(' ')}>
           <span className={styles.statusDot} />
-          {ticket.status}
+          {statusLabel}
         </span>
       </div>
 

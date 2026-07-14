@@ -131,6 +131,13 @@
   }
 }
 
+.tabExploratory {
+  &.tabActive {
+    border-bottom-color: var(--theme-status-info);
+    color: var(--theme-status-info);
+  }
+}
+
 .body {
   overflow-y: auto;
   padding: 1em 1ch;
@@ -174,6 +181,10 @@
 
 .rejected {
   color: var(--theme-status-error);
+}
+
+.exploratory {
+  color: var(--theme-status-info);
 }
 
 .warningList {
