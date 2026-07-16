@@ -15,6 +15,7 @@
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
 import { getTabPlugin } from '../plugins/registry';
 import { isSplitTerminalTab, type SessionRecord, useSessionStore } from '../state/sessionStore';
+import { focusIdForTab } from '../state/tabFocus';
 import { matchesShortcut } from './matchers';
 
 export type DispatchResult = 'consumed' | 'passthrough';
@@ -163,18 +164,18 @@ function getRightTabIds(): string[] {
   return (activeSession?.tabs ?? []).flatMap((t) => {
     if (isSplitTerminalTab(t)) return [];
     if (!getTabPlugin(t.type)) return [];
-    if (t.type === 'terminal') return t.id ? [t.id] : [];
+    if (t.type === 'terminal' || t.type === 'browser') return t.id ? [t.id] : [];
     return [t.type];
   });
 }
 
+// Thin adapter over the shared focusIdForTab helper (single source of truth in
+// state/tabFocus.ts). Resolves the active session's tabs so terminal/browser
+// uuids map to the right focus pane.
 function tabIdToFocusId(tabId: string): string {
-  if (tabId === 'kanban') return 'right-kanban';
-  if (tabId === 'event-log') return 'right-event-log';
-  if (tabId === 'ticket') return 'right-ticket';
-  if (tabId === 'git-diff') return 'right-git-diff';
-  if (tabId === 'files') return 'right-files';
-  return `right-terminal:${tabId}`;
+  const { sessions, activeSessionId } = useSessionStore.getState();
+  const tabs = activeSessionId ? (sessions[activeSessionId]?.tabs ?? []) : [];
+  return focusIdForTab(tabId, tabs);
 }
 
 // When the right pane is maximized AND its active tab has an applied split, the

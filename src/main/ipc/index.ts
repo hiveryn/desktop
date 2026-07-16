@@ -1,6 +1,7 @@
 import { registerAppIpc } from './app';
 import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
+import { registerBrowserViewIpc } from './browserView';
 import { registerConfigIpc } from './config';
 import { registerDaemonIpc } from './daemon';
 import { registerFsIpc } from './fs';
@@ -44,4 +45,5 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerFsIpc();
   registerReposIpc();
   registerTrayIpc();
+  registerBrowserViewIpc();
 }

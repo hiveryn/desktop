@@ -267,6 +267,39 @@ interface SessionTab {
   status?: string;
   placement?: TerminalPlacement;
   base_tab_id?: string;
+  target?: string;
+}
+
+interface PreviewBrowserTabParams {
+  target: string;
+  tab_id?: string;
+}
+
+interface BrowserTabInfo {
+  tab_id: string;
+  session_id: string;
+  target: string;
+}
+
+interface BrowserViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface BrowserViewState {
+  tabId: string;
+  url: string;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  loading: boolean;
+}
+
+interface BrowserOpenNewTabPayload {
+  sessionId: string;
+  url: string;
 }
 
 // ── Architects ─────────────────────────────────────────────────────────────
@@ -536,6 +569,24 @@ interface HiverynAPI {
   };
   tabs: {
     list: (sessionId: string) => Promise<SessionTab[]>;
+    createBrowserTab: (
+      sessionId: string,
+      params: PreviewBrowserTabParams,
+    ) => Promise<BrowserTabInfo>;
+    closeBrowserTab: (sessionId: string, tabId: string) => Promise<void>;
+  };
+  browserView: {
+    ensure: (sessionId: string, tabId: string, target: string) => Promise<void>;
+    setActive: (tabId: string) => Promise<void>;
+    detach: (tabId: string) => Promise<void>;
+    navigate: (tabId: string, url: string) => Promise<void>;
+    back: (tabId: string) => Promise<void>;
+    forward: (tabId: string) => Promise<void>;
+    reload: (tabId: string) => Promise<void>;
+    destroy: (tabId: string) => Promise<void>;
+    syncBounds: (tabId: string, bounds: BrowserViewBounds) => void;
+    onState: (callback: (state: BrowserViewState) => void) => () => void;
+    onOpenNewTab: (callback: (payload: BrowserOpenNewTabPayload) => void) => () => void;
   };
   fs: {
     listDir: (path: string) => Promise<FsTreeResponse>;

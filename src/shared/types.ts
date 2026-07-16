@@ -304,6 +304,34 @@ export interface FsWriteResponse {
   mtime: string;
 }
 
+// ── Browser tab native view (WebContentsView) IPC types ──────────────────────
+
+// Viewport rect (from getBoundingClientRect) the renderer pushes to bounds-sync
+// the native view to the browser pane's anchor.
+export interface BrowserViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// Navigation state pushed main→renderer on every commit so the URL bar and
+// back/forward buttons stay in sync with the native view.
+export interface BrowserViewState {
+  tabId: string;
+  url: string;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  loading: boolean;
+}
+
+// Payload for the view's setWindowOpenHandler → renderer mints a sibling tab.
+export interface BrowserOpenNewTabPayload {
+  sessionId: string;
+  url: string;
+}
+
 // Daemon-emitted architect event (e.g. a ticket being concluded).
 export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
 // Synthetic event the main process emits on every SSE (re)connect so the

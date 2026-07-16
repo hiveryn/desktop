@@ -6,6 +6,8 @@ import {
   KanbanBoard,
   TabBar,
   type TabBarTab,
+  type TabTypeChoice,
+  TabTypePicker,
 } from '@components';
 import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +19,9 @@ import { getTabPlugin } from '../../../plugins/registry';
 import { useFilesStore } from '../../../state/filesStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
+import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
+import BrowserPane from './BrowserPane';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import FilesPane from './files/FilesPane';
 import GitDiffPane from './GitDiffPane';
@@ -52,16 +56,6 @@ function toEventLogEvent(event: SessionEvent): EventLogSessionEvent | null {
     raw: event.raw,
     at: event.at,
   };
-}
-
-// Maps a right-pane tab ID to a focusedPane value.
-function tabIdToFocusId(tabId: string): string {
-  if (tabId === 'kanban') return 'right-kanban';
-  if (tabId === 'event-log') return 'right-event-log';
-  if (tabId === 'ticket') return 'right-ticket';
-  if (tabId === 'git-diff') return 'right-git-diff';
-  if (tabId === 'files') return 'right-files';
-  return `right-terminal:${tabId}`;
 }
 
 interface Props {
@@ -169,6 +163,13 @@ export default function RightPane({
   );
   const splitAppliesToEffectiveTab = splitTab !== null;
 
+  // The active tab is a browser tab when its uuid matches a browser SessionTab.
+  const activeBrowserTab = useMemo(
+    () =>
+      activeSession?.tabs.find((tab) => tab.type === 'browser' && tab.id === effectiveTab) ?? null,
+    [activeSession, effectiveTab],
+  );
+
   // ── Kanban cursor ────────────────────────────────────────────────────────
   const cols = useMemo(() => [board.backlog, board.progress, board.done], [board]);
   const [kanbanCursor, setKanbanCursor] = useState({ col: 0, ticketIdx: 0 });
@@ -185,6 +186,9 @@ export default function RightPane({
   // cursorDisplayIdx is a position in the reversed display list (0 = newest)
   const [cursorDisplayIdx, setCursorDisplayIdx] = useState(0);
   const [eventLogToggle, setEventLogToggle] = useState<{ id: string; seq: number } | null>(null);
+
+  // ── New-tab type picker (Terminal | Browser) anchored on the "+" button ──────
+  const [tabPickerAnchor, setTabPickerAnchor] = useState<DOMRect | null>(null);
 
   // Reset cursor on new events list
   // biome-ignore lint/correctness/useExhaustiveDependencies: length is a trigger dep, not read inside the effect
@@ -317,8 +321,8 @@ export default function RightPane({
 
   // Click anywhere in the right pane sets focus to the current effective tab
   const handlePaneClick = useCallback(() => {
-    setFocusedPane(tabIdToFocusId(effectiveTab));
-  }, [effectiveTab, setFocusedPane]);
+    setFocusedPane(focusIdForTab(effectiveTab, activeSession?.tabs ?? []));
+  }, [effectiveTab, setFocusedPane, activeSession]);
 
   const primaryContent = (
     <>
@@ -389,6 +393,20 @@ export default function RightPane({
         )}
       </div>
 
+      <div className={styles.tabPanel} data-active={!!activeBrowserTab}>
+        {activeSession && activeBrowserTab && (
+          <ErrorBoundary paneLabel="Browser" resetKeys={[effectiveTab]}>
+            <BrowserPane
+              key={effectiveTab}
+              sessionId={activeSession.id}
+              tabId={effectiveTab}
+              target={activeBrowserTab.target ?? ''}
+              isMaximized={isMaximized}
+            />
+          </ErrorBoundary>
+        )}
+      </div>
+
       <ExtraTerminalStack
         mode="primary"
         onCloseTerminal={(sessionId, terminalId) => void handleCloseTerminal(sessionId, terminalId)}
@@ -430,13 +448,23 @@ export default function RightPane({
           activeTab={effectiveTab}
           onTabChange={(id: string) => {
             setActiveRightTab(id);
-            setFocusedPane(tabIdToFocusId(id));
+            setFocusedPane(focusIdForTab(id, activeSession?.tabs ?? []));
           }}
-          onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
-          addLabel="New terminal"
+          onAdd={(e) => setTabPickerAnchor(e.currentTarget.getBoundingClientRect())}
+          addLabel="New tab"
           side="right"
         />
       </div>
+
+      <TabTypePicker
+        open={tabPickerAnchor !== null}
+        anchor={tabPickerAnchor}
+        onClose={() => setTabPickerAnchor(null)}
+        onSelect={(choice: TabTypeChoice) => {
+          if (choice === 'terminal') void handleOpenNewTerminal(activeSession?.id);
+          else void handleOpenNewBrowser(activeSession?.id);
+        }}
+      />
     </div>
   );
 }
@@ -451,11 +479,25 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
   useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
 }
 
+// New browser tabs open at a default homepage (the daemon requires a valid,
+// non-empty target); the URL bar auto-focuses so the user can type an address.
+const BROWSER_HOMEPAGE = 'https://www.google.com';
+
+async function handleOpenNewBrowser(sessionId: string | undefined): Promise<void> {
+  if (!sessionId) return;
+
+  const created = await window.hiveryn.tabs.createBrowserTab(sessionId, {
+    target: BROWSER_HOMEPAGE,
+  });
+  const tabs = await window.hiveryn.tabs.list(sessionId);
+  useSessionStore.getState().setSessionTabs(sessionId, tabs);
+  useSessionStore.getState().setActiveRightTab(created.tab_id);
+  useSessionStore.getState().setFocusedPane(`right-browser:${created.tab_id}`);
+}
+
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
   if (isSplitTerminalTab(tab)) return null;
   const plugin = getTabPlugin(tab.type);
   if (!plugin) return null;
-  const tabId = tab.type === 'terminal' ? tab.id : tab.type;
-  if (!tabId) return null;
-  return { id: tabId, icon: plugin.icon };
+  return { id: tabIdOf(tab), icon: plugin.icon };
 }

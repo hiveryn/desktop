@@ -34,6 +34,8 @@ export { default as TicketCard } from './TicketCard/TicketCard';
 export { default as TicketDetail } from './TicketDetail/TicketDetail';
 export { default as ProfileSelector } from './ProfileSelector/ProfileSelector';
 export type { AgentProfile } from './ProfileSelector/ProfileSelector';
+export { default as TabTypePicker } from './TabTypePicker/TabTypePicker';
+export type { TabTypeChoice } from './TabTypePicker/TabTypePicker';
 export { default as ErrorCenterIndicator } from './ErrorCenterIndicator/ErrorCenterIndicator';
 export { default as ErrorCenterSheet } from './ErrorCenterSheet/ErrorCenterSheet';
 export { DiffView } from './DiffView';

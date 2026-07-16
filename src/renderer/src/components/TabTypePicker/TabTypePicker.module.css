@@ -1,0 +1,55 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-page-modals);
+}
+
+.menu {
+  position: fixed;
+  min-width: 20ch;
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border);
+  box-shadow: var(--shadow-modal);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25em 0;
+  outline: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.4em 1ch;
+  background: transparent;
+  border: none;
+  color: var(--theme-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover,
+.itemActive {
+  background: var(--theme-surface-raised);
+}
+
+.itemActive .itemLabel {
+  color: var(--theme-focused-foreground);
+}
+
+.itemIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--theme-text-muted);
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}

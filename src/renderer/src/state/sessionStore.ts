@@ -1,5 +1,6 @@
 import type { CommitRef, SessionEvent, SessionTab } from '@hiveryn/shared/domain';
 import { create } from 'zustand';
+import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface PendingApproval {
   sessionId: string;
@@ -82,33 +83,13 @@ const initialState: SessionState = {
   pendingApprovals: {},
 };
 
-// Terminals are the only multi-instance tab and are keyed by their unique id.
-// Every other tab type — builtin (kanban/event-log/ticket) or plugin (e.g.
-// git-diff) — is single-instance and keyed by its type.
+// Split terminals render beside their primary tab and never become a bar tab.
 export function isSplitTerminalTab(tab: SessionTab): boolean {
   return tab.type === 'terminal' && tab.placement === 'split';
 }
 
-function tabId(tab: SessionTab): string {
-  if (tab.type === 'terminal') {
-    if (!tab.id) {
-      throw new Error(`Terminal tab is missing id: ${JSON.stringify(tab)}`);
-    }
-    return tab.id;
-  }
-  return tab.type;
-}
-
 function primaryTabIds(session: SessionRecord): string[] {
-  return session.tabs.filter((tab) => !isSplitTerminalTab(tab)).map(tabId);
-}
-
-function focusIdForTab(tab: string): string {
-  if (tab === 'kanban') return 'right-kanban';
-  if (tab === 'event-log') return 'right-event-log';
-  if (tab === 'ticket') return 'right-ticket';
-  if (tab === 'files') return 'right-files';
-  return `right-terminal:${tab}`;
+  return session.tabs.filter((tab) => !isSplitTerminalTab(tab)).map(tabIdOf);
 }
 
 function normalizeSelection(
@@ -157,7 +138,7 @@ function normalizeSelection(
         ? 'main-terminal'
         : focusedSplitTerminal
           ? focusedPane
-          : focusIdForTab(nextActiveRightTab),
+          : focusIdForTab(nextActiveRightTab, session.tabs),
     maximizedPane: maximizedPanes[nextActiveSessionId] ?? null,
   };
 }
