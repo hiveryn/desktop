@@ -1,21 +1,64 @@
-import type { CommitRef } from '@hiveryn/shared/domain';
+import type { Intent, IntentOrigin } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '../../../state/sessionStore';
 
-function parseApprovalCommits(event: { raw?: Record<string, unknown> }): CommitRef[] {
-  const commits = event.raw?.commits;
-  if (commits === undefined) return [];
-  if (!Array.isArray(commits)) {
-    throw new Error(`approval_required event has non-array raw.commits: ${JSON.stringify(event)}`);
+function parseIntentOrigin(rawOrigin: unknown): IntentOrigin {
+  if (!rawOrigin || typeof rawOrigin !== 'object') {
+    throw new Error(`intent event missing raw.origin: ${JSON.stringify(rawOrigin)}`);
   }
-  return commits.map((commit) => {
-    const sha = (commit as { sha?: unknown }).sha;
-    const repo = (commit as { repo?: unknown }).repo;
-    if (typeof sha !== 'string' || typeof repo !== 'string') {
-      throw new Error(`approval_required commit missing sha/repo: ${JSON.stringify(commit)}`);
-    }
-    return { sha, repo };
-  });
+  const o = rawOrigin as Record<string, unknown>;
+  if (
+    typeof o.architect_key !== 'string' ||
+    typeof o.session_id !== 'string' ||
+    typeof o.session_type !== 'string'
+  ) {
+    throw new Error(`intent event has malformed raw.origin: ${JSON.stringify(o)}`);
+  }
+  return {
+    architect_key: o.architect_key,
+    session_id: o.session_id,
+    session_type: o.session_type as IntentOrigin['session_type'],
+    ticket_id: typeof o.ticket_id === 'string' ? o.ticket_id : undefined,
+  };
+}
+
+// Rebuild the generic Intent the popup renders from an intent/required event's
+// raw payload. Tool-agnostic: no field is conclude- or ticket-specific, so any
+// future tool routed through the daemon intent system renders with no change.
+function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string }): Intent {
+  const raw = event.raw ?? {};
+  const intentId = raw.intent_id;
+  if (typeof intentId !== 'string' || !intentId) {
+    throw new Error(`intent/required event missing raw.intent_id: ${JSON.stringify(event)}`);
+  }
+  const intentType = raw.intent_type;
+  if (intentType !== 'concludeSession' && intentType !== 'createWorkTicket') {
+    throw new Error(`intent/required event has unknown raw.intent_type: ${JSON.stringify(event)}`);
+  }
+  const waitSeconds = raw.wait_seconds;
+  if (typeof waitSeconds !== 'number') {
+    throw new Error(
+      `intent/required event missing numeric raw.wait_seconds: ${JSON.stringify(event)}`,
+    );
+  }
+  const policy = raw.policy;
+  if (policy !== 'auto-allow' && policy !== 'wait-then-allow' && policy !== 'wait-then-deny') {
+    throw new Error(`intent/required event has unknown raw.policy: ${JSON.stringify(event)}`);
+  }
+  const payload =
+    raw.payload && typeof raw.payload === 'object' && !Array.isArray(raw.payload)
+      ? (raw.payload as Record<string, unknown>)
+      : undefined;
+  return {
+    intent_id: intentId,
+    intent_type: intentType,
+    summary: typeof raw.summary === 'string' ? raw.summary : '',
+    payload,
+    origin: parseIntentOrigin(raw.origin),
+    wait_seconds: waitSeconds,
+    policy,
+    created_at: event.at,
+  };
 }
 
 interface MainTerminalResumeEvent {
@@ -102,16 +145,14 @@ export function useSessionEvents(): void {
       store.appendEvent(event);
 
       if (event.type === 'main_terminal_resumed') {
-        const session = store.sessions[event.session_intent_id];
+        const session = store.sessions[event.session_id];
         if (!session) {
-          throw new Error(
-            `main_terminal_resumed received for missing session ${event.session_intent_id}`,
-          );
+          throw new Error(`main_terminal_resumed received for missing session ${event.session_id}`);
         }
         const resume = mainTerminalResumeEvent(event);
         if (session.mainTerminalId === resume.mainTerminalId) return;
         if (session.mainTerminalId !== resume.previousTerminalId) return;
-        store.updateSessionMainTerminal(event.session_intent_id, resume.mainTerminalId);
+        store.updateSessionMainTerminal(event.session_id, resume.mainTerminalId);
         return;
       }
 
@@ -121,62 +162,44 @@ export function useSessionEvents(): void {
         if (!event.status) {
           throw new Error(`agent_status event missing status: ${JSON.stringify(event)}`);
         }
-        store.setSessionStatus(event.session_intent_id, event.status);
+        store.setSessionStatus(event.session_id, event.status);
         return;
       }
 
-      if (event.type === 'status' && event.status === 'approval_required') {
-        const body = event.raw?.body;
-        if (typeof body !== 'string' || !body) {
-          throw new Error(`approval_required event missing raw.body: ${JSON.stringify(event)}`);
-        }
-        const timeoutSeconds = event.raw?.timeout_seconds;
-        if (typeof timeoutSeconds !== 'number' || timeoutSeconds <= 0) {
-          throw new Error(
-            `approval_required event missing valid raw.timeout_seconds: ${JSON.stringify(event)}`,
-          );
-        }
-        const rejectionReason = event.raw?.rejection_reason;
-        if (rejectionReason !== undefined && typeof rejectionReason !== 'string') {
-          throw new Error(
-            `approval_required event has non-string raw.rejection_reason: ${JSON.stringify(event)}`,
-          );
-        }
-        store.setPendingApproval({
-          sessionId: event.session_intent_id,
-          body,
-          timeoutSeconds,
-          commits: parseApprovalCommits(event),
-          rejected: event.raw?.rejected === true,
-          rejectionReason: rejectionReason ?? '',
-        });
+      // A pending agent intent (conclude, create-ticket, …). Rendered by the
+      // window-level intent center, keyed by intent id, across all sessions.
+      if (event.type === 'intent' && event.status === 'required') {
+        store.setPendingIntent(parseIntentRequired(event));
         return;
       }
 
-      // Durable counterpart to approval_required: clears the dialog when the
-      // approval was rejected, cancelled, or orphaned by a daemon restart. The
-      // SSE backlog replays in order, so a resolved event following a required
-      // event nets to "no dialog" on reconnect.
-      if (event.type === 'status' && event.status === 'approval_resolved') {
-        store.clearPendingApproval(event.session_intent_id);
+      // Durable counterpart to intent/required: clears the card when the intent
+      // resolves (approved/denied/auto/error/daemon-restart). The SSE backlog
+      // replays in order, so a resolved event following a required event nets to
+      // "no card" on reconnect. Pairing is by intent id, never session id.
+      if (event.type === 'intent' && event.status === 'resolved') {
+        const intentId = event.raw?.intent_id;
+        if (typeof intentId === 'string' && intentId) {
+          store.clearPendingIntent(intentId);
+        }
         return;
       }
 
       if (event.type === 'status' && event.status === 'tab_changed') {
-        void reconcileBrowserTabs(event.session_intent_id);
+        void reconcileBrowserTabs(event.session_id);
         return;
       }
 
       if (event.type !== 'status' || event.status !== 'ended' || !isFinalSessionEnd(event)) {
         return;
       }
-      if (endingSessionIdsRef.current.has(event.session_intent_id)) return;
+      if (endingSessionIdsRef.current.has(event.session_id)) return;
 
-      const session = store.sessions[event.session_intent_id];
+      const session = store.sessions[event.session_id];
       if (!session) return;
 
-      endingSessionIdsRef.current.add(event.session_intent_id);
-      void cleanupEndedSession(event.session_intent_id, session.type);
+      endingSessionIdsRef.current.add(event.session_id);
+      void cleanupEndedSession(event.session_id, session.type);
     });
   }, []);
 

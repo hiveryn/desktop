@@ -1,6 +1,7 @@
 import type {
   ConcludeSessionParams,
-  SessionIntent,
+  Intent,
+  Session,
   SessionType,
   Ticket,
 } from '@hiveryn/shared/domain';
@@ -10,8 +11,8 @@ import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerSessionsIpc(): void {
-  ipcMain.handle('sessions:list', async (): Promise<DaemonResult<SessionIntent[]>> => {
-    const result = await daemonFetch<{ sessions: SessionIntent[] }>('/api/sessions');
+  ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
+    const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
     if (result.envelope.error) {
       return withNullData(result);
     }
@@ -31,8 +32,8 @@ export function registerSessionsIpc(): void {
       sessionType: SessionType,
       architectKey: string,
       ticketId?: string,
-    ): Promise<DaemonResult<SessionIntent>> => {
-      return daemonFetch<SessionIntent>('/api/sessions', {
+    ): Promise<DaemonResult<Session>> => {
+      return daemonFetch<Session>('/api/sessions', {
         method: 'POST',
         body: JSON.stringify({
           session_type: sessionType,
@@ -67,8 +68,8 @@ export function registerSessionsIpc(): void {
       prompt: string,
       workdir: string,
       slug: string,
-    ): Promise<DaemonResult<SessionIntent>> => {
-      return daemonFetch<SessionIntent>('/api/sessions', {
+    ): Promise<DaemonResult<Session>> => {
+      return daemonFetch<Session>('/api/sessions', {
         method: 'POST',
         body: JSON.stringify({
           session_type: 'freeform',
@@ -109,23 +110,31 @@ export function registerSessionsIpc(): void {
     },
   );
 
+  // Generic intent approve/deny, addressed by intent id. The desktop uses one
+  // pair of routes for every tool; the daemon runs the tool's side effect on
+  // approve and nothing on deny. A 404 means the intent already resolved.
   ipcMain.handle(
-    'sessions:approve-conclusion',
-    async (_event, sessionId: string): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/approve-conclusion`,
+    'sessions:approve-intent',
+    async (_event, sessionId: string, intentId: string): Promise<DaemonResult<Intent>> => {
+      return daemonFetch<Intent>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/approve`,
         { method: 'POST' },
       );
     },
   );
 
   ipcMain.handle(
-    'sessions:reject-conclusion',
-    async (_event, sessionId: string, reason?: string): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/reject-conclusion`, {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-      });
+    'sessions:deny-intent',
+    async (
+      _event,
+      sessionId: string,
+      intentId: string,
+      reason?: string,
+    ): Promise<DaemonResult<null>> => {
+      return daemonFetch<null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/deny`,
+        { method: 'POST', body: JSON.stringify({ reason: reason ?? '' }) },
+      );
     },
   );
 

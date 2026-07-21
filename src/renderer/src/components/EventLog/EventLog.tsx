@@ -5,7 +5,7 @@ export type EventStatus = 'starting' | 'working' | 'idle' | 'awaiting_input' | '
 
 export interface SessionEvent {
   id: string;
-  session_intent_id: string;
+  session_id: string;
   seq: number;
   type: 'status';
   status: EventStatus;
@@ -119,7 +119,7 @@ const EventLog: React.FC<EventLogProps> = ({ events, selectedEventId, externalTo
                       <span className={styles.dk}>id</span>
                       <span className={styles.dv}>{ev.id}</span>
                       <span className={styles.dk}>session</span>
-                      <span className={styles.dv}>{ev.session_intent_id}</span>
+                      <span className={styles.dv}>{ev.session_id}</span>
                       <span className={styles.dk}>status</span>
                       <span className={styles.dv}>{ev.status}</span>
                       {ev.tool && (

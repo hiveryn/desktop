@@ -40,7 +40,7 @@ interface BottomTabsProps {
 export default function BottomTabs({ onConclude }: BottomTabsProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const pendingApprovals = useSessionStore((s) => s.pendingApprovals);
+  const pendingIntents = useSessionStore((s) => s.pendingIntents);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
 
   const activeId = activeSessionId ?? Object.values(sessions)[0]?.id ?? '';
@@ -50,9 +50,11 @@ export default function BottomTabs({ onConclude }: BottomTabsProps) {
     const architect = arr.find((s) => s.type === 'architect');
     const workers = arr.filter((s) => s.type !== 'architect');
 
-    // A pending approval badges its tab only while that session isn't active —
-    // the active session shows the dialog itself, so no badge is needed.
-    const needsAttention = (id: string): boolean => id in pendingApprovals && id !== activeId;
+    // A pending intent badges its tab only while that session isn't active —
+    // the intent center popup already shows the active session's cards.
+    const needsAttention = (id: string): boolean =>
+      id !== activeId &&
+      Object.values(pendingIntents).some((intent) => intent.origin.session_id === id);
 
     const tabFor = (session: SessionRecord, label: string): TabBarTab => ({
       id: session.id,
@@ -72,7 +74,7 @@ export default function BottomTabs({ onConclude }: BottomTabsProps) {
       result.push(tabFor(worker, worker.label));
     }
     return result;
-  }, [sessions, pendingApprovals, activeId, onConclude]);
+  }, [sessions, pendingIntents, activeId, onConclude]);
 
   return (
     <TabBar

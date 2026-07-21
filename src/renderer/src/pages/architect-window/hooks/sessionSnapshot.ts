@@ -1,7 +1,7 @@
-import type { SessionIntent, SessionTab } from '@hiveryn/shared/domain';
+import type { Session, SessionTab } from '@hiveryn/shared/domain';
 import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 
-function sessionLabel(intent: SessionIntent): string {
+function sessionLabel(intent: Session): string {
   if (intent.session_type === 'architect') {
     return 'Architect';
   }
@@ -12,7 +12,7 @@ function sessionLabel(intent: SessionIntent): string {
   return label;
 }
 
-export function buildSessionRecord(intent: SessionIntent, tabs: SessionTab[]): SessionRecord {
+export function buildSessionRecord(intent: Session, tabs: SessionTab[]): SessionRecord {
   if (intent.current_run?.status !== 'running') {
     throw new Error(`Cannot build session record for non-running session ${intent.id}`);
   }

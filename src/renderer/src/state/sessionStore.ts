@@ -1,15 +1,6 @@
-import type { CommitRef, SessionEvent, SessionTab } from '@hiveryn/shared/domain';
+import type { Intent, SessionEvent, SessionTab } from '@hiveryn/shared/domain';
 import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
-
-export interface PendingApproval {
-  sessionId: string;
-  body: string;
-  timeoutSeconds: number;
-  commits: CommitRef[];
-  rejected: boolean;
-  rejectionReason: string;
-}
 
 export interface SessionRecord {
   id: string;
@@ -45,10 +36,10 @@ interface SessionState {
   // Maximized pane per session ID. Maximize is scoped per architect session, so
   // switching sessions never carries one session's maximize state into another.
   maximizedPanes: Record<string, string | null>;
-  // Pending conclusion approvals keyed by the session that triggered them.
-  // Each session owns at most one; the dialog only renders for the active
-  // session, so a background approval never hijacks the window.
-  pendingApprovals: Record<string, PendingApproval>;
+  // Pending agent intents awaiting the user's approval, keyed by intent id. A
+  // session can have several open at once; the window-level intent center
+  // renders every session's intents, so this is not scoped to the active one.
+  pendingIntents: Record<string, Intent>;
 }
 
 interface SessionActions {
@@ -64,8 +55,8 @@ interface SessionActions {
   setSessionTabs(sessionId: string, tabs: SessionTab[]): void;
   appendEvent(event: SessionEvent): void;
   clearEventsForSession(sessionId: string): void;
-  setPendingApproval(approval: PendingApproval): void;
-  clearPendingApproval(sessionId: string): void;
+  setPendingIntent(intent: Intent): void;
+  clearPendingIntent(intentId: string): void;
   reset(): void;
 }
 
@@ -80,7 +71,7 @@ const initialState: SessionState = {
   focusedPane: 'main-terminal',
   maximizedPane: null,
   maximizedPanes: {},
-  pendingApprovals: {},
+  pendingIntents: {},
 };
 
 // Split terminals render beside their primary tab and never become a bar tab.
@@ -161,8 +152,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const sessionRightTabs = Object.fromEntries(
         Object.entries(state.sessionRightTabs).filter(([id]) => id in sessions),
       );
-      const pendingApprovals = Object.fromEntries(
-        Object.entries(state.pendingApprovals).filter(([id]) => id in sessions),
+      const pendingIntents = Object.fromEntries(
+        Object.entries(state.pendingIntents).filter(
+          ([, intent]) => intent.origin.session_id in sessions,
+        ),
       );
       const maximizedPanes = Object.fromEntries(
         Object.entries(state.maximizedPanes).filter(([id]) => id in sessions),
@@ -171,7 +164,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
         sessions,
         events,
         sessionRightTabs,
-        pendingApprovals,
+        pendingIntents,
         maximizedPanes,
         ...normalizeSelection(
           sessions,
@@ -191,13 +184,17 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const { [id]: _removed, ...sessions } = state.sessions;
       const { [id]: _removedEvents, ...events } = state.events;
       const { [id]: _removedRightTab, ...sessionRightTabs } = state.sessionRightTabs;
-      const { [id]: _removedApproval, ...pendingApprovals } = state.pendingApprovals;
+      const pendingIntents = Object.fromEntries(
+        Object.entries(state.pendingIntents).filter(
+          ([, intent]) => intent.origin.session_id !== id,
+        ),
+      );
       const { [id]: _removedMaximized, ...maximizedPanes } = state.maximizedPanes;
       return {
         sessions,
         events,
         sessionRightTabs,
-        pendingApprovals,
+        pendingIntents,
         maximizedPanes,
         ...normalizeSelection(
           sessions,
@@ -317,13 +314,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   appendEvent(event) {
     set((state) => {
-      const existing = state.events[event.session_intent_id] ?? [];
+      const existing = state.events[event.session_id] ?? [];
       const next =
         existing.length >= EVENTS_PER_SESSION_CAP
           ? [...existing.slice(existing.length - EVENTS_PER_SESSION_CAP + 1), event]
           : [...existing, event];
       return {
-        events: { ...state.events, [event.session_intent_id]: next },
+        events: { ...state.events, [event.session_id]: next },
       };
     });
   },
@@ -336,17 +333,17 @@ export const useSessionStore = create<SessionStore>((set) => ({
     });
   },
 
-  setPendingApproval(approval) {
+  setPendingIntent(intent) {
     set((state) => ({
-      pendingApprovals: { ...state.pendingApprovals, [approval.sessionId]: approval },
+      pendingIntents: { ...state.pendingIntents, [intent.intent_id]: intent },
     }));
   },
 
-  clearPendingApproval(sessionId) {
+  clearPendingIntent(intentId) {
     set((state) => {
-      if (!state.pendingApprovals[sessionId]) return state;
-      const { [sessionId]: _removed, ...pendingApprovals } = state.pendingApprovals;
-      return { pendingApprovals };
+      if (!state.pendingIntents[intentId]) return state;
+      const { [intentId]: _removed, ...pendingIntents } = state.pendingIntents;
+      return { pendingIntents };
     });
   },
 

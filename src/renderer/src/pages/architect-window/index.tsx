@@ -8,6 +8,7 @@ import {
   ErrorCenterSheet,
   Glyph,
   IconButton,
+  IntentCenter,
   Navigation,
   Plus,
   Text,
@@ -18,7 +19,6 @@ import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
-import ApprovalDialog from './components/ApprovalDialog';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import FreeformSessionDialog from './components/FreeformSessionDialog';
@@ -72,18 +72,8 @@ export default function ArchitectWindow() {
   const maximizedPane = useSessionStore((s) => s.maximizedPane);
   const setMaximizedPane = useSessionStore((s) => s.setMaximizedPane);
 
-  // Only the active session's approval is shown, scoped to its pane — a pending
-  // approval from a background session surfaces as a tab badge, not a modal.
-  const activeApproval = useSessionStore((s) =>
-    s.activeSessionId ? (s.pendingApprovals[s.activeSessionId] ?? null) : null,
-  );
-
   const [concludeTarget, setConcludeTarget] = useState<SessionRecord | null>(null);
   const [freeformOpen, setFreeformOpen] = useState(false);
-  // Tracked in state (not a ref) so the scoped dialog re-renders once the
-  // split-pane element mounts and can portal into it. Scoping to the split
-  // pane centers the dialog across both panes without covering nav/bottom bar.
-  const [splitPaneEl, setSplitPaneEl] = useState<HTMLDivElement | null>(null);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -178,7 +168,7 @@ export default function ArchitectWindow() {
           </div>
         ) : (
           <div className={styles.contentStack}>
-            <div ref={setSplitPaneEl} className={styles.splitPane}>
+            <div className={styles.splitPane}>
               {/* biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav */}
               {/* biome-ignore lint/a11y/useKeyWithClickEvents: see above */}
               <div
@@ -251,20 +241,13 @@ export default function ArchitectWindow() {
         />
       )}
 
-      {activeApproval && splitPaneEl && (
-        <ApprovalDialog
-          approval={activeApproval}
-          container={splitPaneEl}
-          onClose={() => useSessionStore.getState().clearPendingApproval(activeApproval.sessionId)}
-        />
-      )}
-
       {maximizedPane !== null && (
         // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click dismisses maximize
         // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard dismiss handled by dispatcher Escape
         <div className={styles.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
 
+      <IntentCenter />
       <ErrorCenterSheet />
     </div>
   );

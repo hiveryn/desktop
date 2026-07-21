@@ -1,6 +1,6 @@
 # desktop Architecture
 
-`desktop` is the Hiveryn Electron application — the native macOS window for agent profiles, sessions, and workspace views. This document covers how the desktop app is built and how to work in it: the main/preload/renderer split, source layout, the IPC + envelope pattern, structured logging, the terminal/GPU lifecycle, the native tab registry, the approval/conclusion flows, the keyboard/focus model, and the dev commands.
+`desktop` is the Hiveryn Electron application — the native macOS window for agent profiles, sessions, and workspace views. This document covers how the desktop app is built and how to work in it: the main/preload/renderer split, source layout, the IPC + envelope pattern, structured logging, the terminal/GPU lifecycle, the native tab registry, the intent approval and conclusion flows, the keyboard/focus model, and the dev commands.
 
 ## Process boundaries
 
@@ -38,7 +38,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/createFreeform/conclude/discard/approve-conclusion/reject-conclusion → daemon HTTP
+      sessions.ts         sessions:list/create/createFreeform/conclude/discard/approve-intent/deny-intent → daemon HTTP
       tabs.ts             tabs:list → daemon HTTP; tabs:createBrowserTab/closeBrowserTab → POST/DELETE /api/sessions/:id/browser-tabs (browser tab state); canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
       browserView.ts      browser:* handlers — native WebContentsView lifecycle (create/navigate/back/forward/reload/destroy/bounds); pure Electron, no daemon (state routes through tabs.ts)
@@ -58,7 +58,7 @@ src/
     main.tsx              React entry, Nerd Font preload, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane (per-session), active selection, pendingApprovals (per-session)
+      sessionStore.ts     Zustand store — sessions, main terminal IDs, daemon tabs, events, focusedPane, maximizedPane (per-session), active selection, pendingIntents (keyed by intent id, across all sessions)
       selectors.ts        Stable-reference selectors (useEventsForActiveSession, useWorkSessions, …)
       errorCenterStore.ts Zustand store — durable, per-window error history (entries, unreadCount, sheetOpen); see "Error center" below
       filesStore.ts       Zustand store — per-session files-tab view state (root, current dir, open file, expanded dirs) + window-lifetime custom picker roots
@@ -83,7 +83,7 @@ src/
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketPane, TicketWorkflow, GitDiffPane,
-                                 ConcludeSessionDialog, FreeformSessionDialog, ApprovalDialog,
+                                 ConcludeSessionDialog, FreeformSessionDialog,
                                  files/ (native files tab — FilesPane, DirTree/DirListing,
                                  useDirTreeData (shared fetch cache + flattened visible-row
                                  list backing vim-style nav), RootPicker, Breadcrumb,
@@ -121,7 +121,7 @@ Every daemon-backed IPC call follows this chain:
 
 1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws.
 2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log and the error center — see below), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
-3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (dialogs whose error is naturally scoped and dismissed with the dialog — `ConcludeSessionDialog`, `FreeformSessionDialog`, `ApprovalDialog`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
+3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (whose error is naturally scoped to and dismissed with the surface — `ConcludeSessionDialog`, `FreeformSessionDialog`, the intent center's `IntentCard`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
 
 All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, `meta.request_id`). The desktop surfaces this in the `RequestLog` panel at the bottom of every page.
 
@@ -147,7 +147,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 2. **`src/main/ipc/index.ts`** — call the new registrar in `registerIpc()`.
 3. **`src/preload/index.ts`** — add the new namespace to `contextBridge.exposeInMainWorld`. Add its channels to `CHANNEL_INFO` for the request log display.
 4. **`src/preload/index.d.ts`** — extend `HiverynAPI` with the new namespace's types. Add any new domain types as global interfaces.
-5. **`src/shared/types.ts`** — add desktop-specific types (envelope wrappers, IPC-only structs). Domain types (SessionIntent, Ticket, …) come from `@hiveryn/shared/domain` — import them from there, not from `src/shared/types`.
+5. **`src/shared/types.ts`** — add desktop-specific types (envelope wrappers, IPC-only structs). Domain types (Session, Intent, Ticket, …) come from `@hiveryn/shared/domain` — import them from there, not from `src/shared/types`.
 
 ## Adding a new page
 
@@ -158,7 +158,7 @@ The desktop app writes append-only structured JSONL logs under the resolved runt
 ## Design rules
 
 - Renderer code never imports from `electron`, `node:*`, or `src/main`. Only `window.hiveryn.*`.
-- Domain types (SessionIntent, Ticket, SessionTab, …) come from `@hiveryn/shared/domain`. Desktop-specific types (Envelope, DaemonResult, Architect, …) live in `src/shared/types.ts`. Main and preload import from both; renderer imports domain types from `@hiveryn/shared/domain` and gets Electron-boundary types via ambient globals in `preload/index.d.ts`.
+- Domain types (Session, Intent, Ticket, SessionTab, …) come from `@hiveryn/shared/domain`. Desktop-specific types (Envelope, DaemonResult, Architect, …) live in `src/shared/types.ts`. Main and preload import from both; renderer imports domain types from `@hiveryn/shared/domain` and gets Electron-boundary types via ambient globals in `preload/index.d.ts`.
 - `daemonFetch` never throws. IPC handlers never throw. Only the preload `invoke()` throws, so renderer error handling is uniform.
 - Field-level validation errors use `IpcError.details.field` — no message parsing.
 - Shared renderer components live in `src/renderer/src/components/` and are imported through the `@components` alias. This relocated component source and its styles are excluded from desktop Biome formatting to preserve the imported component code as-is. Page-specific components live next to their page's `index.tsx`.
@@ -185,7 +185,7 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 
 - **`session:data` IPC events** carry `{ sessionId: string; terminalId: string; data: Uint8Array | string }` so the renderer can route PTY output to the correct terminal.
 - **`session:terminal-closed` IPC events** carry `{ sessionId: string; terminalId: string }` — fired when a terminal's WebSocket closes server-side (e.g. user ran `exit`). `SessionTerminal` subscribes via `onTerminalClosed` and calls `onDisconnected` in response.
-- **`session:event` IPC events** include `session_intent_id` in the payload — session-level lifecycle events from the daemon's SSE stream.
+- **`session:event` IPC events** include `session_id` in the payload — session-level lifecycle events from the daemon's SSE stream.
 - **`session.send(sessionId, terminalId, data)`** and **`session.resize(sessionId, terminalId, cols, rows)`** take explicit identifiers — there is no global "active terminal" concept in the main process. Each `SessionTerminal` knows its own `(sessionId, terminalId)` and routes accordingly.
 
 ### Terminal lifecycle
@@ -217,7 +217,7 @@ Resize-while-scrolled-up: `fitAddon.fit()` → `term.resize()` reflows the whole
 |---|---|
 | **Left pane** | `MainTerminalStack` — every session's main terminal mounted as a sibling; visibility picked by `activeSessionId`. Shows a "No active session / Return to Launcher" fallback when no session is registered. |
 | **Right pane** | Daemon-provided tabs from `tabs:list`: Kanban, Activity log, and `ExtraTerminalStack` terminal tabs. Tab visibility picked by `activeRightTab`. |
-| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. Each tab's icon reflects the session's live agent status (`active`/`idle`/`waiting`/`stopped`) via `iconForStatus`, distinct from the approval notify dot. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
+| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. Each tab's icon reflects the session's live agent status (`active`/`idle`/`waiting`/`stopped`) via `iconForStatus`, distinct from the pending-intent notify dot. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
 
 Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, terminalId)` props — no shared input-routing state needed.
 
@@ -255,10 +255,10 @@ There are exactly 7 tab types (`SessionTab.type`): kanban, event-log, ticket, te
 
 Architect sessions run in the daemon and survive component mount/unmount cycles in the renderer. Component lifecycle is NOT session lifecycle.
 
-- **Spawn**: the launcher creates a session intent via `sessions.create('architect', key)` then spawns a run via `sessions.createRun(intent.id, profileName)`, then opens the architect window. The architect window does not spawn — it only restores.
+- **Spawn**: the launcher creates a session via `sessions.create('architect', key)` then spawns a run via `sessions.createRun(session.id, profileName)`, then opens the architect window. The architect window does not spawn — it only restores.
 - **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `tabs.list(id)` for every running session that matches the architect key, using `current_run.main_terminal_id` for the left-pane terminal and daemon tabs for the right pane.
 - **Recovery**: `useDaemonRecovery` subscribes to `daemon:health-status` events from the main-process health poller. On `unreachable → healthy` transitions, it re-fetches the full daemon session snapshot and reconciles the store via `store.reconcileSessions()`, which handles changed terminal UUIDs, removed sessions, and stale tab/focus selection.
-- **`sessions:list`** returns `SessionIntent[]`. A session is running when `intent.current_run?.status === 'running'`; main-terminal reconnects use `current_run.main_terminal_id`.
+- **`sessions:list`** returns `Session[]`. A session is running when `session.current_run?.status === 'running'`; main-terminal reconnects use `current_run.main_terminal_id`.
 - The daemon enforces **one running session per architect** (partial unique index).
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
 
@@ -297,21 +297,21 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 
 ### Discard ticket session (move back to backlog)
 
-A ticket session can be discarded as if it was never spawned — distinct from concluding/rejecting (no conclusion is written, no run record is kept). The ticket `ConcludeSessionDialog` (the type-aware dialog opened from a tab's conclude × button) shows a destructive **MOVE TO BACKLOG** button alongside REJECT. It opens a confirmation step (irreversible; discards the session's output; does **not** revert any git commits the agent already made), then calls `sessions:discard` IPC → `POST /api/sessions/{id}/discard` (no body). The daemon resets the ticket `progress → backlog`, deletes the run/intent rows, and emits the `raw.lifecycle === 'discarded'` ended event — which drives the cleanup above to remove the tab. The dialog itself only closes; it never optimistically unregisters. A late call after the daemon resolved returns HTTP 404, treated as already-resolved.
+A ticket session can be discarded as if it was never spawned — distinct from concluding/rejecting (no conclusion is written, no run record is kept). The ticket `ConcludeSessionDialog` (the type-aware dialog opened from a tab's conclude × button) shows a destructive **MOVE TO BACKLOG** button alongside REJECT. It opens a confirmation step (irreversible; discards the session's output; does **not** revert any git commits the agent already made), then calls `sessions:discard` IPC → `POST /api/sessions/{id}/discard` (no body). The daemon resets the ticket `progress → backlog`, deletes the run/session rows, and emits the `raw.lifecycle === 'discarded'` ended event — which drives the cleanup above to remove the tab. The dialog itself only closes; it never optimistically unregisters. A late call after the daemon resolved returns HTTP 404, treated as already-resolved.
 
-## Conclusion approval flow
+## Intent approval flow
 
-When an agent requests a conclusion via MCP, the daemon blocks and publishes a `{ type: "status", status: "approval_required", raw: { body, timeout_seconds, commits?, rejected?, rejection_reason? } }` SSE event on the session stream. The desktop handles this as follows:
+An **intent** is a pending agent tool call the daemon gates on the user — today `concludeSession` and `createWorkTicket`, but the desktop is deliberately tool-agnostic so any future intent renders with no change. When an agent calls such a tool via MCP, the daemon blocks the call and publishes a generic `{ type: "intent", status: "required", raw: { intent_id, intent_type, summary, origin, wait_seconds, policy, payload? } }` SSE event on that session's stream; `origin` is `{ architect_key, session_id, session_type, ticket_id? }`. The desktop handles it as follows:
 
-1. **`useSessionEvents`** detects `status === 'approval_required'`, extracts `raw` into a `PendingApproval` (throws on missing/invalid `body` or `timeout_seconds`; `commits`/`rejected`/`rejection_reason` are optional and default to `[]`/`false`/`''`, but throw if present and malformed), and calls `store.setPendingApproval(approval)`. It also handles the durable counterpart `status === 'approval_resolved'` by calling `store.clearPendingApproval(sessionId)` — emitted by the daemon when an approval is rejected, cancelled (agent disconnect), or orphaned by a daemon restart. Since the SSE backlog replays in order on every (re)connect, a `required` followed by a `resolved` nets to "no dialog", so a stale approval never resurfaces as an unactionable dialog.
-2. **`BottomTabs`** checks `pendingApprovals[sessionId]` for each session. If a session has a pending approval and is **not** the active session, a notification dot badges its tab to signal "needs attention".
-3. **`ArchitectWindow`** only renders `<ApprovalDialog>` when the **active** session has a pending approval — so a background session's approval never hijacks the window as a modal. The dialog is scoped to the split-pane container (both left and right panes) so it centers across the full tab.
-4. **`ApprovalDialog`** shows the conclusion body as rendered markdown, plus a "Resubmitted after rejection" banner when `rejected` and a commit list when `commits` is non-empty. A countdown driven by `timeout_seconds` shows in the title bar; on reaching zero the dialog auto-closes (the daemon has already auto-approved). "APPROVE" calls `sessions:approve-conclusion` IPC → `POST /api/sessions/{id}/approve-conclusion`. "REJECT" transitions to a reason-input step; confirming calls `sessions:reject-conclusion` IPC → `POST /api/sessions/{id}/reject-conclusion` with `{ reason }`. A late Approve/Reject after the daemon resolved returns HTTP 404, which the dialog treats as already-resolved and closes silently.
-5. On either action completing, `clearPendingApproval(sessionId)` removes the approval from the store and closes the dialog.
+1. **`useSessionEvents`** detects `type === 'intent' && status === 'required'`, rebuilds a shared `Intent` from `raw` via `parseIntentRequired` (throws on a missing/malformed `intent_id`, `intent_type`, `wait_seconds`, `policy`, or `origin`; `payload` is optional), and calls `store.setPendingIntent(intent)` — keyed by `intent_id`, so one session can have several open at once. It also handles the durable counterpart `status === 'resolved'` by calling `store.clearPendingIntent(raw.intent_id)` — emitted by the daemon on every resolution (approved / auto-approved / denied / auto-denied / error / daemon-restart orphan). Pairing is by `intent_id`, never session id. Since the SSE backlog replays in order on every (re)connect, a `required` followed by a `resolved` nets to "no card", so a stale intent never resurfaces as an unactionable popup.
+2. **`BottomTabs`** badges a session's tab (needs-attention dot) when it has any pending intent and is **not** the active session — computed over `pendingIntents` by `origin.session_id`.
+3. **`ArchitectWindow`** mounts one window-level `<IntentCenter>` (a `createPortal`-to-`<body>` fixed top-right stack, sibling of `<ErrorCenterSheet>`), so it renders every session's intents in this architect window, not just the active one's.
+4. **`IntentCenter`/`IntentCard`** renders each intent (newest on top) with its origin label, `summary` headline, a tool-agnostic `payload` preview (strings as text, commit-shaped arrays as sha chips, string arrays as a comma list, else compact JSON), and a cosmetic countdown seeded from `wait_seconds` labeled by `policy` ("auto-approve Ns" / "auto-deny Ns"). The countdown is **cosmetic** — the daemon's auto-resolve is authoritative, so at zero the card shows "resolving…" and waits for the `resolved` event rather than acting locally. **Approve** calls `sessions:approve-intent` IPC → `POST /api/sessions/{id}/intents/{intentId}/approve` (empty body; the daemon runs the tool's side effect only on approval and returns the result to the blocked agent). An always-visible optional reason field beside **Deny** calls `sessions:deny-intent` IPC → `POST /api/sessions/{id}/intents/{intentId}/deny` with `{ reason }` (204). A late approve/deny after the daemon resolved returns HTTP 404, treated as already-resolved.
+5. On success (or 404), the card clears via `clearPendingIntent(intent_id)`; the `resolved` SSE event clears it across all clients regardless.
 
 ## Agent status tab icon
 
-Separate from the approval flow, the daemon emits a `{ type: "agent_status", status: "active" | "idle" | "waiting" | "stopped" }` SSE event whenever a session's mapped agent status transitions (emit-on-change only). `useSessionEvents` handles `type === 'agent_status'` by calling `store.setSessionStatus(sessionId, status)` (throws if `status` is absent); `BottomTabs` maps `SessionRecord.status` to a glyph via `iconForStatus` (`active`→`Activity`, `idle`→`AgentIdle`, `waiting`→`AgentWaiting`, `stopped`→`AgentStopped` dimmed, fallback `Terminal`). Initial status is seeded from `current_run.agent_status` in `buildSessionRecord` on window restore, and the persisted event replays in the connect backlog so a fresh stream renders the right icon immediately. `waiting` stays visually distinct from the approval notify dot — they are never merged.
+Separate from the intent flow, the daemon emits a `{ type: "agent_status", status: "active" | "idle" | "waiting" | "stopped" }` SSE event whenever a session's mapped agent status transitions (emit-on-change only). `useSessionEvents` handles `type === 'agent_status'` by calling `store.setSessionStatus(sessionId, status)` (throws if `status` is absent); `BottomTabs` maps `SessionRecord.status` to a glyph via `iconForStatus` (`active`→`Activity`, `idle`→`AgentIdle`, `waiting`→`AgentWaiting`, `stopped`→`AgentStopped` dimmed, fallback `Terminal`). Initial status is seeded from `current_run.agent_status` in `buildSessionRecord` on window restore, and the persisted event replays in the connect backlog so a fresh stream renders the right icon immediately. `waiting` stays visually distinct from the pending-intent notify dot — they are never merged.
 
 ## Keyboard shortcuts and focus model
 

@@ -2,9 +2,10 @@ import type {
   BrowserTabInfo,
   ConcludeSessionParams,
   CreateTerminalParams,
+  Intent,
   PreviewBrowserTabParams,
+  Session,
   SessionEvent,
-  SessionIntent,
   SessionTab,
   SessionType,
   TerminalInfo,
@@ -54,11 +55,11 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'sessions:conclude': { method: 'POST', path: '/api/sessions/:id/conclude' },
   'sessions:discard': { method: 'POST', path: '/api/sessions/:id/discard' },
-  'sessions:approve-conclusion': {
+  'sessions:approve-intent': {
     method: 'POST',
-    path: '/api/sessions/:id/approve-conclusion',
+    path: '/api/sessions/:id/intents/:intentId/approve',
   },
-  'sessions:reject-conclusion': { method: 'POST', path: '/api/sessions/:id/reject-conclusion' },
+  'sessions:deny-intent': { method: 'POST', path: '/api/sessions/:id/intents/:intentId/deny' },
   'system:getRuntime': { method: 'GET', path: '/api/system/runtime' },
   'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
   'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
@@ -260,12 +261,9 @@ contextBridge.exposeInMainWorld('hiveryn', {
     },
   },
   sessions: {
-    list: (): Promise<SessionIntent[]> => invoke('sessions:list'),
-    create: (
-      sessionType: SessionType,
-      architectKey: string,
-      ticketId?: string,
-    ): Promise<SessionIntent> => invoke('sessions:create', sessionType, architectKey, ticketId),
+    list: (): Promise<Session[]> => invoke('sessions:list'),
+    create: (sessionType: SessionType, architectKey: string, ticketId?: string): Promise<Session> =>
+      invoke('sessions:create', sessionType, architectKey, ticketId),
     createRun: (
       intentId: string,
       profileName: string,
@@ -275,17 +273,16 @@ contextBridge.exposeInMainWorld('hiveryn', {
     conclude: (sessionId: string, params: ConcludeSessionParams): Promise<void> =>
       invoke('sessions:conclude', sessionId, params),
     discard: (sessionId: string): Promise<void> => invoke('sessions:discard', sessionId),
-    approveConclusion: (sessionId: string): Promise<void> =>
-      invoke('sessions:approve-conclusion', sessionId),
-    rejectConclusion: (sessionId: string, reason?: string): Promise<void> =>
-      invoke('sessions:reject-conclusion', sessionId, reason),
+    approveIntent: (sessionId: string, intentId: string): Promise<Intent> =>
+      invoke('sessions:approve-intent', sessionId, intentId),
+    denyIntent: (sessionId: string, intentId: string, reason?: string): Promise<void> =>
+      invoke('sessions:deny-intent', sessionId, intentId, reason),
     createFreeform: (
       architectKey: string,
       prompt: string,
       workdir: string,
       slug: string,
-    ): Promise<SessionIntent> =>
-      invoke('sessions:createFreeform', architectKey, prompt, workdir, slug),
+    ): Promise<Session> => invoke('sessions:createFreeform', architectKey, prompt, workdir, slug),
     getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {

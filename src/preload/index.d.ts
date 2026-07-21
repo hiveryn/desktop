@@ -104,7 +104,7 @@ type SessionRunFailureReason =
 
 interface SessionRun {
   id: string;
-  session_intent_id: string;
+  session_id: string;
   status: SessionRunStatus;
   agent_status?: string;
   profile_name: string;
@@ -119,7 +119,7 @@ interface SessionRun {
   updated_at: string;
 }
 
-interface SessionIntent {
+interface Session {
   id: string;
   architect_key: string;
   session_type: SessionType;
@@ -133,6 +133,29 @@ interface SessionIntent {
   current_run?: SessionRun;
 }
 
+// ── Intents ────────────────────────────────────────────────────────────────
+
+type IntentType = 'concludeSession' | 'createWorkTicket';
+type IntentPolicy = 'auto-allow' | 'wait-then-allow' | 'wait-then-deny';
+
+interface IntentOrigin {
+  architect_key: string;
+  session_id: string;
+  session_type: SessionType;
+  ticket_id?: string;
+}
+
+interface Intent {
+  intent_id: string;
+  intent_type: IntentType;
+  summary: string;
+  payload?: Record<string, unknown>;
+  origin: IntentOrigin;
+  wait_seconds: number;
+  policy: IntentPolicy;
+  created_at: string;
+}
+
 interface SessionRunResult {
   run: SessionRun;
   main_terminal_id: string;
@@ -141,7 +164,7 @@ interface SessionRunResult {
 
 interface SessionEvent {
   id: string;
-  session_intent_id: string;
+  session_id: string;
   run_id?: string;
   seq: number;
   type: string;
@@ -521,12 +544,8 @@ interface HiverynAPI {
     onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;
   };
   sessions: {
-    list: () => Promise<SessionIntent[]>;
-    create: (
-      sessionType: SessionType,
-      architectKey: string,
-      ticketId?: string,
-    ) => Promise<SessionIntent>;
+    list: () => Promise<Session[]>;
+    create: (sessionType: SessionType, architectKey: string, ticketId?: string) => Promise<Session>;
     createRun: (
       intentId: string,
       profileName: string,
@@ -535,14 +554,14 @@ interface HiverynAPI {
     ) => Promise<SessionRunResult>;
     conclude: (sessionId: string, params: ConcludeSessionParams) => Promise<void>;
     discard: (sessionId: string) => Promise<void>;
-    approveConclusion: (sessionId: string) => Promise<void>;
-    rejectConclusion: (sessionId: string, reason?: string) => Promise<void>;
+    approveIntent: (sessionId: string, intentId: string) => Promise<Intent>;
+    denyIntent: (sessionId: string, intentId: string, reason?: string) => Promise<void>;
     createFreeform: (
       architectKey: string,
       prompt: string,
       workdir: string,
       slug: string,
-    ) => Promise<SessionIntent>;
+    ) => Promise<Session>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {

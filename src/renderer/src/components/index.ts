@@ -38,5 +38,6 @@ export { default as TabTypePicker } from './TabTypePicker/TabTypePicker';
 export type { TabTypeChoice } from './TabTypePicker/TabTypePicker';
 export { default as ErrorCenterIndicator } from './ErrorCenterIndicator/ErrorCenterIndicator';
 export { default as ErrorCenterSheet } from './ErrorCenterSheet/ErrorCenterSheet';
+export { default as IntentCenter } from './IntentCenter/IntentCenter';
 export { DiffView } from './DiffView';
 export type { DiffFileStatus, DiffSectionKind, DiffViewFile, DiffViewProps, DiffViewSection } from './DiffView';

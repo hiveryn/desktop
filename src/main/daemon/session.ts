@@ -1,6 +1,7 @@
 import type { SessionEvent } from '@hiveryn/shared/domain';
 import type { WebContents } from 'electron';
 import type { InfraErrorEvent } from '../../shared/types';
+import { handleIntentEvent } from '../intentNotifications';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
 
@@ -45,7 +46,11 @@ interface ActiveSession {
 }
 
 function parseSessionEvent(data: string, sendEventToRenderer: (event: SessionEvent) => void): void {
-  sendEventToRenderer(JSON.parse(data) as SessionEvent);
+  const event = JSON.parse(data) as SessionEvent;
+  // Fire/close the OS notification for intent events before forwarding. Deduped
+  // by intent id, so multiple subscriptions to the same session toast once.
+  handleIntentEvent(event);
+  sendEventToRenderer(event);
 }
 
 async function consumeSse(

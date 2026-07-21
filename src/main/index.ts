@@ -3,6 +3,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils';
 import { app, BrowserWindow, globalShortcut, Menu, shell } from 'electron';
 import * as daemonHealth from './daemon/health';
 import { loadAndRegisterGlobalShortcut } from './globalShortcut';
+import { configureIntentNotifications } from './intentNotifications';
 import { registerIpc } from './ipc';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
@@ -157,10 +158,29 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
   return architectWindow;
 }
 
+// Focus (or open) an architect window and activate the given session's tab.
+// Shared by the command palette and by intent-notification clicks.
+function focusArchitectSession(architectKey: string, sessionId: string): void {
+  const window = createArchitectWindow(architectKey);
+  const send = (): void => window.webContents.send('palette:switch-session', sessionId);
+  if (window.webContents.isLoading()) {
+    window.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 registerIpc({
   openArchitectWindow: createArchitectWindow,
   openLauncherWindow: createLauncherWindow,
   isLauncherWindow: (window) => window === launcherWindow,
+});
+
+// Clicking an intent's OS notification focuses its architect/session; a toast is
+// suppressed while that architect window is already focused (card is visible).
+configureIntentNotifications({
+  focusSession: focusArchitectSession,
+  getArchitectWindow: (key) => architectWindows.get(key),
 });
 
 app.whenReady().then(() => {

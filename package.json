@@ -19,6 +19,7 @@
     "lint": "biome check .",
     "format": "biome check --fix .",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
+    "dist:mac:local": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
     "release:mac": "electron-vite build && electron-builder --mac --publish always"
   },
   "dependencies": {
