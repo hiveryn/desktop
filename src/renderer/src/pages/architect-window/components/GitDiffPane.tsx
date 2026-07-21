@@ -15,9 +15,11 @@ import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { usePaneLayoutStore } from '../../../state/paneLayoutStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
+import type { SessionRepoScope } from '../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from './GitDiffPane.module.css';
 import { buildDiffTree, type DiffTreeRow, flattenDiffTree } from './gitDiffTree';
+import RepoPicker, { type RepoOption } from './RepoPicker';
 
 // Tool names normalized by agentruntime (agentruntime/adapter/*/normalize.go)
 // that mutate the working tree. Bash is deliberately excluded — most Bash
@@ -112,12 +114,22 @@ interface Props {
   sessionId: string;
   architectKey: string | undefined;
   isActive: boolean;
+  repoScope: SessionRepoScope;
   shortcutConfig: ShortcutConfig | null;
 }
 
-export default function GitDiffPane({ sessionId, architectKey, isActive, shortcutConfig }: Props) {
+export default function GitDiffPane({
+  sessionId,
+  architectKey,
+  isActive,
+  repoScope,
+  shortcutConfig,
+}: Props) {
   const [home, setHome] = useState('');
-  const [repo, setRepo] = useState<string | null | undefined>(undefined); // undefined = unknown yet
+  // The repo currently being diffed. Every repository scoped to the ticket is
+  // selectable via the header picker; the primary is the default. null until
+  // the scope resolves and initializes it.
+  const [selectedRepoKey, setSelectedRepoKey] = useState<string | null>(null);
   const [data, setData] = useState<RepoDiffResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -135,35 +147,42 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
     window.hiveryn.system.getUserHome().then(setHome, () => {});
   }, []);
 
+  // Every repository scoped to the ticket, primary first. Empty unless the
+  // scope resolved cleanly.
+  const repoOptions = useMemo<RepoOption[]>(() => {
+    if (repoScope.status !== 'ready') return [];
+    return [
+      { repoKey: repoScope.primary.repoKey, isPrimary: true },
+      ...repoScope.additional.map((entry) => ({ repoKey: entry.repoKey, isPrimary: false })),
+    ];
+  }, [repoScope]);
+
+  // Default the selection to the primary repo, and re-default whenever the
+  // resolved scope changes (session restoration into another session preserves
+  // the primary default). Self-heals if the selected repo leaves scope.
   useEffect(() => {
-    let cancelled = false;
-    setRepo(undefined);
-    window.hiveryn.sessions.getTicket(sessionId).then(
-      (t) => {
-        if (!cancelled) setRepo(t.repo ?? null);
-      },
-      () => {
-        if (!cancelled) setRepo(null);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
+    if (repoScope.status !== 'ready') {
+      if (selectedRepoKey !== null) setSelectedRepoKey(null);
+      return;
+    }
+    if (!repoOptions.some((option) => option.repoKey === selectedRepoKey)) {
+      setSelectedRepoKey(repoScope.primary.repoKey);
+    }
+  }, [repoScope, repoOptions, selectedRepoKey]);
 
   const refetch = useCallback(async () => {
-    if (!architectKey || !repo) return;
+    if (!architectKey || !selectedRepoKey) return;
     setLoading(true);
     setError(null);
     try {
-      const next = await window.hiveryn.repos.diff(architectKey, repo);
+      const next = await window.hiveryn.repos.diff(architectKey, selectedRepoKey);
       setData(next);
     } catch (err) {
       setError(err);
     } finally {
       setLoading(false);
     }
-  }, [architectKey, repo]);
+  }, [architectKey, selectedRepoKey]);
 
   // Refetch whenever the tab becomes active (including first activation).
   useEffect(() => {
@@ -214,17 +233,21 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
     return data.files.filter((f) => f.path.toLowerCase().includes(q));
   }, [filterActive, data, trimmedQuery]);
 
-  // The pane instance is shared across sessions — never carry list state
-  // (filter, collapse set, cursor, selection) over to another session's diff.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId is a trigger dep, not read inside the effect
+  // The pane instance is shared across sessions and repositories — clear all
+  // diff, filter, and selection state before the selected repo's diff loads, so
+  // one session's or repo's state never bleeds into another. Keyed on the
+  // selected repo as well as the session so switching repositories resets too.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId/selectedRepoKey are trigger deps, not read inside the effect
   useEffect(() => {
+    setData(null);
+    setError(null);
     setFilterOpen(false);
     setFilterQuery('');
     setFilterSel(0);
     setCollapsedDirs(new Set());
     setCursorKey(null);
     setSelectedPath(null);
-  }, [sessionId]);
+  }, [sessionId, selectedRepoKey]);
 
   useEffect(() => {
     if (filterOpen) filterInputRef.current?.focus();
@@ -529,10 +552,28 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
     setCursorKey(selectedRowVisible ? selectedFile.path : rows[0].key);
   }, [data, rows, cursorKey, selectedFile]);
 
-  if (repo === null) {
+  if (repoScope.status === 'loading') {
+    return (
+      <div className={styles.pane}>
+        <span className={styles.loading}>Loading…</span>
+      </div>
+    );
+  }
+
+  if (repoScope.status === 'none') {
     return (
       <div className={styles.pane}>
         <span className={styles.loading}>No repository associated with this session.</span>
+      </div>
+    );
+  }
+
+  if (repoScope.status === 'error') {
+    return (
+      <div className={styles.pane}>
+        <div className={styles.errorBlock}>
+          <span>Failed to resolve repository scope: {errorText(repoScope.error)}</span>
+        </div>
       </div>
     );
   }
@@ -572,6 +613,13 @@ export default function GitDiffPane({ sessionId, architectKey, isActive, shortcu
           {sidebarCollapsed ? <Forward /> : <Back />}
         </IconButton>
         <GitDiff className={styles.headerIcon} aria-hidden="true" />
+        {selectedRepoKey && (
+          <RepoPicker
+            options={repoOptions}
+            selectedRepoKey={selectedRepoKey}
+            onSelect={setSelectedRepoKey}
+          />
+        )}
         <span className={styles.headerPath}>{tildePath(data.repo_path, home)}</span>
         <span className={styles.summary}>
           <span>{data.summary.files} changed</span>

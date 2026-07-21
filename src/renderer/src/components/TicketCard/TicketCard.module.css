@@ -44,6 +44,15 @@
   min-width: 0;
 }
 
+.repoBadge {
+  margin-left: 0.5ch;
+  padding: 0 0.4ch;
+  border: 1px solid var(--theme-border);
+  border-radius: 2px;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
 .time {
   font-size: var(--font-size-sm);
   color: var(--theme-text-muted);

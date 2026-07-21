@@ -14,6 +14,7 @@ import { registerDynamicHandler } from '../../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../../keys/matchers';
 import { useFilesStore } from '../../../../state/filesStore';
 import { usePaneLayoutStore } from '../../../../state/paneLayoutStore';
+import type { SessionRepoScope } from '../../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../../state/sessionStore';
 import Breadcrumb from './Breadcrumb';
 import DirListing from './DirListing';
@@ -57,8 +58,8 @@ interface Props {
   sessionId: string;
   architect: Architect;
   isActive: boolean;
-  /** undefined = ticket lookup still in flight; null = no ticket repo. */
-  ticketRepo: string | null | undefined;
+  /** Per-session repository scope (primary + additional repos). */
+  repoScope: SessionRepoScope;
   shortcutConfig: ShortcutConfig | null;
 }
 
@@ -66,7 +67,7 @@ export default function FilesPane({
   sessionId,
   architect,
   isActive,
-  ticketRepo,
+  repoScope,
   shortcutConfig,
 }: Props) {
   const customRoots = useFilesStore((s) => s.customRoots);
@@ -81,17 +82,30 @@ export default function FilesPane({
 
   const isFilesFocused = useSessionStore((s) => s.focusedPane === 'right-files');
 
-  const roots = useMemo<RootOption[]>(
-    () => [
+  const roots = useMemo<RootOption[]>(() => {
+    const repoOptions = new Map<string, RootOption>();
+    for (const repo of architect.repos ?? []) {
+      repoOptions.set(`repo:${repo.key}`, {
+        id: `repo:${repo.key}`,
+        label: repo.key,
+        path: repo.path,
+        kind: 'repo',
+      });
+    }
+    // Keep every repo in the session's scope selectable even if the architect
+    // config has since dropped it — the immutable snapshot workdir is the
+    // authoritative path for a scoped repo.
+    if (repoScope.status === 'ready') {
+      for (const entry of [repoScope.primary, ...repoScope.additional]) {
+        const id = `repo:${entry.repoKey}`;
+        if (!repoOptions.has(id)) {
+          repoOptions.set(id, { id, label: entry.repoKey, path: entry.workdir, kind: 'repo' });
+        }
+      }
+    }
+    return [
       { id: 'workspace', label: architect.name, path: architect.path, kind: 'workspace' },
-      ...(architect.repos ?? []).map(
-        (repo): RootOption => ({
-          id: `repo:${repo.key}`,
-          label: repo.key,
-          path: repo.path,
-          kind: 'repo',
-        }),
-      ),
+      ...repoOptions.values(),
       ...customRoots.map(
         (root): RootOption => ({
           id: `custom:${root.path}`,
@@ -100,27 +114,25 @@ export default function FilesPane({
           kind: 'custom',
         }),
       ),
-    ],
-    [architect, customRoots],
-  );
+    ];
+  }, [architect, customRoots, repoScope]);
 
-  // First time this session's tab is used, default to the ticket's repo (if
-  // any) so ticket sessions open in the repo they're scoped to rather than
-  // the architect workspace root.
+  // First time this session's tab is used, default the root from the session's
+  // repository scope: ticket sessions open on their primary repo (using the
+  // immutable snapshot workdir), non-ticket sessions on the workspace root.
   useEffect(() => {
     if (slice) return;
-    // Ticket lookup still in flight — wait rather than locking in the
-    // workspace root before we know whether this session has a repo.
-    if (ticketRepo === undefined) return;
-    const ticketRepoPath = ticketRepo
-      ? architect.repos?.find((r) => r.key === ticketRepo)?.path
-      : undefined;
-    if (ticketRepoPath) {
-      setRoot(sessionId, `repo:${ticketRepo}`, ticketRepoPath);
+    // Scope still resolving — wait rather than latching a root prematurely.
+    if (repoScope.status === 'loading') return;
+    // Invalid scope surfaces as a visible error below — never silently fall
+    // back to the workspace root, which would masquerade as a valid workspace.
+    if (repoScope.status === 'error') return;
+    if (repoScope.status === 'ready') {
+      setRoot(sessionId, `repo:${repoScope.primary.repoKey}`, repoScope.primary.workdir);
     } else {
       setRoot(sessionId, 'workspace', architect.path);
     }
-  }, [slice, sessionId, architect.path, architect.repos, ticketRepo, setRoot]);
+  }, [slice, sessionId, architect.path, repoScope, setRoot]);
 
   // ── Responsive mode (self-measured; no width signal in the tab framework) ─
   const paneRef = useRef<HTMLDivElement>(null);
@@ -631,6 +643,19 @@ export default function FilesPane({
     sessionId,
     setCursorPath,
   ]);
+
+  if (repoScope.status === 'error') {
+    return (
+      <section className={styles.pane}>
+        <div className={styles.scopeError}>
+          Failed to resolve this session's repository scope:{'\n'}
+          {repoScope.error instanceof Error
+            ? (repoScope.error.stack ?? repoScope.error.message)
+            : String(repoScope.error)}
+        </div>
+      </section>
+    );
+  }
 
   if (!slice) return null;
 

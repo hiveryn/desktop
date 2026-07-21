@@ -26,6 +26,13 @@ export function registerSessionsIpc(): void {
   });
 
   ipcMain.handle(
+    'sessions:get',
+    async (_event, sessionId: string): Promise<DaemonResult<Session>> => {
+      return daemonFetch<Session>(`/api/sessions/${encodeURIComponent(sessionId)}`);
+    },
+  );
+
+  ipcMain.handle(
     'sessions:create',
     async (
       _event,

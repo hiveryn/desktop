@@ -18,6 +18,7 @@ import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { getTabPlugin } from '../../../plugins/registry';
 import { useFilesStore } from '../../../state/filesStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
+import { useSessionRepoScope } from '../../../state/sessionRepoScope';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
@@ -105,36 +106,11 @@ export default function RightPane({
     [events],
   );
 
-  // undefined = ticket fetch in flight (or session isn't a ticket session yet);
-  // settles to the ticket's repo, or null once we know there isn't one.
-  const [sessionTicketRepo, setSessionTicketRepo] = useState<string | null | undefined>(null);
-
-  // Reset synchronously (during render, not in an effect) when the active
-  // session changes, so children — whose effects run before this component's
-  // own effects — never observe a stale previous session's ticket data.
-  const ticketResetSessionIdRef = useRef<string | undefined>(undefined);
-  if (activeSession?.id !== ticketResetSessionIdRef.current) {
-    ticketResetSessionIdRef.current = activeSession?.id;
-    setSessionTicketRepo(activeSession?.type === 'ticket' ? undefined : null);
-  }
-
-  useEffect(() => {
-    if (activeSession?.type !== 'ticket') return;
-    let cancelled = false;
-    window.hiveryn.sessions.getTicket(activeSession.id).then(
-      (t) => {
-        if (!cancelled) {
-          setSessionTicketRepo(t.repo ?? null);
-        }
-      },
-      () => {
-        if (!cancelled) setSessionTicketRepo(null);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [activeSession?.id, activeSession?.type]);
+  // Per-session repository scope (primary + additional repos), resolved once
+  // from the ticket and the immutable session snapshot. Keyed by session id in
+  // its own store, so the Files and Git review panes share one source and
+  // switching sessions reads the right slice without stale-data races.
+  const repoScope = useSessionRepoScope(activeSession?.id);
 
   const hasAnySplit = useMemo(
     () => activeSession?.tabs.some((tab) => isSplitTerminalTab(tab)) ?? false,
@@ -370,6 +346,7 @@ export default function RightPane({
               sessionId={activeSession.id}
               architectKey={architect?.key}
               isActive={effectiveTab === 'git-diff'}
+              repoScope={repoScope}
               shortcutConfig={shortcutConfig}
             />
           </ErrorBoundary>
@@ -386,7 +363,7 @@ export default function RightPane({
               sessionId={activeSession.id}
               architect={architect}
               isActive={effectiveTab === 'files'}
-              ticketRepo={sessionTicketRepo}
+              repoScope={repoScope}
               shortcutConfig={shortcutConfig}
             />
           </ErrorBoundary>

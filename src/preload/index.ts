@@ -52,6 +52,7 @@ const requestListeners = new Set<RequestCallback>();
 const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'profiles:list': { method: 'GET', path: '/api/agent-profiles' },
   'sessions:list': { method: 'GET', path: '/api/sessions' },
+  'sessions:get': { method: 'GET', path: '/api/sessions/:id' },
   'sessions:create': { method: 'POST', path: '/api/sessions' },
   'sessions:conclude': { method: 'POST', path: '/api/sessions/:id/conclude' },
   'sessions:discard': { method: 'POST', path: '/api/sessions/:id/discard' },
@@ -262,6 +263,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   sessions: {
     list: (): Promise<Session[]> => invoke('sessions:list'),
+    get: (sessionId: string): Promise<Session> => invoke('sessions:get', sessionId),
     create: (sessionType: SessionType, architectKey: string, ticketId?: string): Promise<Session> =>
       invoke('sessions:create', sessionType, architectKey, ticketId),
     createRun: (

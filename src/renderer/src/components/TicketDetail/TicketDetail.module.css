@@ -166,6 +166,17 @@
   line-height: calc(var(--line-height-base) * 1em);
 }
 
+.repoTag {
+  margin-left: 0.5ch;
+  padding: 0 0.4ch;
+  border: 1px solid var(--theme-border);
+  border-radius: 2px;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
 .section {
   border-top: 1px solid var(--theme-border);
   padding-top: 0.65em;

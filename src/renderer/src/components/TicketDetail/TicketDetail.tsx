@@ -34,7 +34,16 @@ const TicketTab: React.FC<{ ticket: Ticket }> = ({ ticket }) => (
       <span className={styles.fieldLabel}>id</span>
       <span className={styles.fieldValue}>{ticket.id}</span>
       <span className={styles.fieldLabel}>repo</span>
-      <span className={styles.fieldValue}>{ticket.repo ?? ''}</span>
+      <span className={styles.fieldValue}>
+        {ticket.repo ?? ''}
+        {ticket.additional_repos.length > 0 && <span className={styles.repoTag}> primary</span>}
+      </span>
+      {ticket.additional_repos.length > 0 && (
+        <>
+          <span className={styles.fieldLabel}>+ repos</span>
+          <span className={styles.fieldValue}>{ticket.additional_repos.join(', ')}</span>
+        </>
+      )}
       <span className={styles.fieldLabel}>status</span>
       <span className={styles.fieldValue}>{ticket.status}</span>
       <span className={styles.fieldLabel}>created</span>

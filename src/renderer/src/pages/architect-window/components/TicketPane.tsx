@@ -121,7 +121,16 @@ export default function TicketPane({ sessionId }: Props) {
         <span className={styles.fieldLabel}>id</span>
         <span className={styles.fieldValue}>{ticket.id}</span>
         <span className={styles.fieldLabel}>repo</span>
-        <span className={styles.fieldValue}>{ticket.repo ?? ''}</span>
+        <span className={styles.fieldValue}>
+          {ticket.repo ?? ''}
+          {ticket.additional_repos.length > 0 && <span className={styles.repoTag}> primary</span>}
+        </span>
+        {ticket.additional_repos.length > 0 && (
+          <>
+            <span className={styles.fieldLabel}>+ repos</span>
+            <span className={styles.fieldValue}>{ticket.additional_repos.join(', ')}</span>
+          </>
+        )}
         <span className={styles.fieldLabel}>created</span>
         <span className={styles.fieldValue}>{ticket.created ? fmt(ticket.created) : ''}</span>
         <span className={styles.fieldLabel}>updated</span>

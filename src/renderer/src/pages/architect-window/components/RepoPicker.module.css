@@ -1,0 +1,94 @@
+.wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5ch;
+  max-width: 16rem;
+  border: 1px solid var(--theme-border);
+  padding: 0 var(--space-h-2);
+  color: var(--theme-text);
+  background: transparent;
+  font: inherit;
+  line-height: 1.8;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  background: var(--theme-surface-raised);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
+}
+
+.triggerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  flex-shrink: 0;
+  color: var(--theme-text-subtle);
+}
+
+.menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 100%;
+  max-width: 24rem;
+  max-height: 50vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-background);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 40%);
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-h-2);
+  border: 0;
+  padding: var(--space-1) var(--space-h-2);
+  color: var(--theme-text);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.item:hover {
+  background: var(--theme-surface-raised);
+}
+
+.item:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
+}
+
+.item[data-active] {
+  background: var(--theme-selection);
+}
+
+.itemLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemKind {
+  margin-left: auto;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}

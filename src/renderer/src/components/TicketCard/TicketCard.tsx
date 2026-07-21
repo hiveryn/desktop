@@ -26,7 +26,17 @@ const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
       <div ref={ref} className={classes} {...rest}>
         <div className={styles.title}>{ticket.title}</div>
         <div className={styles.meta}>
-          <span className={styles.repo}>{ticket.repo ?? ''}</span>
+          <span className={styles.repo}>
+            {ticket.repo ?? ''}
+            {ticket.additional_repos.length > 0 && (
+              <span
+                className={styles.repoBadge}
+                title={ticket.additional_repos.join(', ')}
+              >
+                +{ticket.additional_repos.length}
+              </span>
+            )}
+          </span>
           <span className={styles.time}>{formatTime(ticket.updated ?? '')}</span>
         </div>
       </div>

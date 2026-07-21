@@ -158,12 +158,16 @@ export interface TicketEditInput {
 export interface TicketMetadataInput {
   title?: string;
   repo?: string;
+  // Extra repositories in scope beyond the primary `repo`. Daemon wire shape:
+  // order is not meaningful, keys are unique and exclude the primary repo.
+  additional_repos?: string[];
   references?: string[];
 }
 
 export interface TicketCreateInput {
   title: string;
-  repo?: string;
+  repo: string;
+  additional_repos: string[];
   body?: string;
   references?: string[];
 }

@@ -88,179 +88,57 @@ interface AgentProfile {
   env: Record<string, string>;
 }
 
-// ── Shared domain types (mirrors @hiveryn/shared/domain) ──────────────────
+// ── Canonical shared domain types ─────────────────────────────────────────
+// Aliased directly from @hiveryn/shared/domain (the single source of truth)
+// rather than re-declared, so this surface never drifts from the wire shape.
+// Inline `import(...)` keeps the file an ambient global (a top-level `import`
+// statement would turn it into a module and drop these globals).
 
-type SessionType = 'architect' | 'ticket' | 'freeform';
-
-type SessionCreatedBy = 'desktop' | 'architect_mcp';
-
-type SessionRunStatus = 'running' | 'completed' | 'failed';
-
-type SessionRunFailureReason =
-  | 'launch_failed'
-  | 'process_exited'
-  | 'restore_failed'
-  | 'user_cancelled';
-
-interface SessionRun {
-  id: string;
-  session_id: string;
-  status: SessionRunStatus;
-  agent_status?: string;
-  profile_name: string;
-  profile_snapshot?: { agent: string; args: string[]; env: Record<string, string> };
-  workdir: string;
-  native_id?: string;
-  failure_reason?: SessionRunFailureReason;
-  main_terminal_id?: string;
-  started_at?: string;
-  ended_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Session {
-  id: string;
-  architect_key: string;
-  session_type: SessionType;
-  context_id: string;
-  prompt: string;
-  workdir: string;
-  instructions?: string;
-  created_by?: SessionCreatedBy;
-  created_at: string;
-  updated_at: string;
-  current_run?: SessionRun;
-}
+type SessionType = import('@hiveryn/shared/domain').SessionType;
+type SessionCreatedBy = import('@hiveryn/shared/domain').SessionCreatedBy;
+type SessionRunStatus = import('@hiveryn/shared/domain').SessionRunStatus;
+type SessionRunFailureReason = import('@hiveryn/shared/domain').SessionRunFailureReason;
+type AgentProfileSnapshot = import('@hiveryn/shared/domain').AgentProfileSnapshot;
+type SessionRun = import('@hiveryn/shared/domain').SessionRun;
+type Session = import('@hiveryn/shared/domain').Session;
+type SessionEvent = import('@hiveryn/shared/domain').SessionEvent;
 
 // ── Intents ────────────────────────────────────────────────────────────────
 
-type IntentType = 'concludeSession' | 'createWorkTicket';
-type IntentPolicy = 'auto-allow' | 'wait-then-allow' | 'wait-then-deny';
-
-interface IntentOrigin {
-  architect_key: string;
-  session_id: string;
-  session_type: SessionType;
-  ticket_id?: string;
-}
-
-interface Intent {
-  intent_id: string;
-  intent_type: IntentType;
-  summary: string;
-  payload?: Record<string, unknown>;
-  origin: IntentOrigin;
-  wait_seconds: number;
-  policy: IntentPolicy;
-  created_at: string;
-}
-
-interface SessionRunResult {
-  run: SessionRun;
-  main_terminal_id: string;
-  ws_url: string;
-}
-
-interface SessionEvent {
-  id: string;
-  session_id: string;
-  run_id?: string;
-  seq: number;
-  type: string;
-  status?: string;
-  tool?: string;
-  message?: string;
-  native_id?: string;
-  primary_native_id?: string;
-  native_session_role?: string;
-  metadata?: Record<string, string>;
-  raw?: Record<string, unknown>;
-  at: string;
-}
+type IntentType = import('@hiveryn/shared/domain').IntentType;
+type IntentPolicy = import('@hiveryn/shared/domain').IntentPolicy;
+type IntentOrigin = import('@hiveryn/shared/domain').IntentOrigin;
+type Intent = import('@hiveryn/shared/domain').Intent;
 
 // ── Tickets ────────────────────────────────────────────────────────────────
 
-type TicketStatus = 'backlog' | 'progress' | 'done';
+type TicketStatus = import('@hiveryn/shared/domain').TicketStatus;
+type TicketWarning = import('@hiveryn/shared/domain').TicketWarning;
+type CommitRef = import('@hiveryn/shared/domain').CommitRef;
+type TicketOutcome = import('@hiveryn/shared/domain').TicketOutcome;
+type TicketConclusion = import('@hiveryn/shared/domain').TicketConclusion;
+type TicketSummary = import('@hiveryn/shared/domain').TicketSummary;
+type Ticket = import('@hiveryn/shared/domain').Ticket;
+type TicketBoard = import('@hiveryn/shared/domain').TicketBoard;
 
-interface TicketWarning {
-  code: string;
-  message: string;
-}
-
-interface CommitRef {
-  sha: string;
-  repo: string;
-}
-
-type TicketOutcome = 'completed' | 'exploratory' | 'rejected';
-
+// The renderer omits `outcome` for architect/freeform conclusions (the daemon
+// ignores it for architect and rejects a non-empty one for freeform), so this
+// stays a local shape with an optional `outcome` rather than aliasing shared's
+// stricter required-`outcome` ConcludeSessionParams.
 interface ConcludeSessionParams {
   body: string;
   commits: CommitRef[];
-  // Only ticket rejection sets an outcome; architect/freeform conclusions omit it
-  // (the daemon ignores it for architect sessions and rejects a non-empty one for
-  // freeform).
   outcome?: TicketOutcome;
   rejection_reason: string;
 }
 
-interface TicketConclusion {
-  started_at: string;
-  concluded_at: string;
-  agent?: string;
-  profile?: string;
-  outcome: TicketOutcome;
-  rejection_reason?: string;
-  commits: CommitRef[];
-  body: string;
-}
+// ── Desktop-specific IPC types (canonical home: ../shared/types) ────────────
 
-interface TicketSummary {
-  id: string;
-  status: TicketStatus;
-  title: string;
-  repo?: string;
-  created?: string;
-  updated?: string;
-  references: string[];
-  has_conclusion: boolean;
-  warnings: TicketWarning[];
-}
-
-interface Ticket extends TicketSummary {
-  body: string;
-  conclusion: TicketConclusion | null;
-}
-
-interface TicketBoard {
-  backlog: TicketSummary[];
-  progress: TicketSummary[];
-  done: TicketSummary[];
-}
-
-interface TicketEditInput {
-  oldString: string;
-  newString: string;
-  replaceAll?: boolean;
-}
-
-interface TicketMetadataInput {
-  title?: string;
-  repo?: string;
-  references?: string[];
-}
-
-interface TicketCreateInput {
-  title: string;
-  repo?: string;
-  body?: string;
-  references?: string[];
-}
-
-interface TicketDeleteResult {
-  deleted: boolean;
-}
+type SessionRunResult = import('../shared/types').SessionRunResult;
+type TicketEditInput = import('../shared/types').TicketEditInput;
+type TicketMetadataInput = import('../shared/types').TicketMetadataInput;
+type TicketCreateInput = import('../shared/types').TicketCreateInput;
+type TicketDeleteResult = import('../shared/types').TicketDeleteResult;
 
 // ── Session data event ─────────────────────────────────────────────────────
 
@@ -545,6 +423,7 @@ interface HiverynAPI {
   };
   sessions: {
     list: () => Promise<Session[]>;
+    get: (sessionId: string) => Promise<Session>;
     create: (sessionType: SessionType, architectKey: string, ticketId?: string) => Promise<Session>;
     createRun: (
       intentId: string,

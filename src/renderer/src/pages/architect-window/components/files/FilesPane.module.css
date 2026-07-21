@@ -103,6 +103,13 @@
   color: var(--theme-text-muted);
 }
 
+.scopeError {
+  padding: var(--space-4) var(--space-h-2);
+  color: var(--theme-danger, #e5484d);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Narrow: drill-down single pane ──────────────────────────── */
 .single {
   display: flex;
