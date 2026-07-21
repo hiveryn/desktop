@@ -84,23 +84,23 @@ export default function FilesPane({
 
   const roots = useMemo<RootOption[]>(() => {
     const repoOptions = new Map<string, RootOption>();
-    for (const repo of architect.repos ?? []) {
-      repoOptions.set(`repo:${repo.key}`, {
-        id: `repo:${repo.key}`,
-        label: repo.key,
-        path: repo.path,
-        kind: 'repo',
-      });
-    }
-    // Keep every repo in the session's scope selectable even if the architect
-    // config has since dropped it — the immutable snapshot workdir is the
-    // authoritative path for a scoped repo.
+    // The session snapshot is authoritative for every repo scoped to the ticket
+    // session — its immutable workdir is the path the running session was
+    // launched against. Seed these first (primary first) so a scoped repo key
+    // can never be overridden by drifted architect config below.
     if (repoScope.status === 'ready') {
       for (const entry of [repoScope.primary, ...repoScope.additional]) {
         const id = `repo:${entry.repoKey}`;
-        if (!repoOptions.has(id)) {
-          repoOptions.set(id, { id, label: entry.repoKey, path: entry.workdir, kind: 'repo' });
-        }
+        repoOptions.set(id, { id, label: entry.repoKey, path: entry.workdir, kind: 'repo' });
+      }
+    }
+    // Current architect config may still supply non-session roots, but it must
+    // not override a scoped repo key — only repos absent from the scope are
+    // added, at whatever path config currently resolves them to.
+    for (const repo of architect.repos ?? []) {
+      const id = `repo:${repo.key}`;
+      if (!repoOptions.has(id)) {
+        repoOptions.set(id, { id, label: repo.key, path: repo.path, kind: 'repo' });
       }
     }
     return [
