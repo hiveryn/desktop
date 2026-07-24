@@ -190,10 +190,15 @@ app.whenReady().then(() => {
 
   // A bare Electron binary (`make prod` — electron-vite preview, no .app bundle)
   // launches without a foreground activation policy, so it never registers in
-  // cmd+tab or the dock. A packaged build inherits 'regular' from its Info.plist;
-  // force it here for unpackaged runs so the app is switchable and dock-visible.
-  // (Name/icon still come from the bundle, so unpackaged shows as "Electron".)
-  if (process.platform === 'darwin' && !app.isPackaged) {
+  // cmd+tab or the dock. This also holds for a *packaged* build when it's
+  // launched by exec'ing the Mach-O binary directly (as `make prod-local`
+  // does) instead of via `open`/LaunchServices/Finder: without the
+  // LaunchServices handshake, AppKit falls back to an accessory-like policy
+  // even though Info.plist has no LSUIElement key. Force 'regular' on every
+  // darwin launch — packaged or not — so the app is always switchable and
+  // dock-visible. (Name/icon still come from the bundle, so unpackaged shows
+  // as "Electron".)
+  if (process.platform === 'darwin') {
     app.setActivationPolicy('regular');
     void app.dock?.show();
   }

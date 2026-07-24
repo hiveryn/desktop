@@ -19,7 +19,7 @@ The renderer has **no Node.js access**. It can only call functions exposed on `w
 ```
 src/
   main/
-    index.ts              Electron app setup — window creation, registerIpc(), createTray(), global shortcut, navigation guard (blocks in-window navigation; external links → default browser); forces a foreground activation policy (setActivationPolicy('regular') + dock.show()) for unpackaged macOS runs so the app registers in cmd+tab/dock
+    index.ts              Electron app setup — window creation, registerIpc(), createTray(), global shortcut, navigation guard (blocks in-window navigation; external links → default browser); forces a foreground activation policy (setActivationPolicy('regular') + dock.show()) on every macOS run — packaged or not — so the app registers in cmd+tab/dock even when the packaged binary is exec'd directly instead of via `open`/LaunchServices (as `make prod-local`/`make prod-app` do)
     tray.ts               Menu bar Tray + frameless popover window (loads #/tray); doubles as the centered ⌥Space palette
     globalShortcut.ts     OS-global palette shortcut — reads os-global.palette, registers via globalShortcut, surfaces failures
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
