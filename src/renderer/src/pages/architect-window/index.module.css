@@ -95,27 +95,35 @@ nav.appbar {
   overflow: hidden;
 }
 
-/* The unfocused pane fades slightly so the focused pane reads at a glance.
-   data-focused is only present (="true") on the focused pane. Maximized panes
-   are exempt — the backdrop already separates them. */
-.leftPane:not([data-focused]):not([data-maximized]),
-.rightPane:not([data-focused]):not([data-maximized]) {
-  opacity: 0.7;
+/* Focus indicator — a crisp 2px strip inside the empty seam gap (the right
+   content card's left margin), hugging the focused pane's boundary: flush
+   against the left pane's edge when the agent is focused, flush against the
+   content card when the right pane is. It lives entirely in empty gap space,
+   so it never overlaps text on either side, and there's no glow or opacity
+   dimming — pure crisp line, matching the app's hairline language. Both
+   pseudo-elements render inside .rightPane (which owns the gap); only one can
+   appear at a time since focus is exclusive. Maximized panes are exempt: the
+   backdrop already separates them. */
+.leftPane[data-focused]:not([data-maximized]) + .rightPane::before,
+.rightPane[data-focused]:not([data-maximized])::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--theme-focused-foreground);
+  z-index: var(--z-index-pane-focus);
+  pointer-events: none;
 }
 
-.leftPane,
-.rightPane {
-  transition: opacity 150ms ease;
+.leftPane[data-focused]:not([data-maximized]) + .rightPane::before {
+  left: 0;
 }
 
-/* Right-pane focus indicator — the inset content card lights up its full
-   border when focused (see .rightPaneContent below). The left pane (the
-   full-bleed agent) signals focus purely via the opacity dimming above. */
+.rightPane[data-focused]:not([data-maximized])::before {
+  left: calc(var(--space-3) - 2px);
+}
 
-/* No overflow:hidden here so the inset content card's drop shadow / focus glow
-   can render into the surrounding gap. Clipping of actual content is handled by
-   the inner elements (.rightPaneInner, .rightPaneContent, .extraSlot, .root),
-   which all clip independently — this clip was redundant. */
 .rightPane {
   position: relative;
   flex: 1 1 60%;
@@ -125,9 +133,9 @@ nav.appbar {
   min-height: 0;
 }
 
-/* No overflow:hidden — the inset content panel's glow renders into the gap
-   here. Content clipping is handled downstream (.rightPaneContent, .extraSlot,
-   .root all clip with min-width/height: 0), so this clip was redundant. */
+/* No overflow:hidden — content clipping is handled downstream
+   (.rightPaneContent, .extraSlot, .root all clip with min-width/height: 0),
+   so a clip here was redundant. */
 .rightPaneInner {
   display: flex;
   flex: 1;
@@ -146,8 +154,8 @@ nav.appbar {
 }
 
 /* The content panel fills the right pane, offset by a small left margin and a
-   thin left border so there's a clear seam between it and the agent on the
-   left. Focus is conveyed by the pane opacity dimming above. */
+   hairline left border so there's a crisp seam between it and the agent on the
+   left. Focus is conveyed by the seam-edge glow strip above. */
 .rightPaneContent {
   position: relative;
   flex: 1;
@@ -156,7 +164,7 @@ nav.appbar {
   min-height: 0;
   overflow: hidden;
   margin-left: var(--space-3);
-  box-shadow: -10px 0 24px -6px rgba(255, 255, 255, 0.14);
+  border-left: 1px solid var(--theme-border);
 }
 
 .rightPaneSplit {

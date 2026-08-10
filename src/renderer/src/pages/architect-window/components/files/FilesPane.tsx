@@ -1,4 +1,5 @@
 import { Back, Forward, IconButton, Refresh } from '@components';
+import type { SessionEvent } from '@hiveryn/shared/domain';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -6,24 +7,38 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
-import type { Architect, FsEntry, FsSearchMatch } from '../../../../../../shared/types';
+import type {
+  Architect,
+  FsEntry,
+  FsSearchMatch,
+  RepoStatusResponse,
+} from '../../../../../../shared/types';
 import type { ShortcutConfig } from '../../../../hooks/useShortcutConfig';
 import { createChordMatcher } from '../../../../keys/chords';
 import { registerDynamicHandler } from '../../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../../keys/matchers';
+import { FILES_BINDING_DEFAULTS, resolveBindings } from '../../../../keys/paneBindings';
 import { useFilesStore } from '../../../../state/filesStore';
 import { usePaneLayoutStore } from '../../../../state/paneLayoutStore';
+import { useEventsForActiveSession } from '../../../../state/selectors';
 import type { SessionRepoScope } from '../../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../../state/sessionStore';
 import Breadcrumb from './Breadcrumb';
+import ContentSearchResults from './ContentSearchResults';
+import ContextMenu, { type ContextMenuItem } from './ContextMenu';
 import DirListing from './DirListing';
 import DirTree from './DirTree';
 import { joinPath, sortEntries } from './dirTreeUtils';
+import { TOUCHED_TTL_MS } from './EntryRow';
+import { getDirtyPathsSnapshot, subscribeDirtyPaths } from './editorBuffers';
 import styles from './FilesPane.module.css';
 import FileViewer, { type FileViewerHandle } from './FileViewer';
 import RootPicker, { type RootOption } from './RootPicker';
+import { type RowDecoration, statusChar } from './rowDecorations';
 import SearchResults from './SearchResults';
+import { contentMatches, useContentSearch } from './useContentSearch';
 import { useDirListing } from './useDirListing';
 import { useDirTreeData } from './useDirTreeData';
 import { useFileSearch } from './useFileSearch';
@@ -41,9 +56,35 @@ const JUMP_ROWS = 6;
 
 const EMPTY_EXPANDED: string[] = [];
 
+// Tool names normalized by agentruntime that mutate the working tree — the
+// same set GitDiffPane watches. Bash is deliberately excluded (most Bash
+// calls aren't file mutations and would cause noisy over-refreshing).
+const FILE_MUTATING_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'ApplyPatch']);
+const AUTO_REFRESH_DEBOUNCE_MS = 1500;
+
+// Best-effort touched-file extraction from a tool event's raw hook envelope.
+// The envelope shape is agent-specific (Claude carries tool_input.file_path);
+// an unknown shape simply yields no marker — the tree refresh above it is
+// agent-agnostic, so this stays a pure decoration and must never throw.
+function extractTouchedPath(event: SessionEvent): string | null {
+  const hook = (event.raw as { hook?: { tool_input?: Record<string, unknown> } } | null)?.hook;
+  const input = hook?.tool_input;
+  if (!input) return null;
+  const candidate = input.file_path ?? input.notebook_path;
+  return typeof candidate === 'string' && candidate.startsWith('/') ? candidate : null;
+}
+
 function parentDir(path: string): string {
   const idx = path.lastIndexOf('/');
   return idx <= 0 ? '/' : path.slice(0, idx);
+}
+
+// Root-relative label for a directory (the new-file prompt's prefix); the
+// picker root itself renders as ".".
+function displayDir(dir: string, rootPath: string): string {
+  if (dir === rootPath) return '.';
+  const prefix = rootPath.endsWith('/') ? rootPath : `${rootPath}/`;
+  return dir.startsWith(prefix) ? dir.slice(prefix.length) : dir;
 }
 
 // Wraps idx by delta within [0, len). idx === -1 (no current cursor) lands
@@ -176,6 +217,125 @@ export default function FilesPane({
   const expandedDirs = slice?.expandedDirs ?? EMPTY_EXPANDED;
   const cursorPath = slice?.cursorPath ?? null;
 
+  // ── Live refresh + touched markers on agent file mutations ────────────────
+  // Watches the active session's tool events (same trigger set as
+  // GitDiffPane) and debounces a tree/listing revalidation; the raw events
+  // also feed the per-file "agent touched" fading dots.
+  const events = useEventsForActiveSession();
+  const [touched, setTouched] = useState<Map<string, number>>(() => new Map());
+  const lastSeenSeqRef = useRef(-1);
+  const autoRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const newEvents = events.filter((e) => e.seq > lastSeenSeqRef.current);
+    if (newEvents.length === 0) return;
+    lastSeenSeqRef.current = events[events.length - 1]?.seq ?? lastSeenSeqRef.current;
+
+    const mutations = newEvents.filter((e) => e.tool && FILE_MUTATING_TOOLS.has(e.tool));
+    if (mutations.length === 0) return;
+
+    // Marker timestamps come from the event, not receipt time, so the SSE
+    // backlog replayed on (re)connect can't light up stale dots.
+    const now = Date.now();
+    const freshTouches = mutations
+      .map((e) => ({ path: extractTouchedPath(e), at: Date.parse(e.at) }))
+      .filter((t): t is { path: string; at: number } => {
+        return t.path !== null && Number.isFinite(t.at) && now - t.at < TOUCHED_TTL_MS;
+      });
+    if (freshTouches.length > 0) {
+      setTouched((prev) => {
+        const next = new Map<string, number>();
+        for (const [path, at] of prev) {
+          if (now - at < TOUCHED_TTL_MS) next.set(path, at);
+        }
+        for (const t of freshTouches) {
+          next.set(t.path, Math.max(next.get(t.path) ?? 0, t.at));
+        }
+        return next;
+      });
+    }
+
+    // Only the visible tab revalidates — a hidden files tab picks the changes
+    // up through the refetch-on-activation effect above, so a background pane
+    // never spends daemon calls on a tree nobody is looking at.
+    if (!isActive) return;
+    if (autoRefreshRef.current) clearTimeout(autoRefreshRef.current);
+    autoRefreshRef.current = setTimeout(
+      () => setRefreshSeq((seq) => seq + 1),
+      AUTO_REFRESH_DEBOUNCE_MS,
+    );
+  }, [events, isActive]);
+
+  useEffect(() => {
+    return () => {
+      if (autoRefreshRef.current) clearTimeout(autoRefreshRef.current);
+    };
+  }, []);
+
+  // Markers are per-session observations — never carry them across sessions.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId is the trigger, not read inside
+  useEffect(() => {
+    setTouched(new Map());
+    lastSeenSeqRef.current = -1;
+  }, [sessionId]);
+
+  // ── Git status decoration (repo roots only) ───────────────────────────────
+  const repoKeyForRoot = rootId.startsWith('repo:') ? rootId.slice('repo:'.length) : null;
+  const [repoStatus, setRepoStatus] = useState<RepoStatusResponse | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshSeq is a trigger dep (re-reads status after a refresh), not read inside
+  useEffect(() => {
+    if (!repoKeyForRoot) {
+      setRepoStatus(null);
+      return;
+    }
+    let cancelled = false;
+    window.hiveryn.repos.status(architect.key, repoKeyForRoot).then(
+      (resp) => {
+        if (!cancelled) setRepoStatus(resp);
+      },
+      () => {
+        // Already captured centrally via the onRequest capture bridge; the
+        // tree simply renders without status decoration.
+        if (!cancelled) setRepoStatus(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [repoKeyForRoot, architect.key, refreshSeq]);
+
+  // ── Dirty editor buffers (unsaved edits) ─────────────────────────────────
+  const dirtyPaths = useSyncExternalStore(subscribeDirtyPaths, getDirtyPathsSnapshot);
+
+  // ── Row decorations: git status + agent-touched + dirty, keyed by path ───
+  const decorations = useMemo(() => {
+    const map = new Map<string, RowDecoration>();
+    const upsert = (path: string, patch: RowDecoration): void => {
+      const existing = map.get(path);
+      if (existing) Object.assign(existing, patch);
+      else map.set(path, { ...patch });
+    };
+    if (repoStatus) {
+      // Status paths are relative to the daemon-resolved repo root. If that
+      // root differs from the tree's root (a scoped repo whose configured
+      // path drifted from the session snapshot), the join simply won't match
+      // any row — decoration quietly absent rather than wrong.
+      const base = repoStatus.repo_path;
+      for (const entry of repoStatus.entries ?? []) {
+        const abs = joinPath(base, entry.path);
+        upsert(abs, { status: statusChar(entry.index, entry.worktree) });
+        // Rollup dot on every ancestor dir below the picker root.
+        for (let dir = parentDir(abs); dir.length > rootPath.length; dir = parentDir(dir)) {
+          upsert(dir, { statusDir: true });
+          if (dir === parentDir(dir)) break;
+        }
+      }
+    }
+    for (const [path, at] of touched) upsert(path, { touchedAt: at });
+    for (const path of dirtyPaths) upsert(path, { dirty: true });
+    return map;
+  }, [repoStatus, touched, dirtyPaths, rootPath]);
+
   // ── Shared tree/listing fetch state — one instance, consumed by both the
   // renderer (DirTree/DirListing) and the keyboard handler below ───────────
   const {
@@ -190,34 +350,54 @@ export default function FilesPane({
     [narrowListing.data],
   );
 
-  // ── "/" filename search ───────────────────────────────────────────────────
+  // ── "/" filename search + "?" content search ──────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchMode, setSearchMode] = useState<'files' | 'content'>('files');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchSel, setSearchSel] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const trimmedQuery = searchQuery.trim();
-  const search = useFileSearch(searchOpen ? rootPath : '', trimmedQuery);
+  const search = useFileSearch(searchOpen && searchMode === 'files' ? rootPath : '', trimmedQuery);
+  const contentSearch = useContentSearch(
+    searchOpen && searchMode === 'content' ? rootPath : '',
+    trimmedQuery,
+  );
   // Search replaces the tree/listing only once there's something to match.
-  const searchActive = searchOpen && trimmedQuery !== '';
+  // Content queries need 2+ chars (the hook idles below that).
+  const searchActive =
+    searchOpen && (searchMode === 'files' ? trimmedQuery !== '' : trimmedQuery.length >= 2);
 
   // The pane instance is shared across sessions — never carry an open search
-  // (or its query) over to another session's or root's context.
+  // (or its query, or a pending line reveal) over to another session's or
+  // root's context.
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId/rootPath are trigger deps, not read inside the effect
   useEffect(() => {
     setSearchOpen(false);
     setSearchQuery('');
     setSearchSel(0);
+    setPendingReveal(null);
   }, [sessionId, rootPath]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
-  // Keep the selection inside the (possibly shrunk) result list.
-  const matchCount = search.data?.matches.length ?? 0;
+  // Keep the selection inside the (possibly shrunk) active result list.
+  const matchCount =
+    searchMode === 'files'
+      ? (search.data?.matches.length ?? 0)
+      : contentMatches(contentSearch.data).length;
   useEffect(() => {
     setSearchSel((sel) => (matchCount === 0 ? 0 : Math.min(sel, matchCount - 1)));
   }, [matchCount]);
+
+  // ── Pending editor line reveal (content-search jump) ─────────────────────
+  const [pendingReveal, setPendingReveal] = useState<{
+    path: string;
+    line: number;
+    seq: number;
+  } | null>(null);
+  const revealSeqRef = useRef(0);
 
   const handleSelectRoot = (root: RootOption): void => {
     setRoot(sessionId, root.id, root.path);
@@ -276,8 +456,144 @@ export default function FilesPane({
     closeSearch();
   };
 
+  // Content-search open: same reveal-in-tree flow, plus a one-shot editor
+  // jump to the matched line once the file loads.
+  const openContentResult = (relPath: string, line: number): void => {
+    revealSeqRef.current += 1;
+    setPendingReveal({ path: joinPath(rootPath, relPath), line, seq: revealSeqRef.current });
+    openSearchResult(relPath);
+  };
+
+  // Reveal a path already known to be absolute (context menu, create) —
+  // openSearchResult's root-relative sibling.
+  const revealAbsolute = (abs: string): void => {
+    const rootPrefix = rootPath.endsWith('/') ? rootPath : `${rootPath}/`;
+    const ancestors: string[] = [];
+    for (let dir = parentDir(abs); dir !== rootPath && dir.startsWith(rootPrefix); ) {
+      ancestors.push(dir);
+      const parent = parentDir(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    if (ancestors.length > 0) expandDirs(sessionId, ancestors);
+    handleOpenFile(abs);
+  };
+
+  // ── New file (inline name input at the cursor's directory) ───────────────
+  const [createDir, setCreateDir] = useState<string | null>(null);
+  const [createName, setCreateName] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const createInputRef = useRef<HTMLInputElement>(null);
+
+  // The directory a new file lands in: the cursored directory itself, the
+  // cursored file's parent, or the current directory as a fallback.
+  const createTargetDir = (): string => {
+    if (!wideRef.current) return currentDirRef.current || rootPathRef.current;
+    const cursor = cursorPathRef.current;
+    const row = rowsRef.current.find((r) => r.path === cursor);
+    if (row) return row.entry.kind === 'dir' ? row.path : parentDir(row.path);
+    return currentDirRef.current || rootPathRef.current;
+  };
+
+  const openCreate = (): void => {
+    setCreateDir(createTargetDir());
+    setCreateName('');
+    setCreateError(null);
+  };
+  const openCreateRef = useRef(openCreate);
+  openCreateRef.current = openCreate;
+
+  useEffect(() => {
+    if (createDir !== null) createInputRef.current?.focus();
+  }, [createDir]);
+
+  const closeCreate = (): void => {
+    setCreateDir(null);
+    setCreateName('');
+    setCreateError(null);
+  };
+
+  const submitCreate = async (): Promise<void> => {
+    if (createDir === null || creating) return;
+    const name = createName.trim();
+    if (name === '') return;
+    // Nested names ("docs/new.md") are fine — the daemon creates parents —
+    // but an absolute or parent-escaping path is a mistake worth refusing.
+    if (name.startsWith('/') || name.split('/').includes('..')) {
+      setCreateError('name must be relative to the current directory');
+      return;
+    }
+    const abs = joinPath(createDir, name);
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await window.hiveryn.fs.createFile(abs);
+      closeCreate();
+      setRefreshSeq((seq) => seq + 1);
+      revealAbsolute(abs);
+    } catch (err) {
+      // Shown inline: a 409 (already exists) is a normal, correctable answer
+      // to this prompt, not an app-level failure worth the error center.
+      const error = err as Error & { code?: string };
+      setCreateError(error.code ? `${error.code}: ${error.message}` : error.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // ── Row context menu ─────────────────────────────────────────────────────
+  const [contextMenu, setContextMenu] = useState<{
+    path: string;
+    entry: FsEntry;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const handleRowContextMenu = useCallback(
+    (path: string, entry: FsEntry, position: { x: number; y: number }): void => {
+      setContextMenu({ path, entry, position });
+    },
+    [],
+  );
+
+  const contextMenuItems = useMemo((): ContextMenuItem[] => {
+    if (!contextMenu) return [];
+    const { path, entry } = contextMenu;
+    const rootPrefix = rootPath.endsWith('/') ? rootPath : `${rootPath}/`;
+    const relative = path.startsWith(rootPrefix) ? path.slice(rootPrefix.length) : null;
+    const items: ContextMenuItem[] = [
+      { label: 'Copy absolute path', action: () => void navigator.clipboard.writeText(path) },
+    ];
+    if (relative !== null) {
+      items.push({
+        label: 'Copy relative path',
+        action: () => void navigator.clipboard.writeText(relative),
+      });
+    }
+    items.push({
+      label: 'Reveal in Finder',
+      // Errors surface through the error center via the capture bridge.
+      action: () => void window.hiveryn.fs.revealInFinder(path).catch(() => {}),
+    });
+    if (entry.kind === 'file') {
+      items.push({
+        label: 'Open in default app',
+        action: () => void window.hiveryn.fs.openExternal(path).catch(() => {}),
+      });
+    }
+    items.push({
+      label: entry.kind === 'dir' ? 'New file here…' : 'New file in this folder…',
+      action: () => {
+        setCreateDir(entry.kind === 'dir' ? path : parentDir(path));
+        setCreateName('');
+        setCreateError(null);
+      },
+    });
+    return items;
+  }, [contextMenu, rootPath]);
+
   const handleSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
-    const searchMatches = search.data?.matches ?? [];
+    const count = matchCount;
     const consume = (): void => {
       e.preventDefault();
       // Without this the event still bubbles to the document-level key
@@ -288,14 +604,19 @@ export default function FilesPane({
     };
     if (e.key === 'ArrowDown') {
       consume();
-      setSearchSel((sel) => Math.min(sel + 1, Math.max(searchMatches.length - 1, 0)));
+      setSearchSel((sel) => Math.min(sel + 1, Math.max(count - 1, 0)));
     } else if (e.key === 'ArrowUp') {
       consume();
       setSearchSel((sel) => Math.max(sel - 1, 0));
     } else if (e.key === 'Enter') {
       consume();
-      const match = searchMatches[searchSel];
-      if (match) openSearchResult(match.path);
+      if (searchMode === 'files') {
+        const match = (search.data?.matches ?? [])[searchSel];
+        if (match) openSearchResult(match.path);
+      } else {
+        const match = contentMatches(contentSearch.data)[searchSel];
+        if (match) openContentResult(match.path, match.line);
+      }
     } else if (e.key === 'Escape') {
       consume();
       closeSearch();
@@ -359,8 +680,17 @@ export default function FilesPane({
   const searchMatchesRef = useRef<FsSearchMatch[]>([]);
   searchMatchesRef.current = search.data?.matches ?? [];
 
+  const searchModeRef = useRef(searchMode);
+  searchModeRef.current = searchMode;
+
+  const contentMatchesRef = useRef(contentMatches(contentSearch.data));
+  contentMatchesRef.current = contentMatches(contentSearch.data);
+
   const openSearchResultRef = useRef(openSearchResult);
   openSearchResultRef.current = openSearchResult;
+
+  const openContentResultRef = useRef(openContentResult);
+  openContentResultRef.current = openContentResult;
 
   const fileViewerRef = useRef<FileViewerHandle>(null);
 
@@ -371,31 +701,36 @@ export default function FilesPane({
       if (!cfg) return 'passthrough';
       if (e.repeat) return 'passthrough';
       if (isTextInputFocused()) return 'passthrough';
+      const bindings = resolveBindings(cfg.files, FILES_BINDING_DEFAULTS);
+
       // Modifier-bearing combos belong to global shortcuts — except save,
       // which reaches the open editor even while focus sits on the tree.
       // (With the editor itself focused, its own Mod-s keymap handles this.)
       if (e.metaKey || e.ctrlKey || e.altKey) {
-        const SAVE = cfg.files?.save ?? 'cmd+s';
-        if (matchesShortcut(e, SAVE) && fileViewerRef.current?.saveEditor()) return 'consumed';
+        if (matchesShortcut(e, bindings.save) && fileViewerRef.current?.saveEditor()) {
+          return 'consumed';
+        }
         return 'passthrough';
       }
 
-      const filesCfg = cfg.files ?? {};
-      const DOWN = filesCfg.down ?? 'j';
-      const UP = filesCfg.up ?? 'k';
-      const RIGHT = filesCfg.right ?? 'l';
-      const LEFT = filesCfg.left ?? 'h';
-      const OPEN = filesCfg.open ?? 'o';
-      const SCROLL_DOWN = filesCfg['scroll-down'] ?? 'shift+j';
-      const SCROLL_UP = filesCfg['scroll-up'] ?? 'shift+k';
-      const REFRESH = filesCfg.refresh ?? 'r';
-      const TOP = filesCfg.top ?? 'g g';
-      const BOTTOM = filesCfg.bottom ?? 'shift+g';
-      const JUMP_DOWN = filesCfg['jump-down'] ?? 'shift+]';
-      const JUMP_UP = filesCfg['jump-up'] ?? 'shift+[';
-      const SEARCH = filesCfg.search ?? '/';
-      const TOGGLE_SIDEBAR = filesCfg['toggle-sidebar'] ?? 'b';
-      const EDIT = filesCfg.edit ?? 'i';
+      const DOWN = bindings.down;
+      const UP = bindings.up;
+      const RIGHT = bindings.right;
+      const LEFT = bindings.left;
+      const OPEN = bindings.open;
+      const SCROLL_DOWN = bindings['scroll-down'];
+      const SCROLL_UP = bindings['scroll-up'];
+      const REFRESH = bindings.refresh;
+      const TOP = bindings.top;
+      const BOTTOM = bindings.bottom;
+      const JUMP_DOWN = bindings['jump-down'];
+      const JUMP_UP = bindings['jump-up'];
+      const SEARCH = bindings.search;
+      const SEARCH_CONTENT = bindings['search-content'];
+      const TOGGLE_SIDEBAR = bindings['toggle-sidebar'];
+      const EDIT = bindings.edit;
+      const COPY_PATH = bindings['copy-path'];
+      const CREATE = bindings.create;
 
       // Any key that reaches the handler resets the pending chord prefix
       // (match() below may re-arm it).
@@ -416,8 +751,19 @@ export default function FilesPane({
         searchInputRef.current?.focus();
         return 'consumed';
       }
+      // "?" (shift+/) greps file contents; "/" matches filenames. Opening
+      // either resets the selection — the two result lists don't correspond.
+      if (matchesShortcut(e, SEARCH_CONTENT)) {
+        setSearchMode('content');
+        setSearchSel(0);
+        setSearchOpen(true);
+        searchInputRef.current?.focus();
+        return 'consumed';
+      }
       if (matchesShortcut(e, SEARCH)) {
         // Already open: re-focus the input (e.g. after clicking elsewhere).
+        setSearchMode('files');
+        setSearchSel(0);
         setSearchOpen(true);
         searchInputRef.current?.focus();
         return 'consumed';
@@ -431,8 +777,12 @@ export default function FilesPane({
       const inResults = searchActiveRef.current;
       const nav = ((): { length: number; index: number; set(i: number): void } => {
         if (inResults) {
+          const length =
+            searchModeRef.current === 'files'
+              ? searchMatchesRef.current.length
+              : contentMatchesRef.current.length;
           return {
-            length: searchMatchesRef.current.length,
+            length,
             index: searchSelRef.current,
             set: (i) => setSearchSel(i),
           };
@@ -488,6 +838,28 @@ export default function FilesPane({
         fileViewerRef.current?.focusEditor();
         return 'consumed';
       }
+      // Yank the absolute path of the cursored row (or the selected search
+      // result), falling back to the open file when no cursor is set.
+      if (matchesShortcut(e, COPY_PATH)) {
+        let target: string | undefined | null;
+        if (searchActiveRef.current) {
+          // Search matches are root-relative — resolve before copying.
+          const rel =
+            searchModeRef.current === 'files'
+              ? searchMatchesRef.current[searchSelRef.current]?.path
+              : contentMatchesRef.current[searchSelRef.current]?.path;
+          target = rel === undefined ? undefined : joinPath(rootPathRef.current, rel);
+        } else {
+          target = cursorPathRef.current ?? openFilePathRef.current;
+        }
+        if (target) void navigator.clipboard.writeText(target);
+        return 'consumed';
+      }
+      // New file at the cursor's directory (inline name input).
+      if (matchesShortcut(e, CREATE)) {
+        openCreateRef.current();
+        return 'consumed';
+      }
 
       if (matchesShortcut(e, DOWN)) {
         const idx = wrapIndex(nav.index, 1, nav.length);
@@ -514,8 +886,13 @@ export default function FilesPane({
       // in (narrow). Enter is always accepted alongside the configured key.
       if (matchesShortcut(e, OPEN) || e.key === 'Enter') {
         if (inResults) {
-          const match = searchMatchesRef.current[searchSelRef.current];
-          if (match) openSearchResultRef.current(match.path);
+          if (searchModeRef.current === 'files') {
+            const match = searchMatchesRef.current[searchSelRef.current];
+            if (match) openSearchResultRef.current(match.path);
+          } else {
+            const match = contentMatchesRef.current[searchSelRef.current];
+            if (match) openContentResultRef.current(match.path, match.line);
+          }
           return 'consumed';
         }
         if (wideRef.current) {
@@ -659,6 +1036,13 @@ export default function FilesPane({
 
   if (!slice) return null;
 
+  // A pending reveal only applies once its file is the open one — otherwise
+  // the jump would land in whatever file happens to be showing.
+  const activeReveal =
+    pendingReveal && pendingReveal.path === openFilePath
+      ? { line: pendingReveal.line, seq: pendingReveal.seq }
+      : null;
+
   return (
     <section ref={paneRef} className={styles.pane}>
       <header className={styles.header}>
@@ -705,11 +1089,14 @@ export default function FilesPane({
 
       {searchOpen && (
         <div className={styles.searchBar}>
+          <span className={styles.searchMode} title="/ names · ? contents">
+            {searchMode === 'files' ? 'name' : 'text'}
+          </span>
           <input
             ref={searchInputRef}
             className={styles.searchInput}
             type="text"
-            placeholder="Search files by name…"
+            placeholder={searchMode === 'files' ? 'Search files by name…' : 'Search file contents…'}
             spellCheck={false}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -718,16 +1105,54 @@ export default function FilesPane({
         </div>
       )}
 
+      {createDir !== null && (
+        <div className={styles.createBar}>
+          <span className={styles.createPrefix} title={createDir}>
+            {displayDir(createDir, rootPath)}/
+          </span>
+          <input
+            ref={createInputRef}
+            className={styles.searchInput}
+            type="text"
+            placeholder="new-file name…"
+            spellCheck={false}
+            disabled={creating}
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submitCreate();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeCreate();
+              }
+            }}
+          />
+          {createError && <span className={styles.createError}>{createError}</span>}
+        </div>
+      )}
+
       {wide ? (
         <div className={styles.split} data-collapsed={sidebarCollapsed || undefined}>
           <aside className={styles.sidebar}>
             {searchActive ? (
-              <SearchResults
-                search={search}
-                selectedIndex={searchSel}
-                onHover={setSearchSel}
-                onOpen={openSearchResult}
-              />
+              searchMode === 'files' ? (
+                <SearchResults
+                  search={search}
+                  selectedIndex={searchSel}
+                  onHover={setSearchSel}
+                  onOpen={openSearchResult}
+                />
+              ) : (
+                <ContentSearchResults
+                  search={contentSearch}
+                  selectedIndex={searchSel}
+                  onHover={setSearchSel}
+                  onOpen={openContentResult}
+                />
+              )
             ) : (
               <DirTree
                 rootPath={rootPath}
@@ -735,9 +1160,11 @@ export default function FilesPane({
                 nodes={nodes}
                 selectedPath={openFilePath}
                 cursorPath={cursorPath}
+                decorations={decorations}
                 onOpenFile={handleOpenFile}
                 onToggleDir={handleToggleDir}
                 onRetry={retry}
+                onRowContextMenu={handleRowContextMenu}
                 rowRef={setRowRef}
               />
             )}
@@ -749,6 +1176,7 @@ export default function FilesPane({
                 path={openFilePath}
                 refreshSeq={refreshSeq}
                 onOpenFile={handleOpenFile}
+                reveal={activeReveal}
               />
             ) : (
               <div className={styles.emptyViewer}>Select a file to preview</div>
@@ -758,18 +1186,28 @@ export default function FilesPane({
       ) : (
         <div className={styles.single}>
           {searchActive ? (
-            <SearchResults
-              search={search}
-              selectedIndex={searchSel}
-              onHover={setSearchSel}
-              onOpen={openSearchResult}
-            />
+            searchMode === 'files' ? (
+              <SearchResults
+                search={search}
+                selectedIndex={searchSel}
+                onHover={setSearchSel}
+                onOpen={openSearchResult}
+              />
+            ) : (
+              <ContentSearchResults
+                search={contentSearch}
+                selectedIndex={searchSel}
+                onHover={setSearchSel}
+                onOpen={openContentResult}
+              />
+            )
           ) : openFilePath ? (
             <FileViewer
               ref={fileViewerRef}
               path={openFilePath}
               refreshSeq={refreshSeq}
               onOpenFile={handleOpenFile}
+              reveal={activeReveal}
             />
           ) : (
             <DirListing
@@ -778,12 +1216,22 @@ export default function FilesPane({
               loading={narrowListing.loading}
               error={narrowListing.error}
               cursorPath={cursorPath}
+              decorations={decorations}
               onOpenFile={handleOpenFile}
               onEnterDir={(path) => setCurrentDir(sessionId, path)}
               onRetry={() => setRefreshSeq((seq) => seq + 1)}
+              onRowContextMenu={handleRowContextMenu}
             />
           )}
         </div>
+      )}
+
+      {contextMenu && (
+        <ContextMenu
+          position={contextMenu.position}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </section>
   );

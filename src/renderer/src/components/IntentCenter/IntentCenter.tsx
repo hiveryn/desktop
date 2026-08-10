@@ -42,14 +42,79 @@ function truncate(value: string): string {
   return value.length > MAX_STRING ? `${value.slice(0, MAX_STRING)}…` : value;
 }
 
-// A string worth rendering as its own markdown block when expanded (a conclusion
-// or ticket body), versus a short scalar (repo, outcome) shown inline. Purely a
-// shape heuristic — no field name or intent type is special-cased.
+// ── Typed payload extraction ─────────────────────────────────────────────────
+// The daemon authors these payloads (intents_service.go / service.go), so a
+// shape mismatch is a bug — throw with the field, never render a wrong card.
+
+interface IntentCommit {
+  sha: string;
+  repo: string;
+}
+
+function requirePayload(intent: Intent): Record<string, unknown> {
+  if (!intent.payload) {
+    throw new Error(`intent ${intent.intent_id} (${intent.intent_type}) is missing its payload`);
+  }
+  return intent.payload;
+}
+
+function requireString(payload: Record<string, unknown>, key: string, intentId: string): string {
+  const value = payload[key];
+  if (typeof value !== 'string') {
+    throw new Error(`intent ${intentId}: payload field "${key}" is not a string`);
+  }
+  return value;
+}
+
+function optionalString(payload: Record<string, unknown>, key: string, intentId: string): string {
+  const value = payload[key];
+  if (value == null) return '';
+  if (typeof value !== 'string') {
+    throw new Error(`intent ${intentId}: payload field "${key}" is not a string`);
+  }
+  return value;
+}
+
+function optionalStringArray(
+  payload: Record<string, unknown>,
+  key: string,
+  intentId: string,
+): string[] {
+  const value = payload[key];
+  if (value == null) return [];
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
+    throw new Error(`intent ${intentId}: payload field "${key}" is not a string array`);
+  }
+  return value;
+}
+
+function optionalCommitArray(
+  payload: Record<string, unknown>,
+  key: string,
+  intentId: string,
+): IntentCommit[] {
+  const value = payload[key];
+  if (value == null) return [];
+  const isCommit = (v: unknown): v is IntentCommit =>
+    typeof v === 'object' &&
+    v !== null &&
+    typeof (v as { sha?: unknown }).sha === 'string' &&
+    typeof (v as { repo?: unknown }).repo === 'string';
+  if (!Array.isArray(value) || !value.every(isCommit)) {
+    throw new Error(`intent ${intentId}: payload field "${key}" is not a commit array`);
+  }
+  return value;
+}
+
+// ── Generic fallback rendering (unknown future intent types) ─────────────────
+
+// A string worth rendering as its own markdown block when expanded, versus a
+// short scalar shown inline. Purely a shape heuristic.
 function isRichString(value: string): boolean {
   return value.includes('\n') || value.length > 80;
 }
 
-function isCommitList(value: unknown[]): value is { sha: string; repo: string }[] {
+function isCommitList(value: unknown[]): value is IntentCommit[] {
   return value.every(
     (v) =>
       typeof v === 'object' &&
@@ -59,10 +124,20 @@ function isCommitList(value: unknown[]): value is { sha: string; repo: string }[
   );
 }
 
-// A tool-agnostic view of an intent's payload: no field is conclude- or
-// ticket-specific. Strings render as text, commit-shaped arrays as sha chips,
-// string arrays as a comma list, everything else as compact JSON. Any future
-// tool routed through the daemon intent system renders here with no change.
+const MarkdownBlock: React.FC<{ label: string; children: string }> = ({ label, children }) => (
+  <div className={styles.fieldBlock}>
+    <span className={styles.fieldName}>{label}</span>
+    <div className={styles.markdownScroll}>
+      <div className={mdStyles.markdown}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      </div>
+    </div>
+  </div>
+);
+
+// Tool-agnostic view of a payload field, used only for intent types without a
+// dedicated design below. Strings render as text, commit-shaped arrays as sha
+// chips, string arrays as a comma list, everything else as compact JSON.
 const PayloadField: React.FC<{ name: string; value: unknown; expanded: boolean }> = ({
   name,
   value,
@@ -72,16 +147,7 @@ const PayloadField: React.FC<{ name: string; value: unknown; expanded: boolean }
 
   // Expanded: a body-shaped string renders as its own scrollable markdown block.
   if (expanded && typeof value === 'string' && isRichString(value)) {
-    return (
-      <div className={styles.fieldBlock}>
-        <span className={styles.fieldName}>{name}</span>
-        <div className={styles.markdownScroll}>
-          <div className={mdStyles.markdown}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
-          </div>
-        </div>
-      </div>
-    );
+    return <MarkdownBlock label={name}>{value}</MarkdownBlock>;
   }
 
   let rendered: React.ReactNode;
@@ -112,6 +178,116 @@ const PayloadField: React.FC<{ name: string; value: unknown; expanded: boolean }
       {rendered}
     </div>
   );
+};
+
+// ── Type-specific designs ────────────────────────────────────────────────────
+
+// createWorkTicket: the summary is the ticket title; the payload carries the
+// repo scope, references, and the markdown body (shown expanded).
+const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
+  intent,
+  expanded,
+}) => {
+  const payload = requirePayload(intent);
+  const repo = requireString(payload, 'repo', intent.intent_id);
+  const additionalRepos = optionalStringArray(payload, 'additional_repos', intent.intent_id);
+  const references = optionalStringArray(payload, 'references', intent.intent_id);
+  const body = optionalString(payload, 'body', intent.intent_id);
+
+  return (
+    <div className={styles.details}>
+      <div className={styles.metaRow}>
+        <span className={styles.chip}>
+          {repo}
+          {additionalRepos.length > 0 && <span className={styles.chipTag}> primary</span>}
+        </span>
+        {additionalRepos.map((key) => (
+          <span key={key} className={styles.chip}>
+            {key}
+          </span>
+        ))}
+        {!expanded && references.length > 0 && (
+          <span className={styles.metaNote}>
+            {references.length} reference{references.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      {expanded && references.length > 0 && (
+        <div className={styles.fieldBlock}>
+          <span className={styles.fieldName}>references</span>
+          <ul className={styles.refList}>
+            {references.map((ref) => (
+              <li key={ref} className={styles.refItem}>
+                {ref}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {expanded && body && <MarkdownBlock label="body">{body}</MarkdownBlock>}
+    </div>
+  );
+};
+
+// concludeSession: the summary is the TL;DR; the payload carries the outcome,
+// commits, optional rejection reason, and the full rendered conclusion body
+// (shown expanded). Architect/freeform conclusions only carry the body.
+const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
+  intent,
+  expanded,
+}) => {
+  const payload = requirePayload(intent);
+  const body = requireString(payload, 'body', intent.intent_id);
+  const outcome = optionalString(payload, 'outcome', intent.intent_id);
+  const rejectionReason = optionalString(payload, 'rejection_reason', intent.intent_id);
+  const commits = optionalCommitArray(payload, 'commits', intent.intent_id);
+
+  return (
+    <div className={styles.details}>
+      {(outcome || commits.length > 0) && (
+        <div className={styles.metaRow}>
+          {outcome && (
+            <span className={styles.outcomeBadge} data-outcome={outcome}>
+              {outcome}
+            </span>
+          )}
+          {expanded ? (
+            commits.map((c) => (
+              <span key={`${c.repo}:${c.sha}`} className={styles.chip}>
+                {c.repo}@{c.sha.slice(0, 7)}
+              </span>
+            ))
+          ) : commits.length > 0 ? (
+            <span className={styles.metaNote}>
+              {commits.length} commit{commits.length === 1 ? '' : 's'}
+            </span>
+          ) : null}
+        </div>
+      )}
+      {rejectionReason && (
+        <div className={styles.rejectionBlock}>
+          <span className={styles.fieldName}>rejection reason</span>
+          <span className={styles.fieldValue}>
+            {expanded ? rejectionReason : truncate(rejectionReason)}
+          </span>
+        </div>
+      )}
+      {expanded && <MarkdownBlock label="conclusion">{body}</MarkdownBlock>}
+    </div>
+  );
+};
+
+type IntentKind = 'ticket' | 'conclude' | null;
+
+function kindOf(type: Intent['intent_type']): IntentKind {
+  if (type === 'createWorkTicket') return 'ticket';
+  if (type === 'concludeSession') return 'conclude';
+  return null;
+}
+
+const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
+  ticket: 'new ticket',
+  conclude: 'conclude session',
 };
 
 const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
@@ -168,8 +344,21 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
   const verb = autoVerb(intent.policy);
   const countdown = remaining > 0 ? (verb ? `${verb} ${remaining}s` : `${remaining}s`) : 'resolving…';
 
+  const kind = kindOf(intent.intent_type);
+  // Surfaced at the card level so a rejected conclusion's accent edge turns
+  // red; the typed detail component re-validates the field strictly.
+  const cardOutcome =
+    kind === 'conclude' && typeof intent.payload?.outcome === 'string'
+      ? intent.payload.outcome
+      : undefined;
+
   return (
-    <li className={styles.card}>
+    <li
+      className={styles.card}
+      data-kind={kind ?? undefined}
+      data-outcome={cardOutcome}
+      data-expanded={expanded || undefined}
+    >
       <div className={styles.header}>
         <button
           type="button"
@@ -188,13 +377,31 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
         </button>
         <span className={styles.countdown}>{countdown}</span>
       </div>
-      {intent.summary && <div className={styles.summary}>{intent.summary}</div>}
-      {intent.payload && (
-        <div className={styles.payload}>
-          {Object.entries(intent.payload).map(([name, value]) => (
-            <PayloadField key={name} name={name} value={value} expanded={expanded} />
-          ))}
-        </div>
+      <button
+        type="button"
+        className={styles.summaryToggle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+      >
+        {kind && (
+          <span className={styles.kindBadge} data-kind={kind}>
+            {KIND_LABEL[kind]}
+          </span>
+        )}
+        {intent.summary && <span className={styles.summary}>{intent.summary}</span>}
+      </button>
+      {kind === 'ticket' ? (
+        <TicketIntentDetails intent={intent} expanded={expanded} />
+      ) : kind === 'conclude' ? (
+        <ConclusionIntentDetails intent={intent} expanded={expanded} />
+      ) : (
+        intent.payload && (
+          <div className={styles.details}>
+            {Object.entries(intent.payload).map(([name, value]) => (
+              <PayloadField key={name} name={name} value={value} expanded={expanded} />
+            ))}
+          </div>
+        )
       )}
       <div className={styles.actions}>
         <Button

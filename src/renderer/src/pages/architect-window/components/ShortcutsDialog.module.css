@@ -1,0 +1,81 @@
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 60vh;
+  min-width: 60ch;
+  overflow-y: auto;
+  padding-right: var(--space-h-2);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-h-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-text);
+  border-bottom: 1px solid var(--theme-border);
+  padding-bottom: var(--space-1);
+}
+
+.hint {
+  font-weight: var(--font-weight-normal);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
+/* Two columns of action → key rows; collapses to one when narrow. */
+.bindingGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(24ch, 1fr));
+  gap: var(--space-1) var(--space-4);
+}
+
+.binding {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-h-2);
+  min-width: 0;
+}
+
+.action {
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keys {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.kbd {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-background-input);
+  padding: 0 var(--space-1);
+}
+
+.footnote {
+  margin: var(--space-3) 0 0;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}

@@ -51,3 +51,88 @@
 .row[data-kind="dir"] .name {
   color: var(--theme-status-info);
 }
+
+/* Files with a git status tint their name like the status char, so the tree
+   reads at a glance which files the working tree changed. */
+.row[data-status="M"] .name,
+.row[data-status="R"] .name,
+.row[data-status="C"] .name {
+  color: var(--theme-status-warning);
+}
+
+.row[data-status="A"] .name,
+.row[data-status="?"] .name {
+  color: var(--theme-status-success);
+}
+
+.row[data-status="D"] .name {
+  color: var(--theme-status-error);
+  text-decoration: line-through;
+}
+
+/* ── Right-aligned marker cluster ──────────────────────────────────────── */
+
+.markers {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+.dirtyDot {
+  color: var(--theme-status-warning);
+}
+
+/* Agent recently edited this file — fades out over the touched TTL
+   (keep the duration in sync with TOUCHED_TTL_MS in EntryRow.tsx). */
+.touchedDot {
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--theme-status-info);
+  animation: touched-fade 60s linear forwards;
+}
+
+@keyframes touched-fade {
+  0% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .touchedDot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+.statusChar[data-status="M"],
+.statusChar[data-status="R"],
+.statusChar[data-status="C"] {
+  color: var(--theme-status-warning);
+}
+
+.statusChar[data-status="A"],
+.statusChar[data-status="?"] {
+  color: var(--theme-status-success);
+}
+
+.statusChar[data-status="D"] {
+  color: var(--theme-status-error);
+}
+
+/* Dim rollup marker on directories whose subtree has changes. */
+.statusDirDot {
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: var(--theme-text-subtle);
+}

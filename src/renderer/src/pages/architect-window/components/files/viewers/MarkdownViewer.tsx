@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import { getEditorBuffer } from '../editorBuffers';
 import type { CodeEditorHandle, ViewerProps } from '../viewerRegistry';
 import CodeEditor from './CodeEditor';
+import CopyButton from './CopyButton';
 import MarkdownImage, { resolveRelative } from './MarkdownImage';
 import Mermaid from './Mermaid';
 import styles from './Viewers.module.css';
@@ -92,7 +93,8 @@ const codeIcon = (
 export default function MarkdownViewer(props: ViewerProps) {
   const [mode, setMode] = useState<MarkdownMode>('rendered');
   const bodyRef = useRef<HTMLDivElement>(null);
-  const { file, text, onOpenFile, scrollRef, editorRef, onDirtyChange } = props;
+  const { file, text, onOpenFile, scrollRef, editorRef, onDirtyChange, onCursorChange, wordWrap } =
+    props;
   const setBodyRef = (node: HTMLDivElement | null): void => {
     bodyRef.current = node;
     scrollRef?.(node);
@@ -256,6 +258,8 @@ export default function MarkdownViewer(props: ViewerProps) {
           scrollRef={scrollRef}
           editorRef={setInnerHandle}
           onDirtyChange={onDirtyChange}
+          onCursorChange={onCursorChange}
+          wordWrap={wordWrap}
         />
       )}
       <div className={styles.modeToggle}>
@@ -279,6 +283,9 @@ export default function MarkdownViewer(props: ViewerProps) {
         >
           {codeIcon}
         </button>
+        <CopyButton
+          getText={() => getEditorBuffer(filePathRef.current)?.state.doc.toString() ?? text}
+        />
       </div>
     </div>
   );

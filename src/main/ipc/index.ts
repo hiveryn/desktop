@@ -4,6 +4,7 @@ import { registerArchitectsIpc } from './architects';
 import { registerBrowserViewIpc } from './browserView';
 import { registerConfigIpc } from './config';
 import { registerDaemonIpc } from './daemon';
+import { registerEditorIpc } from './editor';
 import { registerFsIpc } from './fs';
 import { registerLauncherIpc } from './launcher';
 import { registerLogsIpc } from './logs';
@@ -43,6 +44,7 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerTicketsIpc();
   registerSystemIpc();
   registerFsIpc();
+  registerEditorIpc();
   registerReposIpc();
   registerTrayIpc();
   registerBrowserViewIpc();

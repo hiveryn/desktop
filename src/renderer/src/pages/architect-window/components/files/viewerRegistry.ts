@@ -29,6 +29,13 @@ export interface ViewerProps {
   // transitions here; read-only viewers ignore both.
   editorRef?(handle: CodeEditorHandle | null): void;
   onDirtyChange?(dirty: boolean): void;
+  // Scroll the editor to a 1-based line (content-search results). `seq`
+  // disambiguates repeated reveals of the same line; non-editor viewers ignore it.
+  reveal?: { line: number; seq: number } | null;
+  // Editor cursor position (1-based), null when the editor unmounts.
+  onCursorChange?(pos: { line: number; col: number } | null): void;
+  // Soft-wrap long lines in the editor.
+  wordWrap?: boolean;
 }
 
 // Viewer dispatch by classified kind. Future kinds (image, pdf) are one

@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import type { FsEntry } from '../../../../../../shared/types';
 import styles from './DirTree.module.css';
 import EntryRow from './EntryRow';
+import { EMPTY_DECORATIONS, type RowDecorations } from './rowDecorations';
 import type { DirNodeState, VisibleRow } from './useDirTreeData';
 
 interface DirTreeProps {
@@ -9,9 +11,11 @@ interface DirTreeProps {
   nodes: Map<string, DirNodeState>;
   selectedPath: string | null;
   cursorPath: string | null;
+  decorations?: RowDecorations;
   onOpenFile(path: string): void;
   onToggleDir(path: string): void;
   onRetry(path: string): void;
+  onRowContextMenu?(path: string, entry: FsEntry, position: { x: number; y: number }): void;
   rowRef?(path: string, node: HTMLElement | null): void;
 }
 
@@ -78,9 +82,11 @@ export default function DirTree({
   nodes,
   selectedPath,
   cursorPath,
+  decorations = EMPTY_DECORATIONS,
   onOpenFile,
   onToggleDir,
   onRetry,
+  onRowContextMenu,
   rowRef,
 }: DirTreeProps) {
   const items = useMemo(() => buildRenderItems(rootPath, rows, nodes), [rootPath, rows, nodes]);
@@ -111,9 +117,14 @@ export default function DirTree({
               expanded={item.row.entry.kind === 'dir' ? item.row.expanded : undefined}
               selected={item.row.entry.kind === 'file' && selectedPath === item.row.path}
               cursor={cursorPath === item.row.path}
+              decoration={decorations.get(item.row.path)}
               onClick={() => {
                 if (item.row.entry.kind === 'dir') onToggleDir(item.row.path);
                 else onOpenFile(item.row.path);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onRowContextMenu?.(item.row.path, item.row.entry, { x: e.clientX, y: e.clientY });
               }}
             />
           </div>

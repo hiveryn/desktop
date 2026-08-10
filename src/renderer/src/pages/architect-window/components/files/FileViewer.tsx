@@ -1,13 +1,26 @@
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { usePaneLayoutStore } from '../../../../state/paneLayoutStore';
 import { classify, formatBytes } from './classify';
+import { getEditorBuffer } from './editorBuffers';
 import styles from './FileViewer.module.css';
 import { useFileContent } from './useFileContent';
 import { type CodeEditorHandle, viewerRegistry } from './viewerRegistry';
+import CopyButton from './viewers/CopyButton';
 
 interface Props {
   path: string;
   refreshSeq: number;
   onOpenFile?(path: string): void;
+  /** Scroll the editor to a 1-based line once the file is open (content search). */
+  reveal?: { line: number; seq: number } | null;
 }
 
 export interface FileViewerHandle {
@@ -22,8 +35,27 @@ function fileName(path: string): string {
   return path.split('/').pop() ?? path;
 }
 
+const wrapIcon = (
+  <svg
+    viewBox="0 0 16 16"
+    width="1em"
+    height="1em"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.25}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M2.5 4.5h11" />
+    <path d="M2.5 8h8.5a2.25 2.25 0 0 1 0 4.5H8.5" />
+    <path d="M10 10.75L8.25 12.5L10 14.25" />
+    <path d="M2.5 11.5h3" />
+  </svg>
+);
+
 const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
-  { path, refreshSeq, onOpenFile },
+  { path, refreshSeq, onOpenFile, reveal },
   ref,
 ) {
   const { data, loading, error } = useFileContent(path, refreshSeq);
@@ -31,11 +63,23 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
   const scrollNodeRef = useRef<HTMLElement | null>(null);
   const editorHandleRef = useRef<CodeEditorHandle | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [cursorPos, setCursorPos] = useState<{ line: number; col: number } | null>(null);
+  const [pathCopied, setPathCopied] = useState(false);
+  const copiedTimerRef = useRef<number | null>(null);
+
+  const wordWrap = usePaneLayoutStore((s) => s.editorWordWrap);
+  const toggleWordWrap = usePaneLayoutStore((s) => s.toggleEditorWordWrap);
 
   const setEditorHandle = useCallback((handle: CodeEditorHandle | null) => {
     editorHandleRef.current = handle;
     // Editor unmounted (switched to a non-code file) — nothing dirty to show.
     if (handle === null) setDirty(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current !== null) window.clearTimeout(copiedTimerRef.current);
+    };
   }, []);
 
   useImperativeHandle(
@@ -58,6 +102,14 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
     [],
   );
 
+  const copyPath = (): void => {
+    void navigator.clipboard.writeText(path).then(() => {
+      setPathCopied(true);
+      if (copiedTimerRef.current !== null) window.clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = window.setTimeout(() => setPathCopied(false), 1500);
+    });
+  };
+
   if (error) {
     return <div className={styles.message}>Failed to load file — see error center</div>;
   }
@@ -70,20 +122,53 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
     throw new Error(`No viewer registered for kind "${classified.kind}" (${path})`);
   }
 
+  // The markdown viewer hosts its own copy button inside the rendered/source
+  // toggle; every other text viewer gets a standalone floating one here.
+  const copyText = classified.kind !== 'markdown' ? classified.text : null;
+  const editable = classified.kind === 'code' || classified.kind === 'markdown';
+
   return (
     <div className={styles.viewer}>
       <div className={styles.header}>
-        <span className={styles.name} title={path}>
+        <button
+          type="button"
+          className={styles.name}
+          title={pathCopied ? 'Copied' : `${path} — click to copy path`}
+          onClick={copyPath}
+        >
           {fileName(path)}
-        </span>
+          {pathCopied && (
+            <span className={styles.copiedTag} aria-live="polite">
+              copied
+            </span>
+          )}
+        </button>
         {dirty && (
           <span className={styles.dirtyDot} title="Unsaved changes — :w or Cmd+S to save">
             ●
           </span>
         )}
         <span className={styles.meta}>
+          {cursorPos && (
+            <span className={styles.cursorPos}>
+              {cursorPos.line}:{cursorPos.col}
+            </span>
+          )}
           {data.contentType} · {formatBytes(data.size)}
         </span>
+        {editable && (
+          <button
+            type="button"
+            className={styles.wrapToggle}
+            data-active={wordWrap || undefined}
+            title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'}
+            aria-label="Toggle word wrap"
+            aria-pressed={wordWrap}
+            onClick={toggleWordWrap}
+          >
+            {wrapIcon}
+          </button>
+        )}
       </div>
       {data.truncated && classified.text !== null && (
         <div className={styles.truncatedBanner}>
@@ -102,7 +187,15 @@ const FileViewer = forwardRef<FileViewerHandle, Props>(function FileViewer(
           }}
           editorRef={setEditorHandle}
           onDirtyChange={setDirty}
+          reveal={reveal}
+          onCursorChange={setCursorPos}
+          wordWrap={wordWrap}
         />
+        {copyText !== null && (
+          <div className={styles.copyOverlay}>
+            <CopyButton getText={() => getEditorBuffer(path)?.state.doc.toString() ?? copyText} />
+          </div>
+        )}
       </div>
     </div>
   );

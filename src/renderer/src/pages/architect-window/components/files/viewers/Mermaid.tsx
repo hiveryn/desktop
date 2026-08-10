@@ -12,6 +12,10 @@ function loadMermaid(): Promise<typeof import('mermaid').default> {
         startOnLoad: false,
         theme: 'dark',
         fontFamily: 'var(--font-family-mono)',
+        // On a parse error, mermaid's default is to append a global "bomb"
+        // error diagram to document.body — outside this component, polluting
+        // the whole window. The catch below already renders the error inline.
+        suppressErrorRendering: true,
       });
       return mod.default;
     });

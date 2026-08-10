@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import type { FsTreeResponse } from '../../../../../../shared/types';
+import type { FsEntry, FsTreeResponse } from '../../../../../../shared/types';
 import styles from './DirTree.module.css';
 import { joinPath, sortEntries } from './dirTreeUtils';
 import EntryRow from './EntryRow';
+import { EMPTY_DECORATIONS, type RowDecorations } from './rowDecorations';
 
 interface Props {
   path: string;
@@ -10,9 +11,11 @@ interface Props {
   loading: boolean;
   error: unknown | null;
   cursorPath: string | null;
+  decorations?: RowDecorations;
   onOpenFile(path: string): void;
   onEnterDir(path: string): void;
   onRetry(): void;
+  onRowContextMenu?(path: string, entry: FsEntry, position: { x: number; y: number }): void;
 }
 
 // Flat one-directory listing for the narrow drill-down mode. Fetch state is
@@ -24,9 +27,11 @@ export default function DirListing({
   loading,
   error,
   cursorPath,
+  decorations = EMPTY_DECORATIONS,
   onOpenFile,
   onEnterDir,
   onRetry,
+  onRowContextMenu,
 }: Props) {
   const rowRefs = useRef(new Map<string, HTMLElement>());
 
@@ -64,9 +69,14 @@ export default function DirListing({
             <EntryRow
               entry={entry}
               cursor={cursorPath === entryPath}
+              decoration={decorations.get(entryPath)}
               onClick={() => {
                 if (entry.kind === 'dir') onEnterDir(entryPath);
                 else if (entry.kind === 'file') onOpenFile(entryPath);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onRowContextMenu?.(entryPath, entry, { x: e.clientX, y: e.clientY });
               }}
             />
           </div>

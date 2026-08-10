@@ -261,6 +261,24 @@ export interface RepoCommitDiffResponse {
   summary: RepoDiffSummary;
 }
 
+// GET /api/architects/:key/repos/:repoKey/status — lightweight changed-path
+// listing for tree decoration. Index/worktree carry the two git porcelain
+// status columns verbatim (" " unchanged, "?" untracked).
+export interface RepoStatusEntry {
+  /** Repo-relative, "/"-separated. */
+  path: string;
+  index: string;
+  worktree: string;
+  orig_path?: string;
+}
+
+export interface RepoStatusResponse {
+  repo: string;
+  repo_path: string;
+  /** Go marshals an empty slice as null — a clean repo sends null here. */
+  entries: RepoStatusEntry[] | null;
+}
+
 // ── Filesystem browse (native files tab) ────────────────────────────────────
 
 export type FsEntryKind = 'file' | 'dir' | 'symlink' | 'other';
@@ -292,6 +310,22 @@ export interface FsSearchResponse {
   /** All matches found, before the limit cap. */
   total: number;
   /** Candidate collection hit the daemon's walk budget; matches may be incomplete. */
+  truncated?: boolean;
+}
+
+export interface FsContentSearchMatch {
+  /** Relative to the searched root, "/"-separated. */
+  path: string;
+  line: number;
+  text: string;
+}
+
+export interface FsContentSearchResponse {
+  root: string;
+  query: string;
+  /** Go marshals an empty slice as null — no matches sends null here. */
+  matches: FsContentSearchMatch[] | null;
+  /** The match cap (or walk budget) was hit; more matches may exist. */
   truncated?: boolean;
 }
 

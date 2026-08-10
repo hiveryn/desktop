@@ -36,12 +36,53 @@
   margin-left: auto;
 }
 
-/* ── "/" filename search ─────────────────────────────────────── */
+/* ── "/" filename search · "?" content search ────────────────── */
 .searchBar {
   display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
   flex-shrink: 0;
   padding: var(--space-1) var(--space-h-2);
   border-bottom: 1px solid var(--theme-border);
+}
+
+/* Which search the input is driving — the two modes return different
+   result shapes, so the mode is never ambiguous. */
+.searchMode {
+  flex-shrink: 0;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+/* ── New-file prompt ─────────────────────────────────────────── */
+.createBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.createPrefix {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.createError {
+  flex-shrink: 0;
+  color: var(--theme-status-error);
+  font-size: var(--font-size-xs);
 }
 
 .searchInput {

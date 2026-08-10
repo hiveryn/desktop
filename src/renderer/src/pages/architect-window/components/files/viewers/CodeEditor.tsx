@@ -5,7 +5,12 @@ import { Compartment, EditorState, type Extension, type Text } from '@codemirror
 import { drawSelection, EditorView, keymap, lineNumbers, type ViewUpdate } from '@codemirror/view';
 import { Vim, vim } from '@replit/codemirror-vim';
 import { useEffect, useRef, useState } from 'react';
-import { dropEditorBuffer, getEditorBuffer, putEditorBuffer } from '../editorBuffers';
+import {
+  dropEditorBuffer,
+  getEditorBuffer,
+  putEditorBuffer,
+  reportLiveDirty,
+} from '../editorBuffers';
 import type { ViewerProps } from '../viewerRegistry';
 import { editorTheme } from './cmTheme';
 import styles from './Viewers.module.css';
@@ -25,6 +30,7 @@ interface EditorController {
 const controllers = new WeakMap<EditorView, EditorController>();
 const languageCompartment = new Compartment();
 const readOnlyCompartment = new Compartment();
+const wrapCompartment = new Compartment();
 
 // The Vim ex-command registry is a module singleton; route to the controller
 // of whichever view issued the command. `:w` overrides the built-in write
@@ -76,6 +82,7 @@ function buildExtensions(): Extension[] {
     editorTheme,
     languageCompartment.of([]),
     readOnlyCompartment.of(EditorState.readOnly.of(false)),
+    wrapCompartment.of([]),
   ];
 }
 
@@ -89,6 +96,9 @@ export default function CodeEditor({
   scrollRef,
   editorRef,
   onDirtyChange,
+  reveal,
+  onCursorChange,
+  wordWrap,
 }: ViewerProps) {
   if (text === null) {
     throw new Error(`CodeEditor requires decoded text for ${file.path}`);
@@ -118,11 +128,30 @@ export default function CodeEditor({
   scrollRefRef.current = scrollRef;
   const editorRefRef = useRef(editorRef);
   editorRefRef.current = editorRef;
+  const onCursorChangeRef = useRef(onCursorChange);
+  onCursorChangeRef.current = onCursorChange;
+  const wordWrapRef = useRef(wordWrap);
+  wordWrapRef.current = wordWrap;
 
-  const setDirty = (dirty: boolean): void => {
+  const setDirty = (path: string, dirty: boolean): void => {
+    // The global dirty-path registry (tree markers, close guard) is keyed by
+    // path, so it updates even when the local flag hasn't flipped.
+    reportLiveDirty(path, dirty);
     if (dirty === dirtyRef.current) return;
     dirtyRef.current = dirty;
     onDirtyChangeRef.current?.(dirty);
+  };
+
+  const reportCursor = (view: EditorView): void => {
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    onCursorChangeRef.current?.({ line: line.number, col: head - line.from + 1 });
+  };
+
+  const applyWrap = (view: EditorView): void => {
+    view.dispatch({
+      effects: wrapCompartment.reconfigure(wordWrapRef.current ? EditorView.lineWrapping : []),
+    });
   };
 
   const applyLanguage = (view: EditorView, path: string): void => {
@@ -166,26 +195,28 @@ export default function CodeEditor({
       view.setState(cached.state);
       baseTextRef.current = cached.baseText;
       baseDocRef.current = cached.baseDoc;
-      setDirty(cached.dirty);
+      setDirty(path, cached.dirty);
     } else if (cached?.dirty) {
       // Disk changed underneath unsaved edits: keep the edits and surface
       // the conflict instead of silently dropping either side.
       view.setState(cached.state);
       baseTextRef.current = cached.baseText;
       baseDocRef.current = cached.baseDoc;
-      setDirty(true);
+      setDirty(path, true);
       conflictNow = true;
     } else {
       view.setState(EditorState.create({ doc: fetchedText, extensions: buildExtensions() }));
       baseTextRef.current = fetchedText;
       baseDocRef.current = view.state.doc;
-      setDirty(false);
+      setDirty(path, false);
     }
     loadedRef.current = { path, fetchedText };
     diskTextRef.current = fetchedText;
     setConflict(conflictNow);
     applyReadOnly(view);
+    applyWrap(view);
     applyLanguage(view, path);
+    reportCursor(view);
   };
 
   // Same path fetched again (manual refresh / tab reactivation).
@@ -202,7 +233,7 @@ export default function CodeEditor({
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fetchedText } });
     baseTextRef.current = fetchedText;
     baseDocRef.current = view.state.doc;
-    setDirty(false);
+    setDirty(path, false);
   };
 
   const save = async (): Promise<boolean> => {
@@ -225,7 +256,7 @@ export default function CodeEditor({
         diskTextRef.current = content;
         setConflict(false);
         // The user may have kept typing while the write was in flight.
-        setDirty(!view.state.doc.eq(doc));
+        setDirty(loaded.path, !view.state.doc.eq(doc));
       } else {
         // Navigated away (or unmounted) mid-save — rebase the stashed buffer.
         const buffer = getEditorBuffer(loaded.path);
@@ -258,10 +289,11 @@ export default function CodeEditor({
     view.setState(EditorState.create({ doc: diskTextRef.current, extensions: buildExtensions() }));
     baseTextRef.current = diskTextRef.current;
     baseDocRef.current = view.state.doc;
-    setDirty(false);
+    setDirty(loaded.path, false);
     setConflict(false);
     setSaveError(null);
     applyReadOnly(view);
+    applyWrap(view);
     applyLanguage(view, loaded.path);
   };
 
@@ -274,10 +306,12 @@ export default function CodeEditor({
       save: () => saveRef.current(),
       close: () => view.contentDOM.blur(),
       onUpdate: (update) => {
+        if (update.selectionSet || update.docChanged) reportCursor(update.view);
         if (!update.docChanged) return;
         const baseDoc = baseDocRef.current;
-        if (baseDoc === null) return;
-        setDirty(!update.state.doc.eq(baseDoc));
+        const path = loadedRef.current?.path;
+        if (baseDoc === null || path === undefined) return;
+        setDirty(path, !update.state.doc.eq(baseDoc));
       },
     });
     scrollRefRef.current?.(view.scrollDOM);
@@ -290,12 +324,20 @@ export default function CodeEditor({
       if (loaded) stashBuffer(view, loaded.path);
       editorRefRef.current?.(null);
       scrollRefRef.current?.(null);
+      onCursorChangeRef.current?.(null);
       controllers.delete(view);
       view.destroy();
       viewRef.current = null;
       loadedRef.current = null;
     };
   }, []);
+
+  // ── Word-wrap preference (compartment survives cached-state restores) ────
+  // biome-ignore lint/correctness/useExhaustiveDependencies: wordWrap is the trigger; applyWrap reads it via ref
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view) applyWrap(view);
+  }, [wordWrap]);
 
   // ── Sync the view to the fetched file (path change or refetch) ───────────
   useEffect(() => {
@@ -310,6 +352,21 @@ export default function CodeEditor({
     if (loaded) stashBuffer(view, loaded.path);
     loadFile(view, file.path, text);
   });
+
+  // ── Reveal a line (content-search jump) ──────────────────────────────────
+  // Declared after the sync effect so it observes the freshly-loaded file:
+  // effects run in declaration order, and the sync effect above sets
+  // loadedRef to file.path before this one checks it.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !reveal || loadedRef.current?.path !== file.path) return;
+    const doc = view.state.doc;
+    const line = doc.line(Math.min(Math.max(reveal.line, 1), doc.lines));
+    view.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
+    });
+  }, [reveal, file.path]);
 
   return (
     <div className={styles.editorWrap}>

@@ -1,0 +1,39 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-page-dropdown-menus);
+}
+
+.menu {
+  position: fixed;
+  min-width: 18ch;
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border-strong);
+  box-shadow: var(--shadow-modal);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) 0;
+}
+
+.item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text);
+  font: inherit;
+  text-align: left;
+  padding: var(--space-1) var(--space-h-2);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--theme-selection);
+}
+
+.item:focus-visible {
+  outline: 1px solid var(--theme-focused-foreground);
+  outline-offset: -1px;
+}

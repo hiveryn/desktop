@@ -102,14 +102,26 @@ export function useDirTreeData(
   }, [rootPath, expandedDirs]);
 
   // Declared before the fetch effect: effects run in order, so on a root
-  // change / refresh the generation bumps and the caches clear before the
-  // fetch effect (re-)issues requests for the new generation.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath/refreshSeq are trigger deps, not read inside the effect
+  // change the generation bumps and the caches clear before the fetch effect
+  // (re-)issues requests for the new generation.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath is a trigger dep, not read inside the effect
   useEffect(() => {
     generationRef.current += 1;
     requestedRef.current = new Set();
     setNodes(new Map());
-  }, [rootPath, refreshSeq]);
+  }, [rootPath]);
+
+  // A refresh revalidates instead of clearing: the generation bump invalidates
+  // in-flight results and the emptied `requested` set makes the fetch effect
+  // re-request every reachable dir, but existing listings stay rendered until
+  // their replacements land (the fetch effect preserves data while loading).
+  // Matters for the auto-refresh on agent file edits — a full clear would
+  // flash the whole tree to "Loading…" on every edit burst.
+  useEffect(() => {
+    if (refreshSeq === 0) return; // initial value — nothing to revalidate
+    generationRef.current += 1;
+    requestedRef.current = new Set();
+  }, [refreshSeq]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refreshSeq/retrySeq are trigger deps (drive refetch after the reset/retry clears the bookkeeping), not read inside the effect
   useEffect(() => {
@@ -120,7 +132,12 @@ export function useDirTreeData(
     for (const path of missing) requested.add(path);
     setNodes((prev) => {
       const next = new Map(prev);
-      for (const path of missing) next.set(path, { data: null, loading: true, error: null });
+      // Keep any previous listing visible while its refresh is in flight
+      // (stale-while-revalidate for the refreshSeq path; prev is empty on a
+      // root change, so this is a plain loading state there).
+      for (const path of missing) {
+        next.set(path, { data: prev.get(path)?.data ?? null, loading: true, error: null });
+      }
       return next;
     });
     for (const path of missing) {

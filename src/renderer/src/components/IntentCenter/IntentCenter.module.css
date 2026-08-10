@@ -8,14 +8,16 @@
   padding: 0;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: var(--space-2);
-  width: 22rem;
   max-width: calc(100vw - var(--space-4));
   max-height: calc(100vh - var(--space-4));
   overflow-y: auto;
 }
 
 .card {
+  width: 22rem;
+  max-width: calc(100vw - var(--space-4));
   background: var(--theme-background);
   border: 1px solid var(--theme-border-strong);
   box-shadow: var(--shadow-modal);
@@ -27,6 +29,32 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  transition: width 160ms ease;
+}
+
+/* Expanding is also a read mode — grow toward a comfortable markdown width. */
+.card[data-expanded] {
+  width: 46rem;
+}
+
+/* Type accent edge: cyan for a new ticket, green for a conclusion — flipped to
+   red when the conclusion's outcome is rejected. */
+.card[data-kind='ticket'] {
+  border-left: 2px solid var(--theme-status-info);
+}
+
+.card[data-kind='conclude'] {
+  border-left: 2px solid var(--theme-status-success);
+}
+
+.card[data-kind='conclude'][data-outcome='rejected'] {
+  border-left-color: var(--theme-status-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
 }
 
 .header {
@@ -93,19 +121,106 @@
   font-size: var(--font-size-xs);
 }
 
+.summaryToggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.kindBadge {
+  display: inline-block;
+  margin-right: var(--space-h-2);
+  padding: 0 var(--space-1);
+  border: 1px solid;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  white-space: nowrap;
+}
+
+.kindBadge[data-kind='ticket'] {
+  color: var(--theme-status-info);
+}
+
+.kindBadge[data-kind='conclude'] {
+  color: var(--theme-status-success);
+}
+
 .summary {
   font-weight: var(--font-weight-bold);
   overflow-wrap: anywhere;
 }
 
-.payload {
+.details {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   border-top: 1px solid var(--theme-border);
   padding-top: var(--space-2);
   color: var(--theme-text-muted);
   font-size: var(--font-size-xs);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.outcomeBadge {
+  padding: 0 var(--space-1);
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  white-space: nowrap;
+}
+
+.outcomeBadge[data-outcome='completed'] {
+  color: var(--theme-status-success);
+}
+
+.outcomeBadge[data-outcome='exploratory'] {
+  color: var(--theme-status-info);
+}
+
+.outcomeBadge[data-outcome='rejected'] {
+  color: var(--theme-status-error);
+}
+
+.metaNote {
+  color: var(--theme-text-subtle);
+}
+
+.refList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.refItem {
+  color: var(--theme-text);
+  overflow-wrap: anywhere;
+}
+
+.rejectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left: 2px solid var(--theme-status-error);
+  padding-left: var(--space-h-2);
+}
+
+.rejectionBlock .fieldValue {
+  color: var(--theme-text);
 }
 
 .field {
@@ -151,6 +266,10 @@
   padding: 0 var(--space-1);
   border: 1px solid var(--theme-border);
   color: var(--theme-text);
+}
+
+.chipTag {
+  color: var(--theme-text-subtle);
 }
 
 .actions {

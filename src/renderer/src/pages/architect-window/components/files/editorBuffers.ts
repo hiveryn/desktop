@@ -21,6 +21,42 @@ const MAX_BUFFERS = 32;
 
 const buffers = new Map<string, EditorBuffer>();
 
+// ── Dirty-path registry ──────────────────────────────────────────────────────
+// The live set of paths with unsaved edits, spanning both stashed buffers and
+// the currently-mounted editor (whose dirty state isn't in the cache until it
+// stashes on unmount — CodeEditor reports it via reportLiveDirty). Consumed by
+// the tree's dirty markers (useDirtyPaths) and mirrored to the main process
+// for the close-window guard.
+
+const dirtyPaths = new Set<string>();
+const dirtyListeners = new Set<() => void>();
+// Immutable snapshot handed to useSyncExternalStore — replaced on change so
+// referential equality tracks content equality.
+let dirtySnapshot: ReadonlySet<string> = new Set();
+
+function setDirtyPath(path: string, dirty: boolean): void {
+  if (dirty === dirtyPaths.has(path)) return;
+  if (dirty) dirtyPaths.add(path);
+  else dirtyPaths.delete(path);
+  dirtySnapshot = new Set(dirtyPaths);
+  window.hiveryn.editor.setDirtyCount(dirtyPaths.size);
+  for (const listener of dirtyListeners) listener();
+}
+
+/** Live dirty transitions from the mounted editor (stash-independent). */
+export function reportLiveDirty(path: string, dirty: boolean): void {
+  setDirtyPath(path, dirty);
+}
+
+export function subscribeDirtyPaths(listener: () => void): () => void {
+  dirtyListeners.add(listener);
+  return () => dirtyListeners.delete(listener);
+}
+
+export function getDirtyPathsSnapshot(): ReadonlySet<string> {
+  return dirtySnapshot;
+}
+
 export function getEditorBuffer(path: string): EditorBuffer | undefined {
   return buffers.get(path);
 }
@@ -29,6 +65,7 @@ export function putEditorBuffer(path: string, buffer: EditorBuffer): void {
   // Re-insert so Map iteration order doubles as least-recently-stashed.
   buffers.delete(path);
   buffers.set(path, buffer);
+  setDirtyPath(path, buffer.dirty);
   if (buffers.size <= MAX_BUFFERS) return;
   for (const [key, entry] of buffers) {
     if (!entry.dirty) {
@@ -40,4 +77,5 @@ export function putEditorBuffer(path: string, buffer: EditorBuffer): void {
 
 export function dropEditorBuffer(path: string): void {
   buffers.delete(path);
+  setDirtyPath(path, false);
 }

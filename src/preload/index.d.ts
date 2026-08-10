@@ -319,6 +319,21 @@ interface RepoCommitDiffResponse {
   summary: RepoDiffSummary;
 }
 
+interface RepoStatusEntry {
+  /** Repo-relative, "/"-separated. */
+  path: string;
+  index: string;
+  worktree: string;
+  orig_path?: string;
+}
+
+interface RepoStatusResponse {
+  repo: string;
+  repo_path: string;
+  /** Go marshals an empty slice as null — a clean repo sends null here. */
+  entries: RepoStatusEntry[] | null;
+}
+
 // ── Filesystem browse (native files tab) ────────────────────────────────────
 
 type FsEntryKind = 'file' | 'dir' | 'symlink' | 'other';
@@ -364,6 +379,22 @@ interface FsSearchResponse {
   /** All matches found, before the limit cap. */
   total: number;
   /** Candidate collection hit the daemon's walk budget; matches may be incomplete. */
+  truncated?: boolean;
+}
+
+interface FsContentSearchMatch {
+  /** Relative to the searched root, "/"-separated. */
+  path: string;
+  line: number;
+  text: string;
+}
+
+interface FsContentSearchResponse {
+  root: string;
+  query: string;
+  /** Go marshals an empty slice as null — no matches sends null here. */
+  matches: FsContentSearchMatch[] | null;
+  /** The match cap (or walk budget) was hit; more matches may exist. */
   truncated?: boolean;
 }
 
@@ -489,12 +520,20 @@ interface HiverynAPI {
   fs: {
     listDir: (path: string) => Promise<FsTreeResponse>;
     search: (path: string, query: string) => Promise<FsSearchResponse>;
+    searchContent: (path: string, query: string) => Promise<FsContentSearchResponse>;
     readFile: (path: string) => Promise<FsFileResponse>;
     writeFile: (path: string, content: string) => Promise<FsWriteResponse>;
+    createFile: (path: string) => Promise<FsWriteResponse>;
     pickDirectory: () => Promise<string | null>;
+    revealInFinder: (path: string) => Promise<null>;
+    openExternal: (path: string) => Promise<null>;
+  };
+  editor: {
+    setDirtyCount: (count: number) => void;
   };
   repos: {
     diff: (architectKey: string, repoKey: string) => Promise<RepoDiffResponse>;
+    status: (architectKey: string, repoKey: string) => Promise<RepoStatusResponse>;
     commitDiff: (
       architectKey: string,
       repoKey: string,

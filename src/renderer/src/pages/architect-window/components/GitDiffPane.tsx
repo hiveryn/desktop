@@ -13,6 +13,7 @@ import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { createChordMatcher } from '../../../keys/chords';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
+import { GIT_DIFF_BINDING_DEFAULTS, resolveBindings } from '../../../keys/paneBindings';
 import { usePaneLayoutStore } from '../../../state/paneLayoutStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import type { SessionRepoScope } from '../../../state/sessionRepoScope';
@@ -362,21 +363,21 @@ export default function GitDiffPane({
       // Modifier-bearing combos belong to global shortcuts.
       if (e.metaKey || e.ctrlKey || e.altKey) return 'passthrough';
 
-      const gitDiffCfg = cfg['git-diff'] ?? {};
-      const DOWN = gitDiffCfg.down ?? 'j';
-      const UP = gitDiffCfg.up ?? 'k';
-      const RIGHT = gitDiffCfg.right ?? 'l';
-      const LEFT = gitDiffCfg.left ?? 'h';
-      const OPEN = gitDiffCfg.open ?? 'o';
-      const SCROLL_DOWN = gitDiffCfg['scroll-down'] ?? 'shift+j';
-      const SCROLL_UP = gitDiffCfg['scroll-up'] ?? 'shift+k';
-      const REFRESH = gitDiffCfg.refresh ?? 'r';
-      const TOP = gitDiffCfg.top ?? 'g g';
-      const BOTTOM = gitDiffCfg.bottom ?? 'shift+g';
-      const JUMP_DOWN = gitDiffCfg['jump-down'] ?? 'shift+]';
-      const JUMP_UP = gitDiffCfg['jump-up'] ?? 'shift+[';
-      const SEARCH = gitDiffCfg.search ?? '/';
-      const TOGGLE_SIDEBAR = gitDiffCfg['toggle-sidebar'] ?? 'b';
+      const bindings = resolveBindings(cfg['git-diff'], GIT_DIFF_BINDING_DEFAULTS);
+      const DOWN = bindings.down;
+      const UP = bindings.up;
+      const RIGHT = bindings.right;
+      const LEFT = bindings.left;
+      const OPEN = bindings.open;
+      const SCROLL_DOWN = bindings['scroll-down'];
+      const SCROLL_UP = bindings['scroll-up'];
+      const REFRESH = bindings.refresh;
+      const TOP = bindings.top;
+      const BOTTOM = bindings.bottom;
+      const JUMP_DOWN = bindings['jump-down'];
+      const JUMP_UP = bindings['jump-up'];
+      const SEARCH = bindings.search;
+      const TOGGLE_SIDEBAR = bindings['toggle-sidebar'];
 
       // Any key that reaches the handler resets the pending chord prefix
       // (match() below may re-arm it).

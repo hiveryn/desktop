@@ -9,6 +9,7 @@ import {
   Glyph,
   IconButton,
   IntentCenter,
+  Keyboard,
   Navigation,
   Plus,
   Text,
@@ -24,6 +25,7 @@ import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import FreeformSessionDialog from './components/FreeformSessionDialog';
 import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
+import ShortcutsDialog from './components/ShortcutsDialog';
 import TicketWorkflow from './components/TicketWorkflow';
 import { useArchitectData } from './hooks/useArchitectData';
 import { useDaemonRecovery } from './hooks/useDaemonRecovery';
@@ -74,6 +76,7 @@ export default function ArchitectWindow() {
 
   const [concludeTarget, setConcludeTarget] = useState<SessionRecord | null>(null);
   const [freeformOpen, setFreeformOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -209,6 +212,17 @@ export default function ArchitectWindow() {
         left={<BottomTabs onConclude={setConcludeTarget} />}
         right={
           <>
+            {shortcutConfig && (
+              <IconButton
+                onClick={() => setShortcutsOpen(true)}
+                aria-label="Keyboard shortcuts"
+                title="Keyboard shortcuts"
+              >
+                <Glyph>
+                  <Keyboard />
+                </Glyph>
+              </IconButton>
+            )}
             <ErrorCenterIndicator />
             <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
               <Glyph>
@@ -231,6 +245,10 @@ export default function ArchitectWindow() {
 
       {concludeTarget && (
         <ConcludeSessionDialog session={concludeTarget} onClose={() => setConcludeTarget(null)} />
+      )}
+
+      {shortcutsOpen && shortcutConfig && (
+        <ShortcutsDialog config={shortcutConfig} onClose={() => setShortcutsOpen(false)} />
       )}
 
       {freeformOpen && (

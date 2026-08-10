@@ -1,6 +1,7 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import type {
   DaemonResult,
+  FsContentSearchResponse,
   FsFileResponse,
   FsSearchResponse,
   FsTreeResponse,
@@ -43,6 +44,38 @@ export function registerFsIpc(): void {
       });
     },
   );
+
+  ipcMain.handle(
+    'fs:searchContent',
+    async (_event, path: string, query: string): Promise<DaemonResult<FsContentSearchResponse>> => {
+      return daemonFetch<FsContentSearchResponse>(
+        `/api/fs/search-content?path=${encodeURIComponent(path)}&q=${encodeURIComponent(query)}`,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    'fs:createFile',
+    async (_event, path: string): Promise<DaemonResult<FsWriteResponse>> => {
+      return daemonFetch<FsWriteResponse>(
+        `/api/fs/file?path=${encodeURIComponent(path)}&create=true`,
+        { method: 'PUT', body: JSON.stringify({ content: '' }) },
+      );
+    },
+  );
+
+  ipcMain.handle('fs:revealInFinder', async (_event, path: string): Promise<DaemonResult<null>> => {
+    shell.showItemInFolder(path);
+    return ok(null);
+  });
+
+  ipcMain.handle('fs:openExternal', async (_event, path: string): Promise<DaemonResult<null>> => {
+    const openError = await shell.openPath(path);
+    if (openError) {
+      return errorResult('OPEN_EXTERNAL_FAILED', openError);
+    }
+    return ok(null);
+  });
 
   ipcMain.handle('fs:pickDirectory', async (event): Promise<DaemonResult<string | null>> => {
     const win = BrowserWindow.fromWebContents(event.sender);
