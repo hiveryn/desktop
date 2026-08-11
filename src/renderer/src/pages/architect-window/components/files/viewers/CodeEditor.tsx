@@ -49,6 +49,53 @@ Vim.defineEx('wq', 'wq', (cm) => {
   });
 });
 
+// codemirror-vim already bridges the *explicit* "+" register to the OS
+// clipboard (its RegisterController writes via navigator.clipboard when a
+// yank/paste names "+" outright), but plain `y`, `yy`, and visual-mode `y`
+// — no register named — only ever touch vim's in-memory unnamed register.
+// Real Vim's `set clipboard=unnamed` makes the unnamed register mirror the
+// system clipboard on every such yank; codemirror-vim has no equivalent
+// option, so this patches the module-singleton register controller
+// (`Vim.getRegisterController()`, which the package itself notes is a
+// "testing hook... but might be useful to expose anyway") to do the same.
+// Named/numbered registers ("ayy, "1p) and the black hole register (""_y)
+// are left untouched — only the default unnamed-yank path also lands on the
+// OS clipboard, matching what a plain `y` outside Hiveryn would do.
+type VimRegisterController = ReturnType<typeof Vim.getRegisterController>;
+const clipboardBridgeInstalled = Symbol.for('hiveryn.vimClipboardBridge');
+const registerController = Vim.getRegisterController();
+// The controller instance is per-editor-agnostic (one global vim state), so
+// patching its prototype once here covers every EditorView. Guard against
+// re-wrapping (e.g. this module re-evaluating under Vite HMR) since a second
+// pass would otherwise chain a duplicate clipboard write onto every yank.
+const registerControllerProto = Object.getPrototypeOf(registerController) as VimRegisterController &
+  Record<symbol, boolean>;
+if (!registerControllerProto[clipboardBridgeInstalled]) {
+  registerControllerProto[clipboardBridgeInstalled] = true;
+  const basePushText = registerControllerProto.pushText;
+  registerControllerProto.pushText = function pushTextWithClipboardBridge(
+    this: VimRegisterController,
+    registerName,
+    operator,
+    text,
+    linewise,
+    blockwise,
+  ) {
+    basePushText.call(this, registerName, operator, text, linewise, blockwise);
+    if (operator !== 'yank') return;
+    // '+' already synced inside basePushText above; '_' is the black hole
+    // register and must have no side effects at all.
+    if (registerName === '+' || registerName === '_') return;
+    // '"' is just the explicit spelling of the unnamed register — treat it
+    // the same as "no register given". Any other named/numbered register is
+    // a deliberate choice to keep the text off the system clipboard.
+    if (registerName && registerName !== '"' && this.isValidRegister(registerName)) return;
+    let clip = text;
+    if (linewise && clip.charAt(clip.length - 1) !== '\n') clip += '\n';
+    void navigator.clipboard.writeText(clip);
+  };
+}
+
 function buildExtensions(): Extension[] {
   return [
     // vim() must precede the other keymaps so it sees keys first.
