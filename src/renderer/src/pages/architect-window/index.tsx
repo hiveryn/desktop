@@ -28,10 +28,10 @@ import RightPane from './components/RightPane';
 import ShortcutsDialog from './components/ShortcutsDialog';
 import TicketWorkflow from './components/TicketWorkflow';
 import { useArchitectData } from './hooks/useArchitectData';
+import { useArchitectSessionDiscovery } from './hooks/useArchitectSessionDiscovery';
 import { useDaemonRecovery } from './hooks/useDaemonRecovery';
 import { usePaletteSessionSwitch } from './hooks/usePaletteSessionSwitch';
 import { useSessionEvents } from './hooks/useSessionEvents';
-import { useSessionRestore } from './hooks/useSessionRestore';
 import styles from './index.module.css';
 
 function readArchitectKey(): string {
@@ -61,7 +61,7 @@ export default function ArchitectWindow() {
   } = useArchitectData(architectKey);
   useSessionEvents();
   useDaemonRecovery(architectKey);
-  useSessionRestore(architectKey);
+  useArchitectSessionDiscovery(architectKey);
   usePaletteSessionSwitch();
   useErrorCenterCapture();
 

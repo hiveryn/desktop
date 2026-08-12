@@ -261,13 +261,7 @@ interface Architect {
   repos?: ArchitectRepo[];
 }
 
-interface WorkspaceChangedEvent {
-  type: string;
-  architect_key: string;
-  reason: string;
-  ticket_id: string;
-  at: string;
-}
+type ArchitectStreamEvent = import('../shared/types').ArchitectStreamEvent;
 
 // ── Git diff (repo-scoped, native git-diff tab) ─────────────────────────────
 
@@ -422,7 +416,7 @@ interface HiverynAPI {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
     status: () => Promise<ArchitectStatus[]>;
-    subscribeEvents: (key: string, callback: (event: WorkspaceChangedEvent) => void) => () => void;
+    subscribeEvents: (key: string, callback: (event: ArchitectStreamEvent) => void) => () => void;
   };
   session: {
     subscribe: (sessionId: string) => Promise<void>;

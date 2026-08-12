@@ -29,7 +29,7 @@ src/
       health.ts           Daemon health polling — GET /api/health, broadcasts daemon:health-status
       sse.ts              Shared SSE parsing (dispatchSseBlock, consumeSseBuffer)
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-session per webContents
-      architect-events.ts Architect SSE subscription manager — live kanban refresh
+      architect-events.ts Architect SSE subscription manager — live kanban refresh + session discovery
     ipc/
       index.ts            registerIpc() — calls all namespace registrars
       results.ts          Centralized DaemonResult helpers (ok, errorResult, invalidDaemonResponse, withNullData, withData)
@@ -81,7 +81,7 @@ src/
         index.tsx                Thin shell — composes hooks + view components
         SessionTerminal.tsx      Electron wiring for the terminal/ module — builds the transport + theme/keyboard/GPU adapters
         terminal-adapters/       Electron impls of the terminal module interfaces (electronTransport, cssThemeSource, dispatcherRouteKey, gpuCrashSource)
-        hooks/                   useArchitectData, useSessionRestore, useSessionEvents,
+        hooks/                   useArchitectData, useArchitectSessionDiscovery, useSessionEvents,
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketPane, TicketWorkflow, GitDiffPane,
@@ -200,7 +200,7 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 
 Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` connects on mount, opening the terminal WebSocket; the SSE event stream is session-level and shared across all terminals for that session. The WebSocket stays alive in the main process across renders.
 
-`session.subscribe(sessionId)` starts the SSE stream independently of any terminal WebSocket — used by `useSessionRestore` to begin receiving events as soon as sessions are restored, before `SessionTerminal` mounts. Calling `connect()` for a session that `subscribe()` already opened is safe: `startSse` is a no-op when SSE is already running.
+`session.subscribe(sessionId)` starts the SSE stream independently of any terminal WebSocket — used by `syncSessionsForArchitect` to begin receiving events as soon as sessions are discovered, before `SessionTerminal` mounts. Calling `connect()` for a session that `subscribe()` already opened is safe: `startSse` is a no-op when SSE is already running.
 
 Main terminal disconnect is not session lifecycle. If the main terminal WebSocket closes because the daemon respawned the agent, keep the session registered, keep session SSE active, update `mainTerminalId` from the daemon's `main_terminal_resumed` event or refreshed session list, and let `MainTerminalStack` reconnect by remounting the terminal keyed by the new UUID.
 
@@ -266,8 +266,8 @@ There are exactly 7 tab types (`SessionTab.type`): kanban, event-log, ticket, te
 Architect sessions run in the daemon and survive component mount/unmount cycles in the renderer. Component lifecycle is NOT session lifecycle.
 
 - **Spawn**: the launcher creates a session via `sessions.create('architect', key)` then spawns a run via `sessions.createRun(session.id, profileName)`, then opens the architect window. The architect window does not spawn — it only restores.
-- **Restore**: on mount, `useSessionRestore` calls `sessions.list()` + `tabs.list(id)` for every running session that matches the architect key, using `current_run.main_terminal_id` for the left-pane terminal and daemon tabs for the right pane.
-- **Recovery**: `useDaemonRecovery` subscribes to `daemon:health-status` events from the main-process health poller. On `unreachable → healthy` transitions, it re-fetches the full daemon session snapshot and reconciles the store via `store.reconcileSessions()`, which handles changed terminal UUIDs, removed sessions, and stale tab/focus selection.
+- **Discovery**: `useArchitectSessionDiscovery` owns which sessions exist in the window. It calls `syncSessionsForArchitect` (`hooks/sessionSnapshot.ts`) on mount, on each architect-stream `session_started`/`session_ended`, and on `stream_connected` — see [Architect workspace events](#architect-workspace-events). The sync lists `sessions.list()` + `tabs.list(id)` for every running session matching the architect key, uses `current_run.main_terminal_id` for the left-pane terminal and daemon tabs for the right pane, then `session.subscribe()`s each one.
+- **Recovery**: `useDaemonRecovery` subscribes to `daemon:health-status` events from the main-process health poller. On `unreachable → healthy` transitions it runs the same `syncSessionsForArchitect`, which reconciles via `store.reconcileSessions()` (changed terminal UUIDs, removed sessions, stale tab/focus selection) and re-subscribes each surviving session. Discovery, recovery, and reconnect deliberately share one function — a second, subtly different snapshot path is how sessions went missing before.
 - **`sessions:list`** returns `Session[]`. A session is running when `session.current_run?.status === 'running'`; main-terminal reconnects use `current_run.main_terminal_id`.
 - The daemon enforces **one running session per architect** (partial unique index).
 - Session disconnect will be a future explicit user action — never an automatic cleanup.
@@ -378,13 +378,16 @@ A persistent macOS menu bar icon (`src/main/tray.ts`, created in `app.whenReady`
 
 ## Architect workspace events
 
-The architect window subscribes to the daemon's `GET /api/architects/{key}/events` SSE stream for live kanban refresh when tickets change.
+The architect window subscribes to the daemon's `GET /api/architects/{key}/events` SSE stream. It carries two things: ticket changes (live kanban refresh) and **session lifecycle**. The session reasons matter because this is the only stream that can name a session the window does not yet know about — a session's own stream is useless for discovery, since subscribing to it already requires the id. Without it, a session spawned outside this window (an architect MCP `spawnTicketSession`, explicitly approved or auto-approved on timeout) exists in the daemon and is invisible in the UI until a window reload.
 
-- **`architects.subscribeEvents(key, callback)`** (renderer API) — opens SSE, `callback` fires on each `WorkspaceChangedEvent`. Returns unsubscribe function.
-- **Main process** — `architect-events.ts` manages SSE connections per `(webContents, architectKey)`. Parses `data:` lines, forwards `WorkspaceChangedEvent` to renderer via `sender.send('architect:workspace-event', ...)`.
+- **`architects.subscribeEvents(key, callback)`** (renderer API) — opens SSE, `callback` fires on each `ArchitectStreamEvent`. Returns unsubscribe function.
+- **Main process** — `architect-events.ts` manages SSE connections per `(webContents, architectKey)`. Parses `data:` lines, forwards the `ArchitectEvent` to the renderer via `sender.send('architect:workspace-event', ...)`.
 - **Subscription lifecycle** — `subscribeEvents` invokes `architects:events:subscribe` IPC (opens SSE), `unsubscribe` invokes `architects:events:unsubscribe` IPC (aborts SSE). Window `destroyed` auto-cleans up.
-- **Re-fetch on event** — renderer callback checks `event.type === 'workspace_changed'`, then re-fetches both `architects.get(architectKey)` (architect metadata/repos) and `tickets.list(architectKey)` (board state) without toggling loading.
-- **Event shape** — `{ type: string, architect_key: string, reason: string, ticket_id: string, at: string }`. Reasons: `ticket_created`, `ticket_updated`, `ticket_moved`, `ticket_deleted`.
+- **Two independent consumers** — `useArchitectData` re-fetches `architects.get(architectKey)` (metadata/repos) and `tickets.list(architectKey)` (board state) on any daemon event; `useArchitectSessionDiscovery` re-syncs the session store on the session reasons. Neither knows about the other.
+- **Event shape** — `ArchitectEvent` from `@hiveryn/shared/domain` (not mirrored locally): `{ type: 'workspace_changed', architect_key, reason, ticket_id, session_id, at }`. Reasons are `ticket_created`/`ticket_updated`/`ticket_moved`/`ticket_deleted`/`ticket_concluded` and `session_started`/`session_ended`; the session reasons carry `session_id`. The desktop-local `StreamConnectedEvent` (`src/shared/types.ts`) is unioned with it as `ArchitectStreamEvent`.
+- **Reconnect** — the stream has **no backlog**, so live delivery alone is not enough. `architect-events.ts` synthesizes a `stream_connected` event on every (re)connect and both consumers resync from it. Session discovery deliberately does **not** auto-activate on that path: a dropped stream must never move the user off the session they are working in.
+- **Auto-activation** — a `session_started` whose id was genuinely absent before the sync becomes the active session (mirroring the local Spawn flow). A redelivered event for an already-known session does not, so duplicate delivery cannot produce duplicate tabs or yank focus back. `reconcileSessions` is keyed by session id, which makes the sync safe to call repeatedly; `syncSessionsForArchitect` also chains its calls per architect so two overlapping syncs cannot land out of order.
+- **Failure visibility** — a session the daemon reports as running that cannot be turned into a tab is pushed to the error center with the architect key, session id, `created_by`, run status, and `main_terminal_id`, and the window's other sessions still render.
 
 ## Development
 

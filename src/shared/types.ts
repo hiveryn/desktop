@@ -5,6 +5,8 @@ export type {
   AgentProfileSnapshot,
   AppendSessionEventParams,
   ArchitectConclusion,
+  ArchitectEvent,
+  ArchitectEventReason,
   CommitRef,
   ConcludeSessionParams,
   ConcludeSessionResult,
@@ -44,6 +46,8 @@ export type {
   UpdateTicketMetadataParams,
   ValidationError,
 } from '@hiveryn/shared/domain';
+
+import type { ArchitectEvent } from '@hiveryn/shared/domain';
 
 // ── Backward-compat aliases (gradual rename targets) ───────────────────────
 export type SessionKind = import('@hiveryn/shared/domain').SessionType;
@@ -375,20 +379,25 @@ export interface BrowserOpenNewTabPayload {
   url: string;
 }
 
-// Daemon-emitted architect event (e.g. a ticket being concluded).
-export const WORKSPACE_CHANGED_EVENT_TYPE = 'workspace_changed';
+// The daemon-emitted architect event shape lives in @hiveryn/shared/domain
+// (ArchitectEvent / ArchitectEventReason / ARCHITECT_EVENT_TYPE) — it is a wire
+// contract, so it must not be mirrored here.
+
 // Synthetic event the main process emits on every SSE (re)connect so the
-// renderer reconciles board state and recovers anything missed while
-// disconnected. Not produced by the daemon.
+// renderer reconciles board and session state and recovers anything missed
+// while disconnected. Not produced by the daemon: the architect stream has no
+// backlog, so a reconnect is the only chance to catch up.
 export const STREAM_CONNECTED_EVENT_TYPE = 'stream_connected';
 
-export interface WorkspaceChangedEvent {
-  type: string;
+export interface StreamConnectedEvent {
+  type: typeof STREAM_CONNECTED_EVENT_TYPE;
   architect_key: string;
-  reason: string;
-  ticket_id: string;
   at: string;
 }
+
+// Everything delivered on the architect:workspace-event channel: real daemon
+// events plus the local (re)connect signal.
+export type ArchitectStreamEvent = ArchitectEvent | StreamConnectedEvent;
 
 // ── System / daemon ────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { DaemonHealthStatus } from '../../../../../shared/types';
 import { useErrorCenterStore } from '../../../state/errorCenterStore';
-import { restoreSessionsForArchitect } from './sessionSnapshot';
+import { syncSessionsForArchitect } from './sessionSnapshot';
 
 export function useDaemonRecovery(architectKey: string): void {
   const statusRef = useRef<DaemonHealthStatus>('unknown');
@@ -35,7 +35,7 @@ export function useDaemonRecovery(architectKey: string): void {
       if (previousStatus !== 'unreachable' || state.status !== 'healthy') {
         return;
       }
-      void restoreSessionsForArchitect(architectKey);
+      void syncSessionsForArchitect(architectKey);
     });
 
     return () => {

@@ -1,8 +1,9 @@
+import type { ArchitectEvent } from '@hiveryn/shared/domain';
 import type { WebContents } from 'electron';
 import {
+  type ArchitectStreamEvent,
   type InfraErrorEvent,
   STREAM_CONNECTED_EVENT_TYPE,
-  type WorkspaceChangedEvent,
 } from '../../shared/types';
 import { DAEMON_URL } from './client';
 import { consumeSseBuffer, dispatchSseBlock } from './sse';
@@ -178,19 +179,17 @@ async function consumeArchitectEventStream(
       sender.send('architect:workspace-event', {
         type: STREAM_CONNECTED_EVENT_TYPE,
         architect_key: architectKey,
-        reason: STREAM_CONNECTED_EVENT_TYPE,
-        ticket_id: '',
         at: new Date().toISOString(),
-      } satisfies WorkspaceChangedEvent);
+      } satisfies ArchitectStreamEvent);
     }
 
     const decoder = new TextDecoder();
     let buffer = '';
 
     const onData = (data: string): void => {
-      let event: WorkspaceChangedEvent;
+      let event: ArchitectEvent;
       try {
-        event = JSON.parse(data) as WorkspaceChangedEvent;
+        event = JSON.parse(data) as ArchitectEvent;
       } catch (error) {
         console.warn('[main:architect-events] failed to parse event', {
           architectKey,

@@ -20,6 +20,7 @@ import type {
   Architect,
   ArchitectInfo,
   ArchitectStatus,
+  ArchitectStreamEvent,
   BrowserOpenNewTabPayload,
   BrowserViewBounds,
   BrowserViewState,
@@ -43,7 +44,6 @@ import type {
   TicketDeleteResult,
   TicketEditInput,
   TicketMetadataInput,
-  WorkspaceChangedEvent,
 } from '../shared/types';
 
 // ── Request log listeners ──────────────────────────────────────────────────
@@ -183,12 +183,12 @@ contextBridge.exposeInMainWorld('hiveryn', {
     status: (): Promise<ArchitectStatus[]> => invoke('architects:status'),
     subscribeEvents: (
       key: string,
-      callback: (event: WorkspaceChangedEvent) => void,
+      callback: (event: ArchitectStreamEvent) => void,
     ): (() => void) => {
       void ipcRenderer.invoke('architects:events:subscribe', key);
       const listener = (
         _event: Electron.IpcRendererEvent,
-        workspaceEvent: WorkspaceChangedEvent,
+        workspaceEvent: ArchitectStreamEvent,
       ): void => {
         if (workspaceEvent.architect_key !== key) return;
         callback(workspaceEvent);

@@ -1,10 +1,7 @@
 import type { TicketBoard } from '@hiveryn/shared/domain';
+import { ARCHITECT_EVENT_TYPE } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  type Architect,
-  STREAM_CONNECTED_EVENT_TYPE,
-  WORKSPACE_CHANGED_EVENT_TYPE,
-} from '../../../../../shared/types';
+import { type Architect, STREAM_CONNECTED_EVENT_TYPE } from '../../../../../shared/types';
 
 const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
@@ -100,10 +97,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
     return window.hiveryn.architects.subscribeEvents(architectKey, (event) => {
       // A real daemon change, or a (re)connect signal telling us to reconcile —
       // both warrant a full refetch so a missed event can't leave us stale.
-      if (
-        event.type !== WORKSPACE_CHANGED_EVENT_TYPE &&
-        event.type !== STREAM_CONNECTED_EVENT_TYPE
-      ) {
+      if (event.type !== ARCHITECT_EVENT_TYPE && event.type !== STREAM_CONNECTED_EVENT_TYPE) {
         return;
       }
       void refreshArchitect();
