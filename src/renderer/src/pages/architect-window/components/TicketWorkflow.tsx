@@ -1,6 +1,6 @@
 import type { AgentProfile } from '@components';
 import { ApiEnvelopeError, ProfileSelector, TicketDetail } from '@components';
-import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
+import type { Ticket, TicketReference, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
@@ -22,6 +22,7 @@ interface Props {
   onCloseTicket(): void;
   onSpawnRequestClear(): void;
   onBoardChanged(): void;
+  onTicketReference(id: string): void;
 }
 
 export default function TicketWorkflow({
@@ -32,7 +33,13 @@ export default function TicketWorkflow({
   onCloseTicket,
   onSpawnRequestClear,
   onBoardChanged,
+  onTicketReference,
 }: Props) {
+  const handleReference = (reference: TicketReference): void => {
+    if (!reference.exists) return;
+    if (reference.type === 'ticket') onTicketReference(reference.value);
+    else void window.hiveryn.fs.revealInFinder(reference.value);
+  };
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
   const [pendingTicket, setPendingTicket] = useState<SpawnableTicket | null>(null);
@@ -138,6 +145,7 @@ export default function TicketWorkflow({
           open
           onClose={onCloseTicket}
           onSpawn={selectedTicket.status === 'backlog' ? handleSpawn : undefined}
+          onReference={handleReference}
         />
       ) : null}
 

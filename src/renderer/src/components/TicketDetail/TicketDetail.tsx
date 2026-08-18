@@ -2,6 +2,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { TicketReference } from '@hiveryn/shared/domain';
 import type { Ticket, TicketConclusion } from '../KanbanBoard/types';
 import styles from './TicketDetail.module.css';
 
@@ -10,6 +11,7 @@ interface TicketDetailProps {
   open: boolean;
   onClose: () => void;
   onSpawn?: () => void;
+  onReference?: (reference: TicketReference) => void;
 }
 
 function fmt(iso: string): string {
@@ -28,7 +30,7 @@ const Md: React.FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
-const TicketTab: React.FC<{ ticket: Ticket }> = ({ ticket }) => (
+const TicketTab: React.FC<{ ticket: Ticket; onReference?: (reference: TicketReference) => void }> = ({ ticket, onReference }) => (
   <>
     <div className={styles.fieldGrid}>
       <span className={styles.fieldLabel}>id</span>
@@ -70,8 +72,10 @@ const TicketTab: React.FC<{ ticket: Ticket }> = ({ ticket }) => (
       <div className={styles.section}>
         <div className={styles.sectionLabel}>references</div>
         <ul className={styles.refList}>
-          {ticket.references.map((ref, i) => (
-            <li key={i} className={styles.refItem}>{ref}</li>
+          {ticket.resolved_references.map((ref) => (
+            <li key={ref.value} className={styles.refItem} onClick={() => ref.exists && onReference?.(ref)}>
+              {ref.type} · {ref.value}{!ref.exists ? ' · missing' : ref.type === 'path' && ref.kind ? ` · ${ref.kind}` : ''}
+            </li>
           ))}
         </ul>
       </div>
@@ -120,7 +124,7 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
   </>
 );
 
-const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn }) => {
+const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn, onReference }) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = React.useState<'ticket' | 'conclusion'>('ticket');
@@ -205,7 +209,7 @@ const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSp
         )}
 
         <div className={styles.body}>
-          {(!hasTabs || activeTab === 'ticket') && <TicketTab ticket={ticket} />}
+          {(!hasTabs || activeTab === 'ticket') && <TicketTab ticket={ticket} onReference={onReference} />}
           {hasTabs && activeTab === 'conclusion' && ticket.conclusion && (
             <ConclusionTab conclusion={ticket.conclusion} />
           )}

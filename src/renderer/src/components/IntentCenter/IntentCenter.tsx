@@ -218,7 +218,7 @@ const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
           <ul className={styles.refList}>
             {references.map((ref) => (
               <li key={ref} className={styles.refItem}>
-                {ref}
+                {ref.startsWith('/') ? `path · ${ref}` : `ticket · ${ref}`}
               </li>
             ))}
           </ul>

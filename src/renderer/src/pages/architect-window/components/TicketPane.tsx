@@ -155,9 +155,14 @@ export default function TicketPane({ sessionId }: Props) {
         <div className={styles.section}>
           <div className={styles.sectionLabel}>references</div>
           <ul className={styles.refList}>
-            {ticket.references.map((ref) => (
-              <li key={ref} className={styles.refItem}>
-                {ref}
+            {ticket.resolved_references.map((ref) => (
+              <li key={ref.value} className={styles.refItem}>
+                {ref.type} · {ref.value}
+                {!ref.exists
+                  ? ' · missing'
+                  : ref.type === 'path' && ref.kind
+                    ? ` · ${ref.kind}`
+                    : ''}
               </li>
             ))}
           </ul>

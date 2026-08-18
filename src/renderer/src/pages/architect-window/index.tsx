@@ -241,6 +241,12 @@ export default function ArchitectWindow() {
         onCloseTicket={handleTicketClose}
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
+        onTicketReference={(id) => {
+          const target = [...board.backlog, ...board.progress, ...board.done].find(
+            (ticket) => ticket.id === id,
+          );
+          if (target) void handleTicketSelect(target);
+        }}
       />
 
       {concludeTarget && (
