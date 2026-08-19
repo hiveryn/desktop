@@ -17,6 +17,7 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "lint": "biome check .",
+    "test": "vitest run",
     "format": "biome check --fix .",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "dist:mac:local": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
@@ -62,7 +63,8 @@
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^4.1.11"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

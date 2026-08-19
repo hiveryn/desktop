@@ -15,10 +15,11 @@ import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { GIT_DIFF_BINDING_DEFAULTS, resolveBindings } from '../../../keys/paneBindings';
 import { usePaneLayoutStore } from '../../../state/paneLayoutStore';
-import { useEventsForActiveSession } from '../../../state/selectors';
+import { useEventsForSession } from '../../../state/selectors';
 import type { SessionRepoScope } from '../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../state/sessionStore';
 import styles from './GitDiffPane.module.css';
+import { GitDiffRefreshLifecycle } from './gitDiffRefreshLifecycle';
 import { buildDiffTree, type DiffTreeRow, flattenDiffTree } from './gitDiffTree';
 import RepoPicker, { type RepoOption } from './RepoPicker';
 
@@ -130,10 +131,13 @@ export default function GitDiffPane({
   // The repo currently being diffed. Every repository scoped to the ticket is
   // selectable via the header picker; the primary is the default. null until
   // the scope resolves and initializes it.
-  const [selectedRepoKey, setSelectedRepoKey] = useState<string | null>(null);
-  const [data, setData] = useState<RepoDiffResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
+  const [repoSelections, setRepoSelections] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{
+    contextKey: string;
+    data: RepoDiffResponse | null;
+    loading: boolean;
+    error: unknown;
+  } | null>(null);
   // The file whose diff is shown (background highlight) — distinct from the
   // keyboard cursor, which can rest on a directory row.
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -158,32 +162,54 @@ export default function GitDiffPane({
     ];
   }, [repoScope]);
 
-  // Default the selection to the primary repo, and re-default whenever the
-  // resolved scope changes (session restoration into another session preserves
-  // the primary default). Self-heals if the selected repo leaves scope.
-  useEffect(() => {
-    if (repoScope.status !== 'ready') {
-      if (selectedRepoKey !== null) setSelectedRepoKey(null);
-      return;
-    }
-    if (!repoOptions.some((option) => option.repoKey === selectedRepoKey)) {
-      setSelectedRepoKey(repoScope.primary.repoKey);
-    }
-  }, [repoScope, repoOptions, selectedRepoKey]);
+  // Selection is tagged with its owning session. Derive the primary during
+  // render on a session/scope change so no effect-sized window can issue a
+  // request for the previous session's repository.
+  const selectedRepoKey =
+    repoScope.status === 'ready' &&
+    repoOptions.some((option) => option.repoKey === repoSelections[sessionId])
+      ? repoSelections[sessionId]
+      : repoScope.status === 'ready'
+        ? repoScope.primary.repoKey
+        : null;
+  const contextKey =
+    architectKey && selectedRepoKey
+      ? JSON.stringify([sessionId, architectKey, selectedRepoKey])
+      : null;
+
+  // Updated during render, rather than in an effect, so a response settling
+  // between render and effects is already stale and cannot publish.
+  const refreshLifecycleRef = useRef(new GitDiffRefreshLifecycle());
+  refreshLifecycleRef.current.activate(contextKey);
+  const currentResult = result?.contextKey === contextKey ? result : null;
+  const data = currentResult?.data ?? null;
+  const loading = currentResult?.loading ?? contextKey !== null;
+  const error = currentResult?.error ?? null;
 
   const refetch = useCallback(async () => {
-    if (!architectKey || !selectedRepoKey) return;
-    setLoading(true);
-    setError(null);
+    if (!architectKey || !selectedRepoKey || !contextKey) return;
+    const requestToken = refreshLifecycleRef.current.beginRequest(contextKey);
+    const ownsContext = (): boolean => refreshLifecycleRef.current.owns(requestToken);
+    setResult((previous) => ({
+      contextKey,
+      data: previous?.contextKey === contextKey ? previous.data : null,
+      loading: true,
+      error: null,
+    }));
     try {
       const next = await window.hiveryn.repos.diff(architectKey, selectedRepoKey);
-      setData(next);
+      if (!ownsContext()) return;
+      setResult({ contextKey, data: next, loading: false, error: null });
     } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
+      if (!ownsContext()) return;
+      setResult((previous) => ({
+        contextKey,
+        data: previous?.contextKey === contextKey ? previous.data : null,
+        loading: false,
+        error: err,
+      }));
     }
-  }, [architectKey, selectedRepoKey]);
+  }, [architectKey, selectedRepoKey, contextKey]);
 
   // Refetch whenever the tab becomes active (including first activation).
   useEffect(() => {
@@ -191,28 +217,22 @@ export default function GitDiffPane({
   }, [isActive, refetch]);
 
   // Debounced refetch on file-mutating tool events, active-tab only.
-  const events = useEventsForActiveSession();
-  const lastSeenSeqRef = useRef(-1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const events = useEventsForSession(sessionId);
   useEffect(() => {
-    if (!isActive) return;
-    const newEvents = events.filter((e) => e.seq > lastSeenSeqRef.current);
+    if (!isActive || !contextKey) return;
+    const newEvents = refreshLifecycleRef.current.takeUnseen(sessionId, events);
     if (newEvents.length === 0) return;
-    lastSeenSeqRef.current = events[events.length - 1]?.seq ?? lastSeenSeqRef.current;
 
     const hasMutation = newEvents.some((e) => e.tool && FILE_MUTATING_TOOLS.has(e.tool));
     if (!hasMutation) return;
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => void refetch(), REFETCH_DEBOUNCE_MS);
-  }, [events, isActive, refetch]);
-
-  useEffect(() => {
+    refreshLifecycleRef.current.schedule(contextKey, REFETCH_DEBOUNCE_MS, () => void refetch());
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      refreshLifecycleRef.current.cancelScheduled();
     };
-  }, []);
+  }, [events, isActive, refetch, sessionId, contextKey]);
+
+  useEffect(() => () => refreshLifecycleRef.current.cancelScheduled(), []);
 
   // ── Tree rows (the keyboard handler and the renderer walk this one list) ──
   const rows = useMemo(
@@ -234,14 +254,10 @@ export default function GitDiffPane({
     return data.files.filter((f) => f.path.toLowerCase().includes(q));
   }, [filterActive, data, trimmedQuery]);
 
-  // The pane instance is shared across sessions and repositories — clear all
-  // diff, filter, and selection state before the selected repo's diff loads, so
-  // one session's or repo's state never bleeds into another. Keyed on the
-  // selected repo as well as the session so switching repositories resets too.
+  // UI-only state may reset after paint because diff/loading/error publication
+  // is independently tagged with contextKey and therefore changes atomically.
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId/selectedRepoKey are trigger deps, not read inside the effect
   useEffect(() => {
-    setData(null);
-    setError(null);
     setFilterOpen(false);
     setFilterQuery('');
     setFilterSel(0);
@@ -618,7 +634,9 @@ export default function GitDiffPane({
           <RepoPicker
             options={repoOptions}
             selectedRepoKey={selectedRepoKey}
-            onSelect={setSelectedRepoKey}
+            onSelect={(repoKey) =>
+              setRepoSelections((selections) => ({ ...selections, [sessionId]: repoKey }))
+            }
           />
         )}
         <span className={styles.headerPath}>{tildePath(data.repo_path, home)}</span>

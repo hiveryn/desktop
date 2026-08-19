@@ -37,4 +37,8 @@ export function useEventsForActiveSession(): SessionEvent[] {
   });
 }
 
+export function useEventsForSession(sessionId: string): SessionEvent[] {
+  return useSessionStore((s) => s.events[sessionId] ?? EMPTY_EVENTS);
+}
+
 export const getStoreSnapshot = (): SessionStore => useSessionStore.getState();
