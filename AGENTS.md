@@ -105,7 +105,8 @@ src/
       index.ts            Renderer component barrel exported through @components
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
-      DiffView/            Reusable read-only diff viewer (react-diff-view) — parsed-diff props in, no fetching; used by GitDiffPane and reusable for future commit-diff UIs. Tokenizes syntax highlighting on the main thread, or in a Web Worker (tokenize.worker.ts) above ~1500 changed lines — the renderer's only worker
+      DiffView/            Reusable read-only diff viewer (react-diff-view) — parsed-diff props in, no fetching; used by GitDiffPane and the concluded-ticket Changes tab. Tokenizes syntax highlighting on the main thread, or in a Web Worker (tokenize.worker.ts) above ~1500 changed lines — the renderer's only worker
+      TicketDetail/        Ticket detail modal — Ticket/Conclusion tabs plus a lazy, per-repository commit-diff Changes tab when a conclusion records commits
     terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps
       TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected; per-pane Cmd+F find box (search addon)
       TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport

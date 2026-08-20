@@ -139,11 +139,149 @@
 }
 
 .body {
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
   padding: 1em 1ch;
   display: flex;
   flex-direction: column;
   gap: 0.75em;
+}
+
+.changes {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.commitHeader {
+  display: grid;
+  grid-template-columns: max-content minmax(14ch, 32ch) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5em 1ch;
+}
+
+.commitLabel {
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.commitSelect {
+  min-width: 0;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface-raised);
+  color: var(--theme-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  padding: 0.25em 0.5ch;
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: 1px;
+  }
+}
+
+.commitTrace {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--theme-text-subtle);
+  background: transparent;
+  font-size: var(--font-size-xs);
+}
+
+.commitState,
+.commitError {
+  margin: 0;
+  padding: 1em 1ch;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.commitError {
+  border-color: var(--theme-status-error);
+  color: var(--theme-status-error);
+
+  & pre { margin: 0; white-space: pre-wrap; font: inherit; }
+  & button {
+    margin-top: 0.75em;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  & button:focus-visible { outline: 1px solid var(--theme-focused-foreground); outline-offset: 1px; }
+}
+
+.diffSummary {
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+
+  & [data-kind='additions'] { color: var(--theme-status-success); }
+  & [data-kind='deletions'] { color: var(--theme-status-error); }
+}
+
+.commitDiffLayout {
+  min-height: 0;
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(16ch, 25%) minmax(0, 1fr);
+  border: 1px solid var(--theme-border);
+}
+
+.commitFiles {
+  min-width: 0;
+  overflow: auto;
+  border-right: 1px solid var(--theme-border);
+}
+
+.commitFile {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr);
+  gap: 0.5ch;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text);
+  padding: 0.35em 0.75ch;
+  text-align: left;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+
+  & > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &[data-selected] { background: var(--theme-surface-raised); }
+  &:focus-visible { outline: 1px solid var(--theme-focused-foreground); outline-offset: -1px; }
+  & [data-status='new'], & [data-status='untracked'] { color: var(--theme-status-success); }
+  & [data-status='deleted'] { color: var(--theme-status-error); }
+  & [data-status='modified'], & [data-status='renamed'], & [data-status='copied'] { color: var(--theme-status-warning); }
+}
+
+.commitDiff {
+  min-width: 0;
+  overflow: auto;
+}
+
+@media (max-width: 800px) {
+  .commitHeader { grid-template-columns: 1fr; }
+  .commitDiffLayout { grid-template-columns: 1fr; grid-template-rows: minmax(8em, 28%) minmax(0, 1fr); }
+  .commitFiles { border-right: 0; border-bottom: 1px solid var(--theme-border); }
 }
 
 .fieldGrid {

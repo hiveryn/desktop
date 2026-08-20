@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { TicketReference } from '@hiveryn/shared/domain';
 import type { Ticket, TicketConclusion } from '../KanbanBoard/types';
+import { CommitChanges } from './CommitChanges';
+import { conclusionCommits } from './commitChangesModel';
 import styles from './TicketDetail.module.css';
 
 interface TicketDetailProps {
@@ -12,6 +14,7 @@ interface TicketDetailProps {
   onClose: () => void;
   onSpawn?: () => void;
   onReference?: (reference: TicketReference) => void;
+  architectKey: string;
 }
 
 function fmt(iso: string): string {
@@ -124,10 +127,11 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
   </>
 );
 
-const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn, onReference }) => {
+const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn, onReference, architectKey }) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
-  const [activeTab, setActiveTab] = React.useState<'ticket' | 'conclusion'>('ticket');
+  const [activeTab, setActiveTab] = React.useState<'ticket' | 'conclusion' | 'changes'>('ticket');
+  const commits = React.useMemo(() => conclusionCommits(ticket.conclusion?.commits ?? []), [ticket.conclusion?.commits]);
 
   React.useEffect(() => {
     setActiveTab('ticket');
@@ -205,6 +209,18 @@ const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSp
                   ? 'Conclusion — Exploratory'
                   : 'Conclusion'}
             </button>
+            {commits.length > 0 && (
+              <button
+                role="tab"
+                aria-selected={activeTab === 'changes'}
+                className={[styles.tab, activeTab === 'changes' ? styles.tabActive : undefined]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => setActiveTab('changes')}
+              >
+                Changes
+              </button>
+            )}
           </div>
         )}
 
@@ -212,6 +228,9 @@ const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSp
           {(!hasTabs || activeTab === 'ticket') && <TicketTab ticket={ticket} onReference={onReference} />}
           {hasTabs && activeTab === 'conclusion' && ticket.conclusion && (
             <ConclusionTab conclusion={ticket.conclusion} />
+          )}
+          {activeTab === 'changes' && commits.length > 0 && (
+            <CommitChanges architectKey={architectKey} commits={commits} />
           )}
         </div>
       </div>

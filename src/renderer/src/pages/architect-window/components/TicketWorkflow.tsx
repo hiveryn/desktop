@@ -141,6 +141,7 @@ export default function TicketWorkflow({
     <>
       {selectedTicket ? (
         <TicketDetail
+          architectKey={architectKey}
           ticket={selectedTicket}
           open
           onClose={onCloseTicket}
