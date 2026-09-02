@@ -26,6 +26,7 @@ import BrowserPane from './BrowserPane';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import FilesPane from './files/FilesPane';
 import GitDiffPane from './GitDiffPane';
+import RoadmapPane from './Roadmap/RoadmapPane';
 import TicketPane from './TicketPane';
 
 const EVENT_STATUSES: EventStatus[] = [
@@ -70,6 +71,7 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
+  onTicketReference(ticketId: string): void;
 }
 
 export default function RightPane({
@@ -83,6 +85,7 @@ export default function RightPane({
   onTicketSelect,
   onSpawnTicket,
   onRefreshBoard,
+  onTicketReference,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -368,6 +371,17 @@ export default function RightPane({
             />
           </ErrorBoundary>
         )}
+      </div>
+
+      <div className={styles.tabPanel} data-active={effectiveTab === 'roadmap'}>
+        <ErrorBoundary paneLabel="Roadmap">
+          <RoadmapPane
+            architectKey={architect?.key}
+            isActive={effectiveTab === 'roadmap'}
+            shortcutConfig={shortcutConfig}
+            onTicketReference={onTicketReference}
+          />
+        </ErrorBoundary>
       </div>
 
       <div className={styles.tabPanel} data-active={!!activeBrowserTab}>

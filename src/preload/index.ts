@@ -4,6 +4,7 @@ import type {
   CreateTerminalParams,
   Intent,
   PreviewBrowserTabParams,
+  RoadmapView,
   Session,
   SessionEvent,
   SessionTab,
@@ -38,6 +39,7 @@ import type {
   RepoDiffResponse,
   RepoStatusResponse,
   RequestLogEntry,
+  RoadmapReadParams,
   SessionRunResult,
   SystemRuntime,
   TicketCreateInput,
@@ -103,6 +105,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
     method: 'GET',
     path: '/api/architects/:key/repos/:repoKey/commits/:sha/diff',
   },
+  'roadmap:read': { method: 'GET', path: '/api/architects/:key/roadmap' },
   'tray:hide': { method: 'IPC', path: '/tray/hide' },
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
   'fs:listDir': { method: 'GET', path: '/api/fs/tree?path=:path' },
@@ -388,6 +391,10 @@ contextBridge.exposeInMainWorld('hiveryn', {
       repoKey: string,
       sha: string,
     ): Promise<RepoCommitDiffResponse> => invoke('repos:commitDiff', architectKey, repoKey, sha),
+  },
+  roadmap: {
+    read: (architectKey: string, params: RoadmapReadParams = {}): Promise<RoadmapView> =>
+      invoke('roadmap:read', architectKey, params),
   },
   daemon: {
     getHealthStatus: (): Promise<DaemonHealthState> => ipcRenderer.invoke('daemon:health:get'),

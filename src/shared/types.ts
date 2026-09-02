@@ -240,6 +240,15 @@ export interface RepoDiffFile {
   sections?: RepoDiffSection[];
 }
 
+// IPC-only params for roadmap:read — mirrors the daemon's GET query params
+// (view/id/depth). Not a domain type, so it lives here rather than
+// @hiveryn/shared/domain.
+export interface RoadmapReadParams {
+  view?: 'current' | 'archive';
+  id?: string;
+  depth?: number;
+}
+
 export interface RepoDiffSummary {
   files: number;
   staged_files?: number;

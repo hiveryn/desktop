@@ -37,7 +37,7 @@ const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
               </span>
             )}
           </span>
-          <span className={styles.time}>{formatTime(ticket.updated ?? '')}</span>
+          {ticket.updated && <span className={styles.time}>{formatTime(ticket.updated)}</span>}
         </div>
       </div>
     );

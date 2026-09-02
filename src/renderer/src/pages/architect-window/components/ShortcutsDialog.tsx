@@ -3,13 +3,14 @@ import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import {
   FILES_BINDING_DEFAULTS,
   GIT_DIFF_BINDING_DEFAULTS,
+  ROADMAP_BINDING_DEFAULTS,
   resolveBindings,
 } from '../../../keys/paneBindings';
 import styles from './ShortcutsDialog.module.css';
 
 // Sections in reading order; anything else in the config (e.g. os-global)
 // follows alphabetically.
-const SECTION_ORDER = ['global', 'kanban', 'event-log', 'ticket', 'files', 'git-diff'];
+const SECTION_ORDER = ['global', 'kanban', 'event-log', 'ticket', 'files', 'git-diff', 'roadmap'];
 
 const SECTION_HINTS: Record<string, string> = {
   global: 'everywhere',
@@ -17,6 +18,7 @@ const SECTION_HINTS: Record<string, string> = {
   'event-log': 'activity pane focused',
   files: 'files pane focused',
   'git-diff': 'git diff pane focused',
+  roadmap: 'roadmap pane focused',
   'os-global': 'system-wide',
 };
 
@@ -33,6 +35,7 @@ export default function ShortcutsDialog({ config, onClose }: Props) {
     ...config,
     files: resolveBindings(config.files, FILES_BINDING_DEFAULTS),
     'git-diff': resolveBindings(config['git-diff'], GIT_DIFF_BINDING_DEFAULTS),
+    roadmap: resolveBindings(config.roadmap, ROADMAP_BINDING_DEFAULTS),
   };
 
   const names = Object.keys(effective).sort((a, b) => {

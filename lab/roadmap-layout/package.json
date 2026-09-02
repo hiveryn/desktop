@@ -1,0 +1,17 @@
+{
+  "name": "@hiveryn/roadmap-layout-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --force"
+  },
+  "dependencies": {
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
+  }
+}

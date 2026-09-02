@@ -112,6 +112,16 @@ export default function ArchitectWindow() {
     setSpawnRequest(null);
   }
 
+  // Shared by TicketWorkflow (in-body ticket references) and RightPane's
+  // Roadmap tab (linked-ticket evidence) — both just need "open this ticket
+  // id in the existing Ticket Detail experience."
+  function handleTicketReference(id: string): void {
+    const target = [...board.backlog, ...board.progress, ...board.done].find(
+      (ticket) => ticket.id === id,
+    );
+    if (target) void handleTicketSelect(target);
+  }
+
   // Scope the ticket dialog to the session it was opened in — switching
   // sessions (Cmd+Shift+]) must dismiss it, not carry it into the next session.
   // Bump the request id so any in-flight tickets.get resolves as stale.
@@ -199,6 +209,7 @@ export default function ArchitectWindow() {
                     onTicketSelect={handleTicketSelect}
                     onSpawnTicket={handleSpawnTicket}
                     onRefreshBoard={() => void refreshBoard()}
+                    onTicketReference={handleTicketReference}
                   />
                 </ErrorBoundary>
               </div>
@@ -241,12 +252,7 @@ export default function ArchitectWindow() {
         onCloseTicket={handleTicketClose}
         onSpawnRequestClear={handleSpawnRequestClear}
         onBoardChanged={() => void refreshBoard()}
-        onTicketReference={(id) => {
-          const target = [...board.backlog, ...board.progress, ...board.done].find(
-            (ticket) => ticket.id === id,
-          );
-          if (target) void handleTicketSelect(target);
-        }}
+        onTicketReference={handleTicketReference}
       />
 
       {concludeTarget && (

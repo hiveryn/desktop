@@ -121,6 +121,17 @@ type TicketSummary = import('@hiveryn/shared/domain').TicketSummary;
 type Ticket = import('@hiveryn/shared/domain').Ticket;
 type TicketBoard = import('@hiveryn/shared/domain').TicketBoard;
 
+// ── Roadmap ────────────────────────────────────────────────────────────────
+
+type RoadmapView = import('@hiveryn/shared/domain').RoadmapView;
+
+// IPC-only params for roadmap:read, mirrored from src/shared/types.ts.
+interface RoadmapReadParams {
+  view?: 'current' | 'archive';
+  id?: string;
+  depth?: number;
+}
+
 // The renderer omits `outcome` for architect/freeform conclusions (the daemon
 // ignores it for architect and rejects a non-empty one for freeform), so this
 // stays a local shape with an optional `outcome` rather than aliasing shared's
@@ -533,6 +544,9 @@ interface HiverynAPI {
       repoKey: string,
       sha: string,
     ) => Promise<RepoCommitDiffResponse>;
+  };
+  roadmap: {
+    read: (architectKey: string, params?: RoadmapReadParams) => Promise<RoadmapView>;
   };
   daemon: {
     getHealthStatus: () => Promise<DaemonHealthState>;

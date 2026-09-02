@@ -44,6 +44,20 @@ export const GIT_DIFF_BINDING_DEFAULTS: Record<string, string> = {
   'toggle-sidebar': 'b',
 };
 
+export const ROADMAP_BINDING_DEFAULTS: Record<string, string> = {
+  down: 'j',
+  up: 'k',
+  right: 'l',
+  left: 'h',
+  open: 'o',
+  refresh: 'r',
+  top: 'g g',
+  bottom: 'shift+g',
+  'jump-down': 'shift+]',
+  'jump-up': 'shift+[',
+  'toggle-archive': 'a',
+};
+
 /** Daemon-configured bindings layered over the pane defaults. */
 export function resolveBindings(
   section: Record<string, string> | undefined,
