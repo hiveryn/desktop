@@ -13,6 +13,7 @@
 // path continue: type into input / send to PTY).
 
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
+import { requestTerminalCreation } from '../pages/architect-window/terminalWorkdirPicker';
 import { getTabPlugin } from '../plugins/registry';
 import { isSplitTerminalTab, type SessionRecord, useSessionStore } from '../state/sessionStore';
 import { focusIdForTab } from '../state/tabFocus';
@@ -373,14 +374,14 @@ async function closeCurrentTab(): Promise<void> {
 }
 
 async function openNewTerminal(): Promise<void> {
-  const { activeSessionId } = useSessionStore.getState();
+  const { activeSessionId, activeRightTab, focusedPane } = useSessionStore.getState();
   if (!activeSessionId) return;
-  const created = await window.hiveryn.terminals.create(activeSessionId, { placement: 'tab' });
-  const tabs = await window.hiveryn.tabs.list(activeSessionId);
-  const s = useSessionStore.getState();
-  s.setSessionTabs(activeSessionId, tabs);
-  s.setActiveRightTab(created.terminal_id);
-  s.setFocusedPane(`right-terminal:${created.terminal_id}`);
+  requestTerminalCreation({
+    sessionId: activeSessionId,
+    placement: 'tab',
+    capturedActiveRightTab: activeRightTab,
+    capturedFocusedPane: focusedPane,
+  });
 }
 
 async function openSplitTerminal(): Promise<void> {
@@ -393,12 +394,11 @@ async function openSplitTerminal(): Promise<void> {
   if (session.tabs.some((tab) => isSplitTerminalTab(tab) && tab.base_tab_id === activeRightTab)) {
     return;
   }
-  const created = await window.hiveryn.terminals.create(activeSessionId, {
+  requestTerminalCreation({
+    sessionId: activeSessionId,
     placement: 'split',
-    base_tab_id: activeRightTab,
+    baseTabId: activeRightTab,
+    capturedActiveRightTab: activeRightTab,
+    capturedFocusedPane: focusedPane,
   });
-  const tabs = await window.hiveryn.tabs.list(activeSessionId);
-  const s = useSessionStore.getState();
-  s.setSessionTabs(activeSessionId, tabs);
-  s.setFocusedPane(`right-terminal:${created.terminal_id}`);
 }

@@ -13,8 +13,9 @@ import {
   Navigation,
   Plus,
   Text,
+  WorkdirSelector,
 } from '@components';
-import type { Ticket, TicketSummary } from '@hiveryn/shared/domain';
+import type { TerminalWorkdir, Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
@@ -33,6 +34,11 @@ import { useDaemonRecovery } from './hooks/useDaemonRecovery';
 import { usePaletteSessionSwitch } from './hooks/usePaletteSessionSwitch';
 import { useSessionEvents } from './hooks/useSessionEvents';
 import styles from './index.module.css';
+import {
+  createSelectedTerminal,
+  TERMINAL_WORKDIR_REQUEST,
+  type TerminalCreationRequest,
+} from './terminalWorkdirPicker';
 
 function readArchitectKey(): string {
   const prefix = '#/architect/';
@@ -69,6 +75,7 @@ export default function ArchitectWindow() {
   useKeyDispatcher(shortcutConfig);
 
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activeRightTab = useSessionStore((s) => s.activeRightTab);
   const focusedPane = useSessionStore((s) => s.focusedPane);
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
   const maximizedPane = useSessionStore((s) => s.maximizedPane);
@@ -77,6 +84,42 @@ export default function ArchitectWindow() {
   const [concludeTarget, setConcludeTarget] = useState<SessionRecord | null>(null);
   const [freeformOpen, setFreeformOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [terminalRequest, setTerminalRequest] = useState<TerminalCreationRequest | null>(null);
+  const [terminalWorkdirs, setTerminalWorkdirs] = useState<TerminalWorkdir[]>([]);
+
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const request = (event as CustomEvent<TerminalCreationRequest>).detail;
+      setTerminalRequest(request);
+      void window.hiveryn.terminals
+        .listWorkdirs(request.sessionId)
+        .then((choices) => {
+          const state = useSessionStore.getState();
+          if (
+            state.activeSessionId !== request.sessionId ||
+            state.activeRightTab !== request.capturedActiveRightTab ||
+            state.focusedPane !== request.capturedFocusedPane
+          ) {
+            setTerminalRequest(null);
+            return;
+          }
+          setTerminalWorkdirs(choices);
+        })
+        .catch(() => setTerminalRequest(null));
+    };
+    window.addEventListener(TERMINAL_WORKDIR_REQUEST, listener);
+    return () => window.removeEventListener(TERMINAL_WORKDIR_REQUEST, listener);
+  }, []);
+
+  useEffect(() => {
+    if (
+      terminalRequest &&
+      (activeSessionId !== terminalRequest.sessionId ||
+        activeRightTab !== terminalRequest.capturedActiveRightTab ||
+        focusedPane !== terminalRequest.capturedFocusedPane)
+    )
+      setTerminalRequest(null);
+  }, [activeSessionId, activeRightTab, focusedPane, terminalRequest]);
 
   // Ticket selection state — kept local since only TicketWorkflow consumes it.
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -278,6 +321,16 @@ export default function ArchitectWindow() {
       )}
 
       <IntentCenter />
+      <WorkdirSelector
+        choices={terminalWorkdirs}
+        open={terminalRequest !== null && terminalWorkdirs.length > 0}
+        onClose={() => setTerminalRequest(null)}
+        onSelect={(choice) => {
+          const request = terminalRequest;
+          setTerminalRequest(null);
+          if (request) void createSelectedTerminal(request, choice);
+        }}
+      />
       <ErrorCenterSheet />
     </div>
   );

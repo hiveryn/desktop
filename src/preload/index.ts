@@ -10,6 +10,7 @@ import type {
   SessionTab,
   SessionType,
   TerminalInfo,
+  TerminalWorkdir,
   Ticket,
   TicketBoard,
   TicketStatus,
@@ -90,6 +91,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'session:send': { method: 'WS', path: '/session/send' },
   'session:resize': { method: 'WS', path: '/session/resize' },
   'terminals:list': { method: 'GET', path: '/api/sessions/:id/terminals' },
+  'terminals:listWorkdirs': { method: 'GET', path: '/api/sessions/:id/terminal-workdirs' },
   'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
@@ -320,6 +322,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
     getUserHome: (): Promise<string> => ipcRenderer.invoke('system:getUserHome') as Promise<string>,
   },
   terminals: {
+    listWorkdirs: (sessionId: string): Promise<TerminalWorkdir[]> =>
+      invoke('terminals:listWorkdirs', sessionId),
     list: (sessionId: string): Promise<TerminalInfo[]> => invoke('terminals:list', sessionId),
     create: (sessionId: string, body: CreateTerminalParams): Promise<TerminalInfo> =>
       invoke('terminals:create', sessionId, body),

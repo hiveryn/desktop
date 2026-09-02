@@ -250,6 +250,7 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 | Channel | Method | Path |
 |---|---|---|
 | `terminals:list` | GET | `/api/sessions/:id/terminals` |
+| `terminals:listWorkdirs` | GET | `/api/sessions/:id/terminal-workdirs` |
 | `terminals:create` | POST | `/api/sessions/:id/terminals` |
 | `terminals:kill` | DELETE | `/api/sessions/:id/terminals/:uuid` |
 | `tabs:list` | GET | `/api/sessions/:id/tabs` |

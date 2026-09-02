@@ -166,11 +166,19 @@ interface TerminalInfo {
   session_id: string;
   command: string;
   status: string;
+  workdir_id?: string;
+  workdir_title?: string;
+  workdir_path?: string;
+  workdir_display_path?: string;
 }
+
+type TerminalWorkdir = import('@hiveryn/shared/domain').TerminalWorkdir;
 
 type TerminalPlacement = 'tab' | 'split';
 
-type CreateTerminalParams = { placement: 'tab' } | { placement: 'split'; base_tab_id: string };
+type CreateTerminalParams =
+  | { placement: 'tab'; workdir_id: string }
+  | { placement: 'split'; base_tab_id: string; workdir_id: string };
 
 interface SessionTab {
   type: string;
@@ -180,6 +188,10 @@ interface SessionTab {
   placement?: TerminalPlacement;
   base_tab_id?: string;
   target?: string;
+  workdir_id?: string;
+  workdir_title?: string;
+  workdir_path?: string;
+  workdir_display_path?: string;
 }
 
 interface PreviewBrowserTabParams {
@@ -497,6 +509,7 @@ interface HiverynAPI {
     getUserHome: () => Promise<string>;
   };
   terminals: {
+    listWorkdirs: (sessionId: string) => Promise<TerminalWorkdir[]>;
     list: (sessionId: string) => Promise<TerminalInfo[]>;
     create: (sessionId: string, body: CreateTerminalParams) => Promise<TerminalInfo>;
     kill: (sessionId: string, terminalId: string) => Promise<void>;

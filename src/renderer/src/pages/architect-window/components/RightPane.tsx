@@ -22,6 +22,7 @@ import { useSessionRepoScope } from '../../../state/sessionRepoScope';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
 import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
+import { requestTerminalCreation } from '../terminalWorkdirPicker';
 import BrowserPane from './BrowserPane';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import FilesPane from './files/FilesPane';
@@ -462,12 +463,13 @@ export default function RightPane({
 
 async function handleOpenNewTerminal(sessionId: string | undefined): Promise<void> {
   if (!sessionId) return;
-
-  const created = await window.hiveryn.terminals.create(sessionId, { placement: 'tab' });
-  const tabs = await window.hiveryn.tabs.list(sessionId);
-  useSessionStore.getState().setSessionTabs(sessionId, tabs);
-  useSessionStore.getState().setActiveRightTab(created.terminal_id);
-  useSessionStore.getState().setFocusedPane(`right-terminal:${created.terminal_id}`);
+  const state = useSessionStore.getState();
+  requestTerminalCreation({
+    sessionId,
+    placement: 'tab',
+    capturedActiveRightTab: state.activeRightTab,
+    capturedFocusedPane: state.focusedPane,
+  });
 }
 
 // New browser tabs open at a default homepage (the daemon requires a valid,

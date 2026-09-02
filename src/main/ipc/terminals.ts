@@ -1,10 +1,17 @@
-import type { CreateTerminalParams, TerminalInfo } from '@hiveryn/shared/domain';
+import type { CreateTerminalParams, TerminalInfo, TerminalWorkdir } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
 import type { DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
 export function registerTerminalsIpc(): void {
+  ipcMain.handle(
+    'terminals:listWorkdirs',
+    async (_event, sessionId: string): Promise<DaemonResult<TerminalWorkdir[]>> =>
+      daemonFetch<TerminalWorkdir[]>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/terminal-workdirs`,
+      ),
+  );
   ipcMain.handle(
     'terminals:list',
     async (_event, sessionId: string): Promise<DaemonResult<TerminalInfo[]>> => {
