@@ -155,9 +155,8 @@ export default function ArchitectWindow() {
     setSpawnRequest(null);
   }
 
-  // Shared by TicketWorkflow (in-body ticket references) and RightPane's
-  // Roadmap tab (linked-ticket evidence) — both just need "open this ticket
-  // id in the existing Ticket Detail experience."
+  // Used by TicketWorkflow (in-body ticket references): "open this ticket id
+  // in the existing Ticket Detail experience."
   function handleTicketReference(id: string): void {
     const target = [...board.backlog, ...board.progress, ...board.done].find(
       (ticket) => ticket.id === id,
@@ -252,7 +251,6 @@ export default function ArchitectWindow() {
                     onTicketSelect={handleTicketSelect}
                     onSpawnTicket={handleSpawnTicket}
                     onRefreshBoard={() => void refreshBoard()}
-                    onTicketReference={handleTicketReference}
                   />
                 </ErrorBoundary>
               </div>

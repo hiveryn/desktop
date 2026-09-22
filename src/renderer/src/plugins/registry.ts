@@ -3,7 +3,7 @@
 // evaluated while the barrel is still mid-initialization (barrel →
 // TerminalPane → keys/dispatcher → this file). Barrel imports here would hit
 // the temporal dead zone ("Cannot access 'Kanban' before initialization").
-import { Activity, Folder, GitDiff, Globe, Kanban, Roadmap, Terminal } from '../components/icons';
+import { Activity, Folder, GitDiff, Globe, Kanban, Terminal } from '../components/icons';
 import type { TabPluginComponent } from './types';
 
 const tabRegistry = new Map<string, TabPluginComponent>();
@@ -11,7 +11,6 @@ const tabRegistry = new Map<string, TabPluginComponent>();
 // ── Built-in registrations ──────────────────────────────────────────────────
 
 tabRegistry.set('kanban', { icon: Kanban });
-tabRegistry.set('roadmap', { icon: Roadmap });
 tabRegistry.set('event-log', { icon: Activity });
 tabRegistry.set('ticket', { icon: Terminal });
 tabRegistry.set('terminal', { icon: Terminal });

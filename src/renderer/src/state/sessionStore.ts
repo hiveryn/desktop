@@ -27,7 +27,7 @@ interface SessionState {
   // Last active right tab per session ID — restored on session switch.
   sessionRightTabs: Record<string, string>;
   // Which pane has keyboard focus. Values:
-  // 'main-terminal' | 'right-kanban' | 'right-roadmap' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
+  // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
   // Pane currently maximized (same value space as focusedPane), or null for normal split layout.
   // Derived from maximizedPanes for the active session — kept as a flat field so

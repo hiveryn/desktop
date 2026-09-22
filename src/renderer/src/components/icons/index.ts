@@ -22,4 +22,3 @@ export { default as AlertTriangle } from './AlertTriangle';
 export { default as Folder } from './Folder';
 export { default as Keyboard } from './Keyboard';
 export { default as Globe } from './Globe';
-export { default as Roadmap } from './Roadmap';

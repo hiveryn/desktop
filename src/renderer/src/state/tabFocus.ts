@@ -23,8 +23,6 @@ export function focusIdForTab(tabId: string, tabs: SessionTab[]): string {
   switch (tabId) {
     case 'kanban':
       return 'right-kanban';
-    case 'roadmap':
-      return 'right-roadmap';
     case 'event-log':
       return 'right-event-log';
     case 'ticket':

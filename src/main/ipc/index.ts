@@ -12,7 +12,6 @@ import { registerPaletteIpc } from './palette';
 import { registerPreferencesIpc } from './preferences';
 import { registerProfilesIpc } from './profiles';
 import { registerReposIpc } from './repos';
-import { registerRoadmapIpc } from './roadmap';
 import { registerSessionIpc } from './session';
 import { registerSessionsIpc } from './sessions';
 import { registerSystemIpc } from './system';
@@ -47,7 +46,6 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerFsIpc();
   registerEditorIpc();
   registerReposIpc();
-  registerRoadmapIpc();
   registerTrayIpc();
   registerBrowserViewIpc();
 }
