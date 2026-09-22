@@ -32,11 +32,7 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
     throw new Error(`intent/required event missing raw.intent_id: ${JSON.stringify(event)}`);
   }
   const intentType = raw.intent_type;
-  if (
-    intentType !== 'concludeSession' &&
-    intentType !== 'createWorkTicket' &&
-    intentType !== 'spawnTicketSession'
-  ) {
+  if (intentType !== 'concludeSession' && intentType !== 'createWorkTicket') {
     throw new Error(`intent/required event has unknown raw.intent_type: ${JSON.stringify(event)}`);
   }
   const waitSeconds = raw.wait_seconds;

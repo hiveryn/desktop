@@ -13,6 +13,8 @@ import type {
   Ticket,
   TicketBoard,
   TicketStatus,
+  WorkerPreflight,
+  WorkflowList,
 } from '@hiveryn/shared/domain';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
@@ -77,6 +79,11 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:status': { method: 'GET', path: '/api/architects/status' },
+  'workflows:list': { method: 'GET', path: '/api/architects/:key/workflows?repos=:repos' },
+  'workflows:preflight': {
+    method: 'GET',
+    path: '/api/architects/:key/workspace/worker-preflight',
+  },
   'palette:focus-architect': { method: 'POST', path: '/architect/focus' },
   'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
   'sessions:createFreeform': { method: 'POST', path: '/api/sessions' },
@@ -270,11 +277,24 @@ contextBridge.exposeInMainWorld('hiveryn', {
       return () => ipcRenderer.removeListener('palette:switch-session', listener);
     },
   },
+  workflows: {
+    // Discovery for a ticket's writable repo scope (primary + additional).
+    list: (architectKey: string, repos: string[]): Promise<WorkflowList> =>
+      invoke('workflows:list', architectKey, repos),
+    // Whether the workspace's required project context can host a worker now.
+    preflight: (architectKey: string): Promise<WorkerPreflight> =>
+      invoke('workflows:preflight', architectKey),
+  },
   sessions: {
     list: (): Promise<Session[]> => invoke('sessions:list'),
     get: (sessionId: string): Promise<Session> => invoke('sessions:get', sessionId),
-    create: (sessionType: SessionType, architectKey: string, ticketId?: string): Promise<Session> =>
-      invoke('sessions:create', sessionType, architectKey, ticketId),
+    create: (
+      sessionType: SessionType,
+      architectKey: string,
+      ticketId?: string,
+      workflows?: string[],
+    ): Promise<Session> =>
+      invoke('sessions:create', sessionType, architectKey, ticketId, workflows),
     createRun: (
       intentId: string,
       profileName: string,

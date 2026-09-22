@@ -39,6 +39,7 @@ export function registerSessionsIpc(): void {
       sessionType: SessionType,
       architectKey: string,
       ticketId?: string,
+      workflows?: string[],
     ): Promise<DaemonResult<Session>> => {
       return daemonFetch<Session>('/api/sessions', {
         method: 'POST',
@@ -46,6 +47,11 @@ export function registerSessionsIpc(): void {
           session_type: sessionType,
           architect_key: architectKey,
           ticket_id: ticketId,
+          // The explicit, user-confirmed workflow selection. Sent verbatim: the
+          // daemon validates every canonical path against the live workspace
+          // and never drops or substitutes one. Omitted for non-ticket
+          // sessions, which reject the field.
+          workflows,
         }),
       });
     },

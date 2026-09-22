@@ -6,12 +6,11 @@ import { syncSessionsForArchitect } from './sessionSnapshot';
 /**
  * Owns which sessions exist in this architect window.
  *
- * A session created outside this window's own Spawn action — an architect MCP
- * `spawnTicketSession`, approved or auto-approved on timeout, or a spawn from
- * another window — is only visible here because the daemon announces it on the
- * architect event stream. That stream is the only place a session id appears
- * before the client knows the session exists; the per-session stream cannot
- * help, since subscribing to it already requires the id.
+ * A session created outside this window's own Spawn action — a spawn from
+ * another architect window — is only visible here because the daemon announces
+ * it on the architect event stream. That stream is the only place a session id
+ * appears before the client knows the session exists; the per-session stream
+ * cannot help, since subscribing to it already requires the id.
  *
  * The stream has no backlog, so live delivery alone is not enough: the main
  * process synthesizes `stream_connected` on every (re)connect, and that resyncs

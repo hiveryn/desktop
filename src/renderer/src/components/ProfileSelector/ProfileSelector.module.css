@@ -142,3 +142,17 @@
   color: var(--theme-text-muted);
   font-size: var(--font-size-sm);
 }
+
+/* Marker column for the committed choice — only meaningful where the list is
+   embedded (the ticket launch dialog), where picking does not close anything.
+   Reserved at a fixed width so names stay aligned whether or not one is set. */
+.itemMarker {
+  color: var(--theme-focused-foreground);
+  flex-shrink: 0;
+  width: 1ch;
+  font-size: var(--font-size-sm);
+}
+
+.itemSelected .itemName {
+  color: var(--theme-focused-foreground);
+}

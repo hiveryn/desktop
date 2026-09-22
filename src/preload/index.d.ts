@@ -121,6 +121,9 @@ type TicketSummary = import('@hiveryn/shared/domain').TicketSummary;
 type Ticket = import('@hiveryn/shared/domain').Ticket;
 type TicketBoard = import('@hiveryn/shared/domain').TicketBoard;
 
+type WorkflowList = import('@hiveryn/shared/domain').WorkflowList;
+type WorkerPreflight = import('@hiveryn/shared/domain').WorkerPreflight;
+
 // The renderer omits `outcome` for architect/freeform conclusions (the daemon
 // ignores it for architect and rejects a non-empty one for freeform), so this
 // stays a local shape with an optional `outcome` rather than aliasing shared's
@@ -458,10 +461,19 @@ interface HiverynAPI {
     focusArchitect: (key: string, sessionId?: string) => Promise<void>;
     onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;
   };
+  workflows: {
+    list: (architectKey: string, repos: string[]) => Promise<WorkflowList>;
+    preflight: (architectKey: string) => Promise<WorkerPreflight>;
+  };
   sessions: {
     list: () => Promise<Session[]>;
     get: (sessionId: string) => Promise<Session>;
-    create: (sessionType: SessionType, architectKey: string, ticketId?: string) => Promise<Session>;
+    create: (
+      sessionType: SessionType,
+      architectKey: string,
+      ticketId?: string,
+      workflows?: string[],
+    ) => Promise<Session>;
     createRun: (
       intentId: string,
       profileName: string,

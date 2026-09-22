@@ -1,87 +1,24 @@
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import ProfileList from './ProfileList';
 import styles from './ProfileSelector.module.css';
 
-export interface AgentProfile {
-  name: string;
-  agent: string;
-  model?: string;
-  yolo?: boolean;
-  mode?: string;
-  args: string[];
-  env: Record<string, string>;
-}
+export type { AgentProfile } from './ProfileList';
 
 interface ProfileSelectorProps {
-  profiles: AgentProfile[];
+  profiles: import('./ProfileList').AgentProfile[];
   open: boolean;
   onClose: () => void;
   onSelect: (profileName: string) => void;
 }
 
+/**
+ * The standalone profile picker: the shared `ProfileList` in a modal of its
+ * own. Picking closes it, so it stays the one-step selector the launcher and
+ * the tray palette need. The ticket launch dialog hosts the same list inline
+ * instead, where picking commits a choice without launching anything.
+ */
 const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClose, onSelect }) => {
-  const [query, setQuery] = React.useState('');
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const activeItemRef = React.useRef<HTMLLIElement>(null);
-
-  const filtered = React.useMemo(() => {
-    const q = query.toLowerCase().trim();
-    if (!q) return profiles;
-    return profiles.filter(
-      p =>
-        p.name.toLowerCase().includes(q) ||
-        p.agent.toLowerCase().includes(q) ||
-        (p.model?.toLowerCase().includes(q) ?? false) ||
-        (p.mode?.toLowerCase().includes(q) ?? false) ||
-        (p.yolo === true && 'yolo'.includes(q)),
-    );
-  }, [profiles, query]);
-
-  React.useEffect(() => {
-    if (open) {
-      setQuery('');
-      setActiveIndex(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open]);
-
-  React.useEffect(() => {
-    setActiveIndex(prev => Math.min(prev, Math.max(0, filtered.length - 1)));
-  }, [filtered.length]);
-
-  React.useEffect(() => {
-    activeItemRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex]);
-
-  const confirm = (index: number) => {
-    const profile = filtered[index];
-    if (profile) {
-      onSelect(profile.name);
-      onClose();
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        onClose();
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setActiveIndex(i => Math.min(i + 1, filtered.length - 1));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setActiveIndex(i => Math.max(i - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        confirm(activeIndex);
-        break;
-    }
-  };
-
   if (!open) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -91,49 +28,11 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
   return createPortal(
     <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div className={styles.panel} role="dialog" aria-modal="true" aria-label="Select agent profile">
-        <div className={styles.searchRow}>
-          <span className={styles.prompt}>▸</span>
-          <input
-            ref={inputRef}
-            className={styles.searchInput}
-            value={query}
-            onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
-            onKeyDown={handleKeyDown}
-            placeholder="filter profiles..."
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </div>
-        {filtered.length > 0 ? (
-          <ul className={styles.list} role="listbox">
-            {filtered.map((profile, i) => {
-              const isActive = i === activeIndex;
-              return (
-                <li
-                  key={profile.name}
-                  ref={isActive ? activeItemRef : undefined}
-                  role="option"
-                  aria-selected={isActive}
-                  className={[styles.item, isActive ? styles.itemActive : undefined].filter(Boolean).join(' ')}
-                  onClick={() => confirm(i)}
-                  onMouseEnter={() => setActiveIndex(i)}
-                >
-                  <span className={styles.itemPrimary}>
-                    <span className={styles.itemName}>{profile.name}</span>
-                    {profile.mode === 'plan' && <span className={styles.itemBadge}>plan</span>}
-                    {profile.yolo && <span className={styles.itemBadge}>yolo</span>}
-                  </span>
-                  <span className={styles.itemMeta}>
-                    {profile.model && <span className={styles.itemModel}>{profile.model}</span>}
-                    <span className={styles.itemAgent}>{profile.agent}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className={styles.empty}>no profiles match</div>
-        )}
+        <ProfileList
+          profiles={profiles}
+          onChoose={name => { onSelect(name); onClose(); }}
+          onCancel={onClose}
+        />
       </div>
     </div>,
     document.body,

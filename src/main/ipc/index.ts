@@ -19,6 +19,7 @@ import { registerTabsIpc } from './tabs';
 import { registerTerminalsIpc } from './terminals';
 import { registerTicketsIpc } from './tickets';
 import { registerTrayIpc } from './tray';
+import { registerWorkflowsIpc } from './workflows';
 
 interface RegisterIpcOptions {
   openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
@@ -48,4 +49,5 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerReposIpc();
   registerTrayIpc();
   registerBrowserViewIpc();
+  registerWorkflowsIpc();
 }

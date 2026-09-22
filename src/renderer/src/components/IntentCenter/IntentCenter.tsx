@@ -277,18 +277,16 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   );
 };
 
-type IntentKind = 'ticket' | 'spawn' | 'conclude' | null;
+type IntentKind = 'ticket' | 'conclude' | null;
 
 function kindOf(type: Intent['intent_type']): IntentKind {
   if (type === 'createWorkTicket') return 'ticket';
-  if (type === 'spawnTicketSession') return 'spawn';
   if (type === 'concludeSession') return 'conclude';
   return null;
 }
 
 const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   ticket: 'new ticket',
-  spawn: 'spawn ticket',
   conclude: 'conclude session',
 };
 
