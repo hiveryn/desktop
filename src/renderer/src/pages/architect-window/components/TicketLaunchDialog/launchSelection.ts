@@ -8,23 +8,13 @@ import type { WorkerPreflight, Workflow, WorkflowList } from '@hiveryn/shared/do
  */
 
 /**
- * A workflow's readable name.
- *
- * A workflow's identity is its filename stem and its frontmatter is exclusive
- * (`attach` plus `repos`, nothing else), so there is no title field to read and
- * adding one would change the artifact contract. Separators become spaces and
- * nothing else is touched — guessing at capitalization would turn a name like
- * `API_GATEWAY` into something the file is not called. The filename is shown
- * next to it either way.
+ * The agent variants whose name contains the query, case-insensitively, in the
+ * listed order. Names are all the dropdown shows, so they are all it matches.
  */
-export function workflowLabel(workflow: Workflow): string {
-  const label = workflow.name.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return label === '' ? workflow.name : label;
-}
-
-/** The file the workflow lives in, as the workspace addresses it. */
-export function workflowFileName(workflow: Workflow): string {
-  return workflow.rel_path;
+export function filterAgentNames(names: string[], query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (q === '') return names;
+  return names.filter((name) => name.toLowerCase().includes(q));
 }
 
 /**
@@ -134,16 +124,29 @@ export function launchBlockers(input: LaunchGateInput): string[] {
   const blockers: string[] = [];
   if (input.submitting) blockers.push('a launch is already in flight');
   if (input.preflight === null) blockers.push('the architect workspace has not been checked yet');
-  else blockers.push(...input.preflight.problems);
   if (input.list === null) blockers.push('the workflow list has not loaded yet');
-  else {
-    const selectable = new Set(input.list.workflows.filter(isSelectable).map((w) => w.path));
-    for (const path of input.selection) {
-      if (!selectable.has(path)) blockers.push(`${path} is no longer selectable`);
-    }
-  }
+  blockers.push(...launchProblems(input));
   if (input.profileName === null) blockers.push('no agent profile is selected');
   return blockers;
+}
+
+/**
+ * The blockers the user has to act on outside the dialog's own controls: the
+ * daemon's preflight problems and selected paths the listing no longer offers.
+ * The dialog shows these; the rest (still loading, no agent picked, in flight)
+ * already read from the disabled Spawn and the empty agent control, so the
+ * normal path stays compact.
+ */
+export function launchProblems(input: LaunchGateInput): string[] {
+  const problems: string[] = [];
+  if (input.preflight !== null) problems.push(...input.preflight.problems);
+  if (input.list !== null) {
+    const selectable = new Set(input.list.workflows.filter(isSelectable).map((w) => w.path));
+    for (const path of input.selection) {
+      if (!selectable.has(path)) problems.push(`${path} is no longer selectable`);
+    }
+  }
+  return problems;
 }
 
 /**

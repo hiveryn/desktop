@@ -1,164 +1,143 @@
-.ticketTitle {
+/* The agent dropdown: a filter input that shows the chosen variant when
+   closed. The list overlays the chips below it rather than pushing them down,
+   so opening it never shifts the dialog under a resting pointer. */
+.agent {
+  position: relative;
+}
+
+.agentInput {
+  width: 100%;
+  background: var(--theme-surface-raised);
+  border: 1px solid var(--theme-border-strong);
+  outline: none;
   color: var(--theme-text);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size);
   line-height: calc(var(--line-height-base) * 1rem);
-  margin-bottom: var(--space-4);
-}
+  padding: var(--space-1) calc(var(--space-h-2) + 2ch) var(--space-1) var(--space-h-2);
 
-.section + .section {
-  margin-top: var(--space-4);
-}
+  &::placeholder {
+    color: var(--theme-text-muted);
+  }
 
-.sectionLabel {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-h-2);
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-caps);
-  color: var(--theme-text-muted);
-  margin-bottom: var(--space-2);
-}
-
-.groupHint {
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: var(--font-size-sm);
-  color: var(--theme-text-muted);
-  opacity: 0.7;
-}
-
-.refresh {
-  margin-left: auto;
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  color: var(--theme-text-muted);
-  text-transform: none;
-  letter-spacing: normal;
-
-  &:hover {
-    color: var(--theme-focused-foreground);
+  &:focus-visible,
+  &:focus {
+    border-color: var(--theme-focused-foreground);
   }
 }
 
-/* The embedded profile list. Capped so the workflow section stays visible
-   without scrolling the whole dialog for a long profile list. */
-.profileBox {
-  border: 1px solid var(--theme-border);
-  max-height: 14em;
-  display: flex;
-  flex-direction: column;
+.agentCaret {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-h-2);
+  line-height: calc(var(--line-height-base) * 1rem);
+  color: var(--theme-text-muted);
+  pointer-events: none;
+}
+
+.agentList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  background: var(--theme-background);
+  border: 1px solid var(--theme-border-strong);
+  border-top: none;
+  box-shadow: 0 8px 24px var(--color-black-alpha-40);
+  max-height: 12em;
+  overflow-y: auto;
+}
+
+.agentOption {
+  padding: var(--space-1) var(--space-h-2);
+  cursor: pointer;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agentOptionActive {
+  background: var(--theme-surface-overlay);
+}
+
+.agentOptionSelected {
+  color: var(--theme-focused-foreground);
+}
+
+.agentEmpty {
+  padding: var(--space-1) var(--space-h-2);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Workflow chips: filled when selected, outlined when not. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-h-2);
+  margin-top: var(--space-3);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-h-1);
+  background: transparent;
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: calc(var(--line-height-base) * 1rem);
+  padding: 0 var(--space-h-2);
+  cursor: pointer;
+  outline: none;
+
+  &:hover:not(:disabled) {
+    border-color: var(--theme-focused-foreground);
+    color: var(--theme-text);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focus-ring);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.chipSelected {
+  background: var(--theme-focused-foreground);
+  border-color: var(--theme-focused-foreground);
+  color: var(--theme-background);
+
+  &:hover:not(:disabled) {
+    color: var(--theme-background);
+  }
+}
+
+.chipInvalid {
+  border-color: var(--theme-status-error);
+  color: var(--theme-status-error);
+  text-decoration: line-through;
+}
+
+.chipMark {
+  width: 1ch;
 }
 
 .status {
   font-size: var(--font-size-sm);
   color: var(--theme-text-muted);
-  padding: var(--space-2) 0;
-}
-
-.workflowGroup + .workflowGroup {
-  margin-top: var(--space-3);
-}
-
-.groupLabel {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-h-2);
-  font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-caps);
-  color: var(--theme-text-muted);
-  margin-bottom: var(--space-1);
-}
-
-.workflowList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--theme-border);
-}
-
-.workflowRow {
-  padding: var(--space-2) var(--space-h-2);
-}
-
-.workflowRow + .workflowRow {
-  border-top: 1px solid var(--theme-border);
-}
-
-.workflowHead {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-h-2);
-}
-
-.workflowLabel,
-.workflowLabelDisabled {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-h-2);
-  min-width: 0;
-  flex: 1;
-  cursor: pointer;
-}
-
-.workflowLabelDisabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.checkbox {
-  accent-color: var(--theme-focused-foreground);
-  flex-shrink: 0;
-  align-self: center;
-}
-
-.workflowName {
-  color: var(--theme-text);
-  font-size: var(--font-size);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workflowFile {
-  color: var(--theme-text-muted);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.previewToggle {
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  flex-shrink: 0;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  color: var(--theme-text-muted);
-
-  &:hover {
-    color: var(--theme-focused-foreground);
-  }
-}
-
-.workflowReason {
-  font-size: var(--font-size-sm);
-  color: var(--theme-text-muted);
-  margin-top: var(--space-1);
-  padding-left: var(--space-h-4);
 }
 
 .diagnostics {
   list-style: none;
-  margin: var(--space-1) 0 0;
-  padding: 0 0 0 var(--space-h-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
   font-size: var(--font-size-sm);
   color: var(--theme-status-error);
   line-height: calc(var(--line-height-base) * 1rem);
@@ -169,59 +148,18 @@
   opacity: 0.8;
 }
 
-.preview {
-  margin-top: var(--space-2);
-  border-top: 1px solid var(--theme-border);
-  padding-top: var(--space-2);
-  max-height: 20em;
-  overflow: auto;
-}
-
-.previewStatus {
-  font-size: var(--font-size-sm);
-  color: var(--theme-text-muted);
-}
-
-.markdown {
-  font-size: var(--font-size-sm);
-  color: var(--theme-text);
-  line-height: calc(var(--line-height-base) * 1rem);
-
-  & h1,
-  & h2,
-  & h3,
-  & h4 {
-    font-size: var(--font-size);
-    margin: var(--space-3) 0 var(--space-1);
-  }
-
-  & p,
-  & ul,
-  & ol,
-  & pre {
-    margin: var(--space-1) 0;
-  }
-
-  & ul,
-  & ol {
-    padding-left: var(--space-h-4);
-  }
-
-  & pre {
-    background: var(--theme-surface-raised);
-    padding: var(--space-2) var(--space-h-2);
-    overflow: auto;
-  }
-
-  & code {
-    font-family: var(--font-family-mono);
-  }
-}
-
 .blockers {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
   border: 1px solid var(--theme-status-warning);
   padding: var(--space-2) var(--space-h-2);
+}
+
+.blockersLabel {
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--theme-text-muted);
+  margin-bottom: var(--space-1);
 }
 
 .blockerList {
@@ -235,12 +173,12 @@
 }
 
 /* A session that exists in the daemon but never launched — the one state where
-   the checkboxes are a record of what was stored, not a decision. */
+   the chips are a record of what was stored, not a decision. */
 .notice {
   border: 1px solid var(--theme-border-strong);
   background: var(--theme-surface-raised);
   padding: var(--space-2) var(--space-h-2);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
   font-size: var(--font-size-sm);
   color: var(--theme-text);
   line-height: calc(var(--line-height-base) * 1rem);

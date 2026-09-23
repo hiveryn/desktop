@@ -1,5 +1,5 @@
 import type { AgentProfile } from '@components';
-import { ApiEnvelopeError, Dialog, ProfileList } from '@components';
+import { ApiEnvelopeError, Dialog } from '@components';
 import type {
   TicketSummary,
   WorkerPreflight,
@@ -7,23 +7,22 @@ import type {
   WorkflowList,
 } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import AgentSelect from './AgentSelect';
 import {
   groupWorkflows,
   initialSelection,
+  isSelectable,
   launchBlockers,
+  launchProblems,
   reconcileSelection,
   resolvePreferredProfile,
   suggestionReason,
   toggleSelection,
-  workflowFileName,
-  workflowLabel,
 } from './launchSelection';
 import styles from './TicketLaunchDialog.module.css';
 
 /** Everything the launch needs from a ticket: identity and writable repo scope. */
-export type LaunchableTicket = Pick<TicketSummary, 'id' | 'title' | 'repo' | 'additional_repos'>;
+export type LaunchableTicket = Pick<TicketSummary, 'id' | 'repo' | 'additional_repos'>;
 
 interface TicketLaunchDialogProps {
   architectKey: string;
@@ -71,16 +70,15 @@ function repoScope(ticket: LaunchableTicket): string[] {
   return [ticket.repo ?? '', ...ticket.additional_repos].filter((repo) => repo !== '');
 }
 
-interface PreviewState {
-  loading: boolean;
-  text?: string;
-  error?: unknown;
-}
-
 /**
- * The one dialog a ticket launch goes through: pick the agent, confirm the
- * workflow selection, then Spawn. Nothing is created until Spawn — opening the
- * dialog, picking a profile and ticking workflows all launch nothing.
+ * The one dialog a ticket launch goes through: pick the agent, toggle the
+ * workflow chips, then Spawn. Nothing is created until Spawn — opening the
+ * dialog, picking an agent and toggling workflows all launch nothing.
+ *
+ * Deliberately compact and keyboard-complete: focus starts in the agent
+ * dropdown, Tab walks agent → chips → Spawn, and Enter only ever acts on what
+ * is focused (select an agent, toggle a chip, press Spawn). Everything beyond
+ * the controls — load, preflight and launch errors — renders only when present.
  */
 export default function TicketLaunchDialog({
   architectKey,
@@ -99,8 +97,6 @@ export default function TicketLaunchDialog({
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<unknown | null>(null);
-  const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
-  const [expanded, setExpanded] = useState<string[]>([]);
 
   // The suggestions are computed once per dialog and then belong to the user:
   // the first load seeds the selection, every later load only prunes what the
@@ -112,7 +108,7 @@ export default function TicketLaunchDialog({
   const scope = repoScope(ticket);
   const scopeKey = scope.join(',');
   // A created session's selection is fixed: the daemon never edits one in
-  // place, so the checkboxes stop being a decision and become a record.
+  // place, so the chips stop being a decision and become a record.
   const locked = existingSession !== null;
 
   const load = useCallback(async () => {
@@ -158,182 +154,117 @@ export default function TicketLaunchDialog({
     }
   }, [load, onLaunch, profileName, selection, submitting]);
 
-  const togglePreview = useCallback((workflow: Workflow) => {
-    const path = workflow.path;
-    setExpanded((prev) =>
-      prev.includes(path) ? prev.filter((open) => open !== path) : [...prev, path],
-    );
-    setPreviews((prev) => {
-      if (prev[path]) return prev;
-      void (async () => {
-        try {
-          // Read through the daemon: the desktop never touches a daemon-local
-          // path itself, and the preview is always the file as it is now.
-          const file = await window.hiveryn.fs.readFile(path);
-          const text = new TextDecoder().decode(file.bytes);
-          setPreviews((current) => ({ ...current, [path]: { loading: false, text } }));
-        } catch (err) {
-          setPreviews((current) => ({ ...current, [path]: { loading: false, error: err } }));
-        }
-      })();
-      return { ...prev, [path]: { loading: true } };
-    });
-  }, []);
-
-  const blockers = launchBlockers({ profileName, preflight, list, selection, submitting });
+  const gate = { profileName, preflight, list, selection, submitting };
+  const blockers = launchBlockers(gate);
+  const problems = launchProblems(gate);
   const groups = list === null ? null : groupWorkflows(list);
+  // Suggested first, then the rest, then the ones only a file repair can make
+  // selectable: the order the user has to decide in.
+  const chips =
+    groups === null ? [] : [...groups.suggested, ...groups.available, ...groups.invalid];
+  const broken = chips.filter((workflow) => workflow.diagnostics.length > 0);
 
-  const renderRow = (workflow: Workflow, selectable: boolean) => {
+  const renderChip = (workflow: Workflow) => {
     const path = workflow.path;
-    const checked = selection.includes(path);
-    const isOpen = expanded.includes(path);
-    const preview = previews[path];
+    const selected = selection.includes(path);
+    const selectable = isSelectable(workflow);
     const reason = suggestionReason(workflow, list?.scope_repos ?? []);
     return (
-      <li key={path} className={styles.workflowRow}>
-        <div className={styles.workflowHead}>
-          <label
-            className={selectable && !locked ? styles.workflowLabel : styles.workflowLabelDisabled}
-          >
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={checked}
-              disabled={!selectable || locked}
-              onChange={() => setSelection((prev) => toggleSelection(prev, path))}
-            />
-            <span className={styles.workflowName}>{workflowLabel(workflow)}</span>
-            <span className={styles.workflowFile}>{workflowFileName(workflow)}</span>
-          </label>
-          <button
-            type="button"
-            className={styles.previewToggle}
-            onClick={() => togglePreview(workflow)}
-            aria-expanded={isOpen}
-          >
-            {isOpen ? '▾ preview' : '▸ preview'}
-          </button>
-        </div>
-        {reason !== '' && <div className={styles.workflowReason}>{reason}</div>}
-        {workflow.diagnostics.length > 0 && (
-          <ul className={styles.diagnostics}>
-            {workflow.diagnostics.map((diagnostic) => (
-              <li key={`${diagnostic.code}:${diagnostic.line}:${diagnostic.message}`}>
-                <span className={styles.diagnosticCode}>{diagnostic.code}</span>
-                {diagnostic.path}
-                {diagnostic.line > 0 ? `:${diagnostic.line}` : ''} — {diagnostic.message}
-              </li>
-            ))}
-          </ul>
-        )}
-        {isOpen && (
-          <div className={styles.preview}>
-            {preview?.loading && <div className={styles.previewStatus}>reading…</div>}
-            {preview?.error !== undefined && (
-              <ApiEnvelopeError error={preview.error} title="Workflow Preview API Error" />
-            )}
-            {preview?.text !== undefined && (
-              <div className={styles.markdown}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{preview.text}</ReactMarkdown>
-              </div>
-            )}
-          </div>
-        )}
-      </li>
+      <button
+        key={path}
+        type="button"
+        className={[
+          styles.chip,
+          selected ? styles.chipSelected : undefined,
+          selectable ? undefined : styles.chipInvalid,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-pressed={selected}
+        disabled={!selectable || locked}
+        title={reason === '' ? workflow.rel_path : `${workflow.rel_path} · ${reason}`}
+        onClick={() => setSelection((prev) => toggleSelection(prev, path))}
+      >
+        <span className={styles.chipMark} aria-hidden="true">
+          {selected ? '✓' : '+'}
+        </span>
+        {workflow.name}
+      </button>
     );
   };
 
-  const section = (label: string, hint: string, workflows: Workflow[], selectable: boolean) =>
-    workflows.length === 0 ? null : (
-      <div className={styles.workflowGroup}>
-        <div className={styles.groupLabel}>
-          {label}
-          <span className={styles.groupHint}>{hint}</span>
-        </div>
-        <ul className={styles.workflowList}>
-          {workflows.map((workflow) => renderRow(workflow, selectable))}
-        </ul>
-      </div>
-    );
-
   return (
     <Dialog
-      title={`LAUNCH WORKER · ${ticket.id}`}
+      title="SPAWN WORKER"
       confirmLabel={submitting ? 'SPAWNING…' : 'SPAWN'}
       confirmDisabled={blockers.length > 0}
       onConfirm={() => void submit()}
+      // Escape and the backdrop still dismiss; there is no Cancel button.
+      showCancelButton={false}
+      isolateKeys
       onCancel={() => {
         if (!submitting) onCancel();
       }}
     >
-      <div className={styles.ticketTitle}>{ticket.title}</div>
-
       {existingSession !== null && (
         <div className={styles.notice}>
-          Session <code>{existingSession.id}</code> was already created for this ticket and never
-          launched. Spawn relaunches it with the selection it was created with — selections are
-          immutable, so changing them means discarding that session and creating a new one.
+          Relaunching session <code>{existingSession.id}</code>, created earlier but never launched.
+          Its workflows are immutable — discard the session to choose others.
         </div>
       )}
 
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>agent</div>
-        <div className={styles.profileBox}>
-          <ProfileList
-            profiles={profiles}
-            selectedName={profileName}
-            onChoose={setProfileName}
-            autoFocus={false}
-          />
-        </div>
-      </div>
+      <AgentSelect
+        names={profiles.map((profile) => profile.name)}
+        selectedName={profileName}
+        onSelect={setProfileName}
+      />
 
-      <div className={styles.section}>
-        <div className={styles.sectionLabel}>
-          workflows
-          <span className={styles.groupHint}>
-            {scope.length === 0 ? 'no repo scope' : `scope: ${scope.join(', ')}`}
-          </span>
-          <button type="button" className={styles.refresh} onClick={() => void load()}>
-            refresh
-          </button>
-        </div>
-        {loadError !== null && (
-          <ApiEnvelopeError error={loadError} title="Workflow Discovery API Error" />
-        )}
+      <div className={styles.chips}>
         {groups === null && loadError === null && (
-          <div className={styles.status}>discovering workflows…</div>
+          <span className={styles.status}>discovering workflows…</span>
         )}
-        {groups !== null && list !== null && list.workflows.length === 0 && (
-          <div className={styles.status}>
-            this workspace has no workflows — launching with none is valid
-          </div>
+        {list !== null && list.workflows.length === 0 && (
+          <span className={styles.status}>no workflows</span>
         )}
-        {groups !== null && (
-          <>
-            {section('suggested', 'matched this ticket’s repos', groups.suggested, true)}
-            {section('available', 'add by hand', groups.available, true)}
-            {section('invalid', 'repair the file to select it', groups.invalid, false)}
-          </>
-        )}
-        {list !== null && list.diagnostics.length > 0 && (
-          <ul className={styles.diagnostics}>
-            {list.diagnostics.map((diagnostic) => (
-              <li key={`${diagnostic.code}:${diagnostic.message}`}>
-                <span className={styles.diagnosticCode}>{diagnostic.code}</span>
-                {diagnostic.message}
-              </li>
-            ))}
-          </ul>
-        )}
+        {chips.map(renderChip)}
       </div>
 
-      {blockers.length > 0 && !submitting && (
+      {broken.length > 0 && (
+        <ul className={styles.diagnostics}>
+          {broken.flatMap((workflow) =>
+            workflow.diagnostics.map((diagnostic) => (
+              <li
+                key={`${workflow.path}:${diagnostic.code}:${diagnostic.line}:${diagnostic.message}`}
+              >
+                <span className={styles.diagnosticCode}>{diagnostic.code}</span>
+                {diagnostic.path}
+                {diagnostic.line > 0 ? `:${diagnostic.line}` : ''} — {diagnostic.message}
+              </li>
+            )),
+          )}
+        </ul>
+      )}
+      {list !== null && list.diagnostics.length > 0 && (
+        <ul className={styles.diagnostics}>
+          {list.diagnostics.map((diagnostic) => (
+            <li key={`${diagnostic.code}:${diagnostic.message}`}>
+              <span className={styles.diagnosticCode}>{diagnostic.code}</span>
+              {diagnostic.message}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {loadError !== null && (
+        <ApiEnvelopeError error={loadError} title="Workflow Discovery API Error" />
+      )}
+
+      {problems.length > 0 && !submitting && (
         <div className={styles.blockers}>
-          <div className={styles.sectionLabel}>launch blocked</div>
+          <div className={styles.blockersLabel}>launch blocked</div>
           <ul className={styles.blockerList}>
-            {blockers.map((blocker) => (
-              <li key={blocker}>{blocker}</li>
+            {problems.map((problem) => (
+              <li key={problem}>{problem}</li>
             ))}
           </ul>
         </div>

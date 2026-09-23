@@ -1,16 +1,17 @@
 import type { WorkerPreflight, Workflow, WorkflowList } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
+  filterAgentNames,
   findRelaunchableSession,
   groupWorkflows,
   initialSelection,
   isSelectable,
   launchBlockers,
+  launchProblems,
   reconcileSelection,
   resolvePreferredProfile,
   suggestionReason,
   toggleSelection,
-  workflowLabel,
 } from './launchSelection';
 
 const WS = '/ws/workflows';
@@ -45,15 +46,20 @@ const ready: WorkerPreflight = {
   problems: [],
 };
 
-describe('workflowLabel', () => {
-  it('turns separators into spaces and changes nothing else', () => {
-    expect(workflowLabel(workflow({ name: 'REVIEWED_COMMIT' }))).toBe('REVIEWED COMMIT');
-    expect(workflowLabel(workflow({ name: 'deliver-reviewed' }))).toBe('deliver reviewed');
-    expect(workflowLabel(workflow({ name: 'dashboardWorkflow' }))).toBe('dashboardWorkflow');
+describe('filterAgentNames', () => {
+  const names = ['claude-opus-work', 'claude-fable', 'codex-high'];
+
+  it('lists every variant for an empty query', () => {
+    expect(filterAgentNames(names, '  ')).toEqual(names);
   });
 
-  it('falls back to the raw name when nothing is left', () => {
-    expect(workflowLabel(workflow({ name: '__' }))).toBe('__');
+  it('matches a case-insensitive substring of the name, keeping order', () => {
+    expect(filterAgentNames(names, 'CLAUDE')).toEqual(['claude-opus-work', 'claude-fable']);
+    expect(filterAgentNames(names, 'high')).toEqual(['codex-high']);
+  });
+
+  it('is empty when nothing matches', () => {
+    expect(filterAgentNames(names, 'gemini')).toEqual([]);
   });
 });
 
@@ -320,5 +326,33 @@ describe('findRelaunchableSession', () => {
   it('adopts a failed run rather than treating it as absent', () => {
     const sessions = [{ ...base, id: 's1', current_run: { status: 'failed' } }];
     expect(findRelaunchableSession(sessions, 'hiveryn', 'ticket-1')?.id).toBe('s1');
+  });
+});
+
+describe('launchProblems', () => {
+  const loaded = list([workflow({ name: 'A' })]);
+
+  it('keeps only what the user must fix, not pending or unpicked state', () => {
+    expect(
+      launchProblems({
+        profileName: null,
+        preflight: null,
+        list: null,
+        selection: [],
+        submitting: true,
+      }),
+    ).toEqual([]);
+  });
+
+  it('carries the preflight problems and unselectable paths', () => {
+    expect(
+      launchProblems({
+        profileName: null,
+        preflight: { ...ready, launchable: false, problems: ['PROJECT_OVERVIEW.md missing'] },
+        list: loaded,
+        selection: [`${WS}/GONE.md`],
+        submitting: false,
+      }),
+    ).toEqual(['PROJECT_OVERVIEW.md missing', `${WS}/GONE.md is no longer selectable`]);
   });
 });

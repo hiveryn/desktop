@@ -15,6 +15,14 @@ interface DialogProps {
   confirmDisabled?: boolean;
   intent?: DialogIntent;
   footerLeft?: React.ReactNode;
+  // Render the cancel button. Off, the dialog still dismisses through Escape
+  // and a backdrop click — `onCancel` keeps meaning "dismiss".
+  showCancelButton?: boolean;
+  // Keep unmodified keystrokes inside the dialog, so the document-level app
+  // dispatcher never runs a pane shortcut (kanban `o`/`s`, …) — or swallows
+  // the Enter that activates a focused button — behind the modal. Modifier
+  // combos still reach the global shortcuts.
+  isolateKeys?: boolean;
   // When set, the dialog portals into this element and the backdrop is
   // positioned absolutely (relative to the container) instead of covering the
   // whole viewport. Use to scope a modal to a single pane. Defaults to a
@@ -32,6 +40,8 @@ const Dialog: React.FC<DialogProps> = ({
   confirmDisabled,
   intent = 'default',
   footerLeft,
+  showCancelButton = true,
+  isolateKeys = false,
   container,
 }) => {
   const dialogRef = React.useRef<HTMLDivElement>(null);
@@ -42,6 +52,8 @@ const Dialog: React.FC<DialogProps> = ({
   // every render), which re-focused the first field on each keystroke.
   const onCancelRef = React.useRef(onCancel);
   onCancelRef.current = onCancel;
+  const isolateKeysRef = React.useRef(isolateKeys);
+  isolateKeysRef.current = isolateKeys;
 
   React.useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
@@ -61,6 +73,9 @@ const Dialog: React.FC<DialogProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Stopped here rather than in the React handler: dismissing unmounts
+        // the dialog before React's delegated listener would see the event.
+        if (isolateKeysRef.current) e.stopPropagation();
         onCancelRef.current?.();
         return;
       }
@@ -101,6 +116,10 @@ const Dialog: React.FC<DialogProps> = ({
     }
   };
 
+  const handlePanelKeyDown = (e: React.KeyboardEvent) => {
+    if (isolateKeys && !e.metaKey && !e.ctrlKey && !e.altKey) e.stopPropagation();
+  };
+
   const intentClass = intent !== 'default' ? styles[`intent-${intent}` as keyof typeof styles] : undefined;
 
   const backdropClass = [styles.backdrop, container ? styles.scoped : undefined]
@@ -109,12 +128,12 @@ const Dialog: React.FC<DialogProps> = ({
 
   return createPortal(
     <div className={backdropClass} onClick={handleBackdropClick}>
-      <div className={[styles.panel, intentClass].filter(Boolean).join(' ')} ref={dialogRef} role="dialog" aria-modal="true">
+      <div className={[styles.panel, intentClass].filter(Boolean).join(' ')} ref={dialogRef} role="dialog" aria-modal="true" onKeyDown={handlePanelKeyDown}>
         {title && <div className={styles.titleBar}>{title}</div>}
         <div className={styles.body}>{children}</div>
         <div className={styles.footer}>
           {footerLeft && <div style={{ marginRight: 'auto' }}>{footerLeft}</div>}
-          {onCancel && (
+          {onCancel && showCancelButton && (
             <Button theme="SECONDARY" onClick={onCancel}>
               {cancelLabel}
             </Button>

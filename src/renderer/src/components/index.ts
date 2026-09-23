@@ -33,7 +33,6 @@ export { default as KanbanColumn } from './KanbanColumn/KanbanColumn';
 export { default as TicketCard } from './TicketCard/TicketCard';
 export { default as TicketDetail } from './TicketDetail/TicketDetail';
 export { default as ProfileSelector } from './ProfileSelector/ProfileSelector';
-export { default as ProfileList } from './ProfileSelector/ProfileList';
 export type { AgentProfile } from './ProfileSelector/ProfileList';
 export { default as WorkdirSelector } from './WorkdirSelector/WorkdirSelector';
 export { default as TabTypePicker } from './TabTypePicker/TabTypePicker';

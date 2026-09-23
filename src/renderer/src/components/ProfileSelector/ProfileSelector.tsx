@@ -14,9 +14,8 @@ interface ProfileSelectorProps {
 
 /**
  * The standalone profile picker: the shared `ProfileList` in a modal of its
- * own. Picking closes it, so it stays the one-step selector the launcher and
- * the tray palette need. The ticket launch dialog hosts the same list inline
- * instead, where picking commits a choice without launching anything.
+ * own. Picking closes it: the one-step selector the launcher and the tray
+ * palette need.
  */
 const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClose, onSelect }) => {
   if (!open) return null;
