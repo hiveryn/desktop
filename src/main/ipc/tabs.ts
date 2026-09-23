@@ -1,4 +1,4 @@
-import type { BrowserTabInfo, PreviewBrowserTabParams, SessionTab } from '@hiveryn/shared/domain';
+import type { SessionTab } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
 import type { DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
@@ -23,33 +23,6 @@ export function registerTabsIpc(): void {
         httpStatus: result.httpStatus,
         envelope: { ...result.envelope, data: result.envelope.data },
       };
-    },
-  );
-
-  // Create a browser tab (empty tab_id) OR navigate an existing one (tab_id set).
-  // The daemon owns tab state and re-emits `tab_changed`, so the renderer refetches
-  // the tab list afterwards rather than mutating local state.
-  ipcMain.handle(
-    'tabs:createBrowserTab',
-    async (
-      _event,
-      sessionId: string,
-      params: PreviewBrowserTabParams,
-    ): Promise<DaemonResult<BrowserTabInfo>> => {
-      return daemonFetch<BrowserTabInfo>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/browser-tabs`,
-        { method: 'POST', body: JSON.stringify(params) },
-      );
-    },
-  );
-
-  ipcMain.handle(
-    'tabs:closeBrowserTab',
-    async (_event, sessionId: string, tabId: string): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/browser-tabs/${encodeURIComponent(tabId)}`,
-        { method: 'DELETE' },
-      );
     },
   );
 }

@@ -35,8 +35,6 @@ export { default as TicketDetail } from './TicketDetail/TicketDetail';
 export { default as ProfileSelector } from './ProfileSelector/ProfileSelector';
 export type { AgentProfile } from './ProfileSelector/ProfileList';
 export { default as WorkdirSelector } from './WorkdirSelector/WorkdirSelector';
-export { default as TabTypePicker } from './TabTypePicker/TabTypePicker';
-export type { TabTypeChoice } from './TabTypePicker/TabTypePicker';
 export { default as ErrorCenterIndicator } from './ErrorCenterIndicator/ErrorCenterIndicator';
 export { default as ErrorCenterSheet } from './ErrorCenterSheet/ErrorCenterSheet';
 export { default as IntentCenter } from './IntentCenter/IntentCenter';

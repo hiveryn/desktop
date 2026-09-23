@@ -351,34 +351,6 @@ export interface FsWriteResponse {
   mtime: string;
 }
 
-// ── Browser tab native view (WebContentsView) IPC types ──────────────────────
-
-// Viewport rect (from getBoundingClientRect) the renderer pushes to bounds-sync
-// the native view to the browser pane's anchor.
-export interface BrowserViewBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-// Navigation state pushed main→renderer on every commit so the URL bar and
-// back/forward buttons stay in sync with the native view.
-export interface BrowserViewState {
-  tabId: string;
-  url: string;
-  title: string;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  loading: boolean;
-}
-
-// Payload for the view's setWindowOpenHandler → renderer mints a sibling tab.
-export interface BrowserOpenNewTabPayload {
-  sessionId: string;
-  url: string;
-}
-
 // The daemon-emitted architect event shape lives in @hiveryn/shared/domain
 // (ArchitectEvent / ArchitectEventReason / ARCHITECT_EVENT_TYPE) — it is a wire
 // contract, so it must not be mirrored here.

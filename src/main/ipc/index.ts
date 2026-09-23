@@ -1,7 +1,6 @@
 import { registerAppIpc } from './app';
 import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
-import { registerBrowserViewIpc } from './browserView';
 import { registerConfigIpc } from './config';
 import { registerDaemonIpc } from './daemon';
 import { registerEditorIpc } from './editor';
@@ -48,6 +47,5 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerEditorIpc();
   registerReposIpc();
   registerTrayIpc();
-  registerBrowserViewIpc();
   registerWorkflowsIpc();
 }

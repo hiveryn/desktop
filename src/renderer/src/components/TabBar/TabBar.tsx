@@ -20,7 +20,7 @@ interface TabBarProps extends React.HTMLAttributes<HTMLDivElement> {
   tabs: TabBarTab[];
   activeTab: string;
   onTabChange: (id: string) => void;
-  onAdd?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onAdd?: () => void;
   addLabel?: string;
   side?: 'left' | 'right' | 'bottom';
 }
@@ -91,7 +91,7 @@ const TabBar: React.FC<TabBarProps> = ({
         );
       })}
       {onAdd && (
-        <button className={styles.addBtn} onClick={(e) => onAdd(e)} aria-label={addLabel}>
+        <button className={styles.addBtn} onClick={onAdd} aria-label={addLabel}>
           <Plus />
         </button>
       )}

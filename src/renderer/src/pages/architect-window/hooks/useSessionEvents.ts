@@ -114,28 +114,6 @@ async function cleanupEndedSession(
   store.setFocusedPane(architectId ? 'main-terminal' : 'right-event-log');
 }
 
-// On a daemon `tab_changed` event, refetch the tab list and auto-activate any
-// browser tab that newly appeared — e.g. an agent's previewInBrowserTab call or
-// an openInNewTab sibling — so it surfaces without an imperative focus channel.
-async function reconcileBrowserTabs(sessionId: string): Promise<void> {
-  const store = useSessionStore.getState();
-  const before = new Set(
-    (store.sessions[sessionId]?.tabs ?? [])
-      .filter((tab) => tab.type === 'browser' && tab.id)
-      .map((tab) => tab.id as string),
-  );
-
-  const tabs = await window.hiveryn.tabs.list(sessionId);
-  store.setSessionTabs(sessionId, tabs);
-
-  const appeared = tabs.find((tab) => tab.type === 'browser' && tab.id && !before.has(tab.id));
-  if (appeared?.id) {
-    const next = useSessionStore.getState();
-    next.setActiveRightTab(appeared.id);
-    next.setFocusedPane(`right-browser:${appeared.id}`);
-  }
-}
-
 export function useSessionEvents(): void {
   const endingSessionIdsRef = useRef(new Set<string>());
 
@@ -185,11 +163,6 @@ export function useSessionEvents(): void {
         return;
       }
 
-      if (event.type === 'status' && event.status === 'tab_changed') {
-        void reconcileBrowserTabs(event.session_id);
-        return;
-      }
-
       if (event.type !== 'status' || event.status !== 'ended' || !isFinalSessionEnd(event)) {
         return;
       }
@@ -200,15 +173,6 @@ export function useSessionEvents(): void {
 
       endingSessionIdsRef.current.add(event.session_id);
       void cleanupEndedSession(event.session_id, session.type);
-    });
-  }, []);
-
-  // A link opened in a new tab (the browser view's setWindowOpenHandler) mints a
-  // daemon-tracked sibling browser tab. The resulting `tab_changed` refetch above
-  // surfaces and activates it.
-  useEffect(() => {
-    return window.hiveryn.browserView.onOpenNewTab(({ sessionId, url }) => {
-      void window.hiveryn.tabs.createBrowserTab(sessionId, { target: url });
     });
   }, []);
 }

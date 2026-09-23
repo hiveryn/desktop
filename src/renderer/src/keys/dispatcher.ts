@@ -165,18 +165,9 @@ function getRightTabIds(): string[] {
   return (activeSession?.tabs ?? []).flatMap((t) => {
     if (isSplitTerminalTab(t)) return [];
     if (!getTabPlugin(t.type)) return [];
-    if (t.type === 'terminal' || t.type === 'browser') return t.id ? [t.id] : [];
+    if (t.type === 'terminal') return t.id ? [t.id] : [];
     return [t.type];
   });
-}
-
-// Thin adapter over the shared focusIdForTab helper (single source of truth in
-// state/tabFocus.ts). Resolves the active session's tabs so terminal/browser
-// uuids map to the right focus pane.
-function tabIdToFocusId(tabId: string): string {
-  const { sessions, activeSessionId } = useSessionStore.getState();
-  const tabs = activeSessionId ? (sessions[activeSessionId]?.tabs ?? []) : [];
-  return focusIdForTab(tabId, tabs);
 }
 
 // When the right pane is maximized AND its active tab has an applied split, the
@@ -199,7 +190,7 @@ function getMaximizedRightSplit(): { leftFocusId: string; rightFocusId: string }
   );
   if (!splitTab?.id) return null;
   return {
-    leftFocusId: tabIdToFocusId(effectiveTab),
+    leftFocusId: focusIdForTab(effectiveTab),
     rightFocusId: `right-terminal:${splitTab.id}`,
   };
 }
@@ -228,13 +219,13 @@ function moveFocusToActiveRightTab(): void {
   const state = useSessionStore.getState();
   const rightTabIds = getRightTabIds();
   if (state.activeRightTab && rightTabIds.includes(state.activeRightTab)) {
-    state.setFocusedPane(tabIdToFocusId(state.activeRightTab));
+    state.setFocusedPane(focusIdForTab(state.activeRightTab));
     return;
   }
   const first = rightTabIds[0];
   if (first) {
     state.setActiveRightTab(first);
-    state.setFocusedPane(tabIdToFocusId(first));
+    state.setFocusedPane(focusIdForTab(first));
   }
 }
 
@@ -252,7 +243,7 @@ function cycleRightTabFocus(delta: number): void {
   const activeSession = state.activeSessionId ? state.sessions[state.activeSessionId] : undefined;
   const splitTabs = activeSession?.tabs.filter(isSplitTerminalTab) ?? [];
   const splitForFocusedBase = splitTabs.find(
-    (tab) => tab.base_tab_id && tabIdToFocusId(tab.base_tab_id) === state.focusedPane,
+    (tab) => tab.base_tab_id && focusIdForTab(tab.base_tab_id) === state.focusedPane,
   );
   const focusedSplit = splitTabs.find(
     (tab) => tab.id && `right-terminal:${tab.id}` === state.focusedPane,
@@ -265,7 +256,7 @@ function cycleRightTabFocus(delta: number): void {
       throw new Error(`Split terminal ${splitTab.id} is missing base_tab_id`);
     }
     const splitFocusId = `right-terminal:${splitTab.id}`;
-    const baseFocusId = tabIdToFocusId(splitTab.base_tab_id);
+    const baseFocusId = focusIdForTab(splitTab.base_tab_id);
     if (delta > 0 && state.focusedPane === baseFocusId) {
       state.setFocusedPane(splitFocusId);
       return;
@@ -278,7 +269,7 @@ function cycleRightTabFocus(delta: number): void {
   }
   const rightTabIds = getRightTabIds();
   if (rightTabIds.length === 0) return;
-  const focusIds = rightTabIds.map(tabIdToFocusId);
+  const focusIds = rightTabIds.map(focusIdForTab);
   const idx =
     splitTab && state.focusedPane === `right-terminal:${splitTab.id}`
       ? rightTabIds.indexOf(splitTab.base_tab_id ?? '')
@@ -294,7 +285,7 @@ function jumpRightTab(idx: number): boolean {
   const rightTabIds = getRightTabIds();
   if (idx >= rightTabIds.length) return false;
   state.setActiveRightTab(rightTabIds[idx]);
-  state.setFocusedPane(tabIdToFocusId(rightTabIds[idx]));
+  state.setFocusedPane(focusIdForTab(rightTabIds[idx]));
   return true;
 }
 

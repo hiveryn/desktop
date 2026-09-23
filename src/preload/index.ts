@@ -1,9 +1,7 @@
 import type {
-  BrowserTabInfo,
   ConcludeSessionParams,
   CreateTerminalParams,
   Intent,
-  PreviewBrowserTabParams,
   Session,
   SessionEvent,
   SessionTab,
@@ -24,9 +22,6 @@ import type {
   ArchitectInfo,
   ArchitectStatus,
   ArchitectStreamEvent,
-  BrowserOpenNewTabPayload,
-  BrowserViewBounds,
-  BrowserViewState,
   DaemonHealthState,
   DaemonResult,
   DesktopConfig,
@@ -100,8 +95,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'terminals:create': { method: 'POST', path: '/api/sessions/:id/terminals' },
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
-  'tabs:createBrowserTab': { method: 'POST', path: '/api/sessions/:id/browser-tabs' },
-  'tabs:closeBrowserTab': { method: 'DELETE', path: '/api/sessions/:id/browser-tabs/:tabId' },
   'sessions:getTicket': { method: 'GET', path: '/api/sessions/:id/ticket' },
   'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
@@ -349,37 +342,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   tabs: {
     list: (sessionId: string): Promise<SessionTab[]> => invoke('tabs:list', sessionId),
-    createBrowserTab: (
-      sessionId: string,
-      params: PreviewBrowserTabParams,
-    ): Promise<BrowserTabInfo> => invoke('tabs:createBrowserTab', sessionId, params),
-    closeBrowserTab: (sessionId: string, tabId: string): Promise<void> =>
-      invoke('tabs:closeBrowserTab', sessionId, tabId),
-  },
-  browserView: {
-    ensure: (sessionId: string, tabId: string, target: string): Promise<void> =>
-      invoke('browser:ensure', sessionId, tabId, target),
-    setActive: (tabId: string): Promise<void> => invoke('browser:setActive', tabId),
-    detach: (tabId: string): Promise<void> => invoke('browser:detach', tabId),
-    navigate: (tabId: string, url: string): Promise<void> => invoke('browser:navigate', tabId, url),
-    back: (tabId: string): Promise<void> => invoke('browser:back', tabId),
-    forward: (tabId: string): Promise<void> => invoke('browser:forward', tabId),
-    reload: (tabId: string): Promise<void> => invoke('browser:reload', tabId),
-    destroy: (tabId: string): Promise<void> => invoke('browser:destroy', tabId),
-    syncBounds: (tabId: string, bounds: BrowserViewBounds): void => {
-      ipcRenderer.send('browser:bounds', tabId, bounds);
-    },
-    onState: (callback: (state: BrowserViewState) => void): (() => void) => {
-      const listener = (_event: unknown, state: BrowserViewState): void => callback(state);
-      ipcRenderer.on('browser:state', listener);
-      return () => ipcRenderer.removeListener('browser:state', listener);
-    },
-    onOpenNewTab: (callback: (payload: BrowserOpenNewTabPayload) => void): (() => void) => {
-      const listener = (_event: unknown, payload: BrowserOpenNewTabPayload): void =>
-        callback(payload);
-      ipcRenderer.on('browser:open-new-tab', listener);
-      return () => ipcRenderer.removeListener('browser:open-new-tab', listener);
-    },
   },
   fs: {
     listDir: (path: string): Promise<FsTreeResponse> => invoke('fs:listDir', path),

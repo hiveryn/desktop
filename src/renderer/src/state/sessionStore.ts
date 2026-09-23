@@ -129,7 +129,7 @@ function normalizeSelection(
         ? 'main-terminal'
         : focusedSplitTerminal
           ? focusedPane
-          : focusIdForTab(nextActiveRightTab, session.tabs),
+          : focusIdForTab(nextActiveRightTab),
     maximizedPane: maximizedPanes[nextActiveSessionId] ?? null,
   };
 }
