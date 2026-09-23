@@ -264,6 +264,14 @@ export const useSessionStore = create<SessionStore>((set) => ({
   setActiveRightTab(tab) {
     set((state) => {
       if (!state.activeSessionId) return { activeRightTab: tab };
+      // A split renders beside its base tab; selecting it would fall back to
+      // the first tab and persist that invalid selection for the session.
+      const session = state.sessions[state.activeSessionId];
+      if (
+        session?.tabs.some((candidate) => isSplitTerminalTab(candidate) && candidate.id === tab)
+      ) {
+        throw new Error(`Cannot select split terminal ${tab} as the active right tab`);
+      }
       return {
         activeRightTab: tab,
         sessionRightTabs: { ...state.sessionRightTabs, [state.activeSessionId]: tab },

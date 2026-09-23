@@ -35,10 +35,13 @@ export async function createSelectedTerminal(
   const tabs = await window.hiveryn.tabs.list(request.sessionId);
   const after = getState();
   after.setSessionTabs(request.sessionId, tabs);
-  if (after.activeSessionId === request.sessionId) {
-    after.setActiveRightTab(created.terminal_id);
-    after.setFocusedPane(`right-terminal:${created.terminal_id}`);
-  }
+  if (after.activeSessionId !== request.sessionId) return;
+  // A split is shown beside its base tab, so the base tab stays selected and
+  // only focus moves to the new split; an ordinary terminal becomes the tab.
+  after.setActiveRightTab(
+    request.placement === 'split' ? (request.baseTabId as string) : created.terminal_id,
+  );
+  after.setFocusedPane(`right-terminal:${created.terminal_id}`);
 }
 function getState() {
   return useSessionStore.getState();
