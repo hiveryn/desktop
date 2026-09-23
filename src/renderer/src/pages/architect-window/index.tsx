@@ -23,7 +23,6 @@ import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
-import FreeformSessionDialog from './components/FreeformSessionDialog';
 import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
 import ShortcutsDialog from './components/ShortcutsDialog';
@@ -82,7 +81,6 @@ export default function ArchitectWindow() {
   const setMaximizedPane = useSessionStore((s) => s.setMaximizedPane);
 
   const [concludeTarget, setConcludeTarget] = useState<SessionRecord | null>(null);
-  const [freeformOpen, setFreeformOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [terminalRequest, setTerminalRequest] = useState<TerminalCreationRequest | null>(null);
   const [terminalWorkdirs, setTerminalWorkdirs] = useState<TerminalWorkdir[]>([]);
@@ -276,11 +274,6 @@ export default function ArchitectWindow() {
               </IconButton>
             )}
             <ErrorCenterIndicator />
-            <IconButton onClick={() => setFreeformOpen(true)} aria-label="New freeform session">
-              <Glyph>
-                <Plus />
-              </Glyph>
-            </IconButton>
           </>
         }
       />
@@ -302,14 +295,6 @@ export default function ArchitectWindow() {
 
       {shortcutsOpen && shortcutConfig && (
         <ShortcutsDialog config={shortcutConfig} onClose={() => setShortcutsOpen(false)} />
-      )}
-
-      {freeformOpen && (
-        <FreeformSessionDialog
-          architectKey={architectKey}
-          open={freeformOpen}
-          onClose={() => setFreeformOpen(false)}
-        />
       )}
 
       {maximizedPane !== null && (

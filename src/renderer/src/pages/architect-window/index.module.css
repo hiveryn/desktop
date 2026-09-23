@@ -275,7 +275,8 @@ nav.appbar {
    stays in flow at its natural height so the content above it gets exactly the
    remaining space. BottomBar is in-flow by default now, so this is just an
    explicit guard against the bar being squeezed. */
-/* Right inset matches nav.appbar so the freeform + lines up under the launcher +.
+/* Right inset matches nav.appbar so the bottom-bar controls line up under the
+   launcher +.
    div.bottomBar (element+class) keeps it above BottomBar's single-class .root. */
 div.bottomBar {
   flex-shrink: 0;

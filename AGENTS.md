@@ -37,7 +37,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/createFreeform/conclude/discard/approve-intent/deny-intent → daemon HTTP (sessions:create carries the ticket session's explicit `workflows` selection)
+      sessions.ts         sessions:list/create/conclude/discard/approve-intent/deny-intent → daemon HTTP (sessions:create carries the ticket session's explicit `workflows` selection)
       workflows.ts        workflows:list → GET /api/architects/:key/workflows?repos=… (discovery for a ticket's writable repo scope); workflows:preflight → GET /api/architects/:key/workspace/worker-preflight (the launch's own project-context validation) — the ticket launch dialog's two read calls
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
@@ -90,7 +90,7 @@ src/
                                  selection model), GitDiffPane,
                                  RepoPicker (git-diff repo selector), ShortcutsDialog
                                  (read-only keybinding reference, opened from the bottom bar),
-                                 ConcludeSessionDialog, FreeformSessionDialog,
+                                 ConcludeSessionDialog,
                                  files/ (native files tab — FilesPane, DirTree/DirListing,
                                  useDirTreeData (shared fetch cache + flattened visible-row
                                  list backing vim-style nav), RootPicker, Breadcrumb,
@@ -133,13 +133,13 @@ Every daemon-backed IPC call follows this chain:
 
 1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws.
 2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log and the error center — see below), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
-3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (whose error is naturally scoped to and dismissed with the surface — `ConcludeSessionDialog`, `FreeformSessionDialog`, the intent center's `IntentCard`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
+3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (whose error is naturally scoped to and dismissed with the surface — `ConcludeSessionDialog`, the intent center's `IntentCard`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
 
 All API responses follow `domain.Envelope` (`data | error`, `logs`, `commands`, `meta.request_id`). The desktop surfaces this in the `RequestLog` panel at the bottom of every page.
 
 ## Error center
 
-App errors (daemon/API envelope errors, SSE/WebSocket failures, daemon-unreachable transitions) no longer stick to the screen in a permanent banner. Each is recorded in a per-window, in-memory history; a bottom-right indicator next to the freeform `+` button badges the unread count and opens a bottom sheet with full detail (timestamp, source, message, expandable stacktrace/`request_id`, per-item dismiss, clear all). Mounted in both `ArchitectWindow` and `Launcher` (two independent renderer processes, so each gets its own store instance — scope is naturally per-window and clears on close).
+App errors (daemon/API envelope errors, SSE/WebSocket failures, daemon-unreachable transitions) no longer stick to the screen in a permanent banner. Each is recorded in a per-window, in-memory history; a bottom-right indicator badges the unread count and opens a bottom sheet with full detail (timestamp, source, message, expandable stacktrace/`request_id`, per-item dismiss, clear all). Mounted in both `ArchitectWindow` and `Launcher` (two independent renderer processes, so each gets its own store instance — scope is naturally per-window and clears on close).
 
 - `state/errorCenterStore.ts` — the durable history (`entries`, `unreadCount`, `sheetOpen`).
 - `hooks/useErrorCenterCapture.ts` — the capture bridge, mounted once per window. Subscribes to `daemon.onRequest` (catches every `invoke()` envelope error app-wide — the single tap-in for daemon/API errors) and `errors.onInfraEvent` (main-process SSE/WS failures, pushed one-way from `src/main/daemon/architect-events.ts` and `src/main/daemon/session.ts` via `sender.send('errors:infra-event', payload)`, mirroring the `daemon:health-status` pattern). Daemon-unreachable transitions are pushed from `useDaemonRecovery.ts`, which already tracks that transition for session-restore purposes.
@@ -229,7 +229,7 @@ Resize-while-scrolled-up: `fitAddon.fit()` → `term.resize()` reflows the whole
 |---|---|
 | **Left pane** | `MainTerminalStack` — every session's main terminal mounted as a sibling; visibility picked by `activeSessionId`. Shows a "No active session / Return to Launcher" fallback when no session is registered. |
 | **Right pane** | Daemon-provided tabs from `tabs:list`: Kanban, Activity log, and `ExtraTerminalStack` terminal tabs. Tab visibility picked by `activeRightTab`. |
-| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket/freeform sessions). Active tab driven by `activeSessionId`. Each tab's icon reflects the session's live agent status (`active`/`idle`/`waiting`/`stopped`) via `iconForStatus`, distinct from the pending-intent notify dot. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
+| **Bottom bar** | `BottomTabs` — one tab per session in the store (architect first, then ticket sessions). Active tab driven by `activeSessionId`. Each tab's icon reflects the session's live agent status (`active`/`idle`/`waiting`/`stopped`) via `iconForStatus`, distinct from the pending-intent notify dot. Each tab carries a conclude (×) button that opens the type-aware `ConcludeSessionDialog`. |
 
 Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, terminalId)` props — no shared input-routing state needed.
 
@@ -317,7 +317,7 @@ When a session ends (architect or worker), the daemon sends a daemon-authored `s
 1. `session.disconnect(sessionId)` — cleans up client-side WebSocket/SSE
 2. `store.unregisterSession(sessionId)` — removes the session from the Zustand store
 3. **Architect session**: calls `architect.closeWindow()` — closes the entire architect window
-4. **Ticket/freeform session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
+4. **Ticket session**: switches the active session back to the architect (or `null` if none remain) and resets the right pane to `kanban` or `event-log`
 
 ### Discard ticket session (move back to backlog)
 

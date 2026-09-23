@@ -135,19 +135,18 @@ export default function ConcludeSessionDialog({ session, onClose }: ConcludeSess
     );
   }
 
-  // Architect & freeform sessions: body summary only. Architect additionally
-  // supports DISCARD (conclude with an empty body); freeform does not.
-  const discardButton =
-    session.type === 'architect' ? (
-      <Button
-        theme="SECONDARY"
-        intent="destructive"
-        isDisabled={submitting}
-        onClick={() => void conclude({ body: '', rejectionReason: '' })}
-      >
-        DISCARD
-      </Button>
-    ) : undefined;
+  // Architect sessions: body summary only, plus DISCARD (conclude with an
+  // empty body).
+  const discardButton = (
+    <Button
+      theme="SECONDARY"
+      intent="destructive"
+      isDisabled={submitting}
+      onClick={() => void conclude({ body: '', rejectionReason: '' })}
+    >
+      DISCARD
+    </Button>
+  );
 
   return (
     <Dialog

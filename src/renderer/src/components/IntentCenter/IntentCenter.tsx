@@ -21,8 +21,6 @@ function originLabel(origin: IntentOrigin): string {
   switch (origin.session_type) {
     case 'ticket':
       return origin.ticket_id ? `${key} · ${origin.ticket_id}` : `${key} · ticket`;
-    case 'freeform':
-      return `${key} · freeform`;
     default:
       return `${key} · architect`;
   }
@@ -231,7 +229,7 @@ const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
 
 // concludeSession: the summary is the TL;DR; the payload carries the outcome,
 // commits, optional rejection reason, and the full rendered conclusion body
-// (shown expanded). Architect/freeform conclusions only carry the body.
+// (shown expanded). Architect conclusions only carry the body.
 const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,
   expanded,

@@ -318,7 +318,7 @@ describe('findRelaunchableSession', () => {
     const sessions = [
       { ...base, id: 's1', context_id: 'ticket-2' },
       { ...base, id: 's2', architect_key: 'other' },
-      { ...base, id: 's3', session_type: 'freeform' },
+      { ...base, id: 's3', session_type: 'architect' },
     ];
     expect(findRelaunchableSession(sessions, 'hiveryn', 'ticket-1')).toBeNull();
   });

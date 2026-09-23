@@ -16,7 +16,7 @@ export interface RepoScopeEntry {
 // conflicting defaults.
 //
 //  - loading: fetch in flight
-//  - none:    not a ticket session (architect/freeform) — no ticket repo scope
+//  - none:    not a ticket session (architect) — no ticket repo scope
 //  - error:   ticket/session data is missing or invalid; surfaced, never masked
 //             behind a workspace fallback
 //  - ready:   primary + additional repositories resolved from the snapshot

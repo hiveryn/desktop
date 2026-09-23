@@ -124,8 +124,8 @@ type TicketBoard = import('@hiveryn/shared/domain').TicketBoard;
 type WorkflowList = import('@hiveryn/shared/domain').WorkflowList;
 type WorkerPreflight = import('@hiveryn/shared/domain').WorkerPreflight;
 
-// The renderer omits `outcome` for architect/freeform conclusions (the daemon
-// ignores it for architect and rejects a non-empty one for freeform), so this
+// The renderer omits `outcome` for architect conclusions (the daemon ignores
+// it there), so this
 // stays a local shape with an optional `outcome` rather than aliasing shared's
 // stricter required-`outcome` ConcludeSessionParams.
 interface ConcludeSessionParams {
@@ -451,12 +451,6 @@ interface HiverynAPI {
     discard: (sessionId: string) => Promise<void>;
     approveIntent: (sessionId: string, intentId: string) => Promise<Intent>;
     denyIntent: (sessionId: string, intentId: string, reason?: string) => Promise<void>;
-    createFreeform: (
-      architectKey: string,
-      prompt: string,
-      workdir: string,
-      slug: string,
-    ) => Promise<Session>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {

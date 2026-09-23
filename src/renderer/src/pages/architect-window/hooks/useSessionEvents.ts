@@ -93,7 +93,7 @@ function isFinalSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
 
 async function cleanupEndedSession(
   sessionId: string,
-  sessionType: 'architect' | 'ticket' | 'freeform',
+  sessionType: 'architect' | 'ticket',
 ): Promise<void> {
   await window.hiveryn.session.disconnect(sessionId);
 

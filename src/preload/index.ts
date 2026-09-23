@@ -81,7 +81,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   },
   'palette:focus-architect': { method: 'POST', path: '/architect/focus' },
   'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
-  'sessions:createFreeform': { method: 'POST', path: '/api/sessions' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
@@ -301,12 +300,6 @@ contextBridge.exposeInMainWorld('hiveryn', {
       invoke('sessions:approve-intent', sessionId, intentId),
     denyIntent: (sessionId: string, intentId: string, reason?: string): Promise<void> =>
       invoke('sessions:deny-intent', sessionId, intentId, reason),
-    createFreeform: (
-      architectKey: string,
-      prompt: string,
-      workdir: string,
-      slug: string,
-    ): Promise<Session> => invoke('sessions:createFreeform', architectKey, prompt, workdir, slug),
     getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {

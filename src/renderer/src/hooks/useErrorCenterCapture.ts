@@ -14,7 +14,6 @@ const CHANNEL_TITLES: Record<string, string> = {
   'sessions:list': 'Sessions',
   'sessions:create': 'Session',
   'sessions:createRun': 'Session',
-  'sessions:createFreeform': 'Session',
   'sessions:conclude': 'Session',
   'sessions:discard': 'Session',
   'sessions:approve-intent': 'Session',

@@ -4,7 +4,7 @@ import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface SessionRecord {
   id: string;
-  type: 'architect' | 'ticket' | 'freeform';
+  type: 'architect' | 'ticket';
   label: string;
   contextId: string;
   mainTerminalId: string;
