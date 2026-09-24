@@ -109,6 +109,7 @@ type IntentType = import('@hiveryn/shared/domain').IntentType;
 type IntentPolicy = import('@hiveryn/shared/domain').IntentPolicy;
 type IntentOrigin = import('@hiveryn/shared/domain').IntentOrigin;
 type Intent = import('@hiveryn/shared/domain').Intent;
+type IntentInputValues = import('@hiveryn/shared/domain').IntentInputValues;
 
 // ── Tickets ────────────────────────────────────────────────────────────────
 
@@ -449,7 +450,11 @@ interface HiverynAPI {
     ) => Promise<SessionRunResult>;
     conclude: (sessionId: string, params: ConcludeSessionParams) => Promise<void>;
     discard: (sessionId: string) => Promise<void>;
-    approveIntent: (sessionId: string, intentId: string) => Promise<Intent>;
+    approveIntent: (
+      sessionId: string,
+      intentId: string,
+      inputs?: IntentInputValues,
+    ) => Promise<Intent>;
     denyIntent: (sessionId: string, intentId: string, reason?: string) => Promise<void>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };

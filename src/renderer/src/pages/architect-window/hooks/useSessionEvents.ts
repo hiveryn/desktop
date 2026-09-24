@@ -1,5 +1,9 @@
 import type { Intent, IntentOrigin } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
+import {
+  parseIntentInputIssues,
+  parseIntentInputs,
+} from '../../../components/IntentCenter/intentInputsModel';
 import { useSessionStore } from '../../../state/sessionStore';
 
 function parseIntentOrigin(rawOrigin: unknown): IntentOrigin {
@@ -54,6 +58,8 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
     intent_type: intentType,
     summary: typeof raw.summary === 'string' ? raw.summary : '',
     payload,
+    inputs: parseIntentInputs(raw.inputs),
+    unresolved_inputs: parseIntentInputIssues(raw.unresolved_inputs),
     origin: parseIntentOrigin(raw.origin),
     wait_seconds: waitSeconds,
     policy,

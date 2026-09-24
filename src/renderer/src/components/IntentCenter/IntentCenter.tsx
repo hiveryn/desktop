@@ -1,5 +1,11 @@
 import mdStyles from '@styles/markdown.module.css';
-import type { Intent, IntentOrigin } from '@hiveryn/shared/domain';
+import type {
+  Intent,
+  IntentInputField,
+  IntentInputValue,
+  IntentInputValues,
+  IntentOrigin,
+} from '@hiveryn/shared/domain';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +15,7 @@ import ApiEnvelopeError from '../ApiEnvelopeError/ApiEnvelopeError';
 import Button from '../Button/Button';
 import { ChevronRight } from '../icons';
 import styles from './IntentCenter.module.css';
+import { awaitsUserInput, initialInputValues, inputValueErrors } from './intentInputsModel';
 
 // A 404 from approve/deny means the intent already resolved (policy fired, or
 // another client answered). Treat it as success and let the card fall away.
@@ -275,6 +282,137 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   );
 };
 
+// ── Approval inputs ──────────────────────────────────────────────────────────
+
+const InputControl: React.FC<{
+  id: string;
+  field: IntentInputField;
+  value: IntentInputValue | undefined;
+  error: string | undefined;
+  onChange: (value: IntentInputValue) => void;
+}> = ({ id, field, value, error, onChange }) => {
+  const text = typeof value === 'string' ? value : '';
+  const describedBy = error ? `${id}-error` : field.description ? `${id}-hint` : undefined;
+  const common = {
+    id,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': describedBy,
+    'aria-required': field.required || undefined,
+  };
+
+  let control: React.ReactNode;
+  switch (field.type) {
+    case 'boolean':
+      return (
+        <div className={styles.inputField}>
+          <label className={styles.inputCheck} htmlFor={id}>
+            <input
+              {...common}
+              type="checkbox"
+              checked={value === true}
+              onChange={(e) => onChange(e.target.checked)}
+            />
+            <span>{field.label}</span>
+          </label>
+          {field.description && (
+            <span id={`${id}-hint`} className={styles.inputHint}>
+              {field.description}
+            </span>
+          )}
+        </div>
+      );
+    case 'choice':
+      control = (
+        <select
+          {...common}
+          className={styles.inputControl}
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{field.required ? 'Select…' : '—'}</option>
+          {field.options?.map((o) => (
+            <option key={o.value} value={o.value} title={o.description}>
+              {o.label || o.value}
+            </option>
+          ))}
+        </select>
+      );
+      break;
+    case 'textarea':
+      control = (
+        <textarea
+          {...common}
+          className={styles.inputControl}
+          rows={3}
+          value={text}
+          maxLength={field.max_length || undefined}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+      break;
+    default:
+      control = (
+        <input
+          {...common}
+          className={styles.inputControl}
+          value={text}
+          maxLength={field.max_length || undefined}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+  }
+
+  return (
+    <div className={styles.inputField}>
+      <label className={styles.fieldName} htmlFor={id}>
+        {field.label}
+        {field.required && <span className={styles.inputRequired}> *</span>}
+      </label>
+      {control}
+      {error ? (
+        <span id={`${id}-error`} className={styles.inputError}>
+          {error}
+        </span>
+      ) : (
+        field.description && (
+          <span id={`${id}-hint`} className={styles.inputHint}>
+            {field.description}
+          </span>
+        )
+      )}
+    </div>
+  );
+};
+
+// The fields the user completes as part of approving. Denying never needs them.
+const IntentInputsForm: React.FC<{
+  intent: Intent;
+  fields: IntentInputField[];
+  values: IntentInputValues;
+  errors: Record<string, string>;
+  disabled: boolean;
+  onChange: (name: string, value: IntentInputValue) => void;
+}> = ({ intent, fields, values, errors, disabled, onChange }) => (
+  <fieldset className={styles.inputs} disabled={disabled}>
+    {awaitsUserInput(intent) && (
+      <p className={styles.inputNotice} role="status">
+        Needs your input — will not {intent.policy === 'auto-allow' ? 'run' : 'auto-approve'}:{' '}
+        {intent.unresolved_inputs?.map((i) => `${i.field} ${i.message}`).join('; ')}
+      </p>
+    )}
+    {fields.map((field) => (
+      <InputControl
+        key={field.name}
+        id={`intent-${intent.intent_id}-${field.name}`}
+        field={field}
+        value={values[field.name]}
+        error={errors[field.name]}
+        onChange={(value) => onChange(field.name, value)}
+      />
+    ))}
+  </fieldset>
+);
+
 type IntentKind = 'ticket' | 'conclude' | null;
 
 function kindOf(type: Intent['intent_type']): IntentKind {
@@ -295,6 +433,11 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<unknown | null>(null);
   const [expanded, setExpanded] = React.useState(false);
+  const fields = intent.inputs ?? [];
+  const [values, setValues] = React.useState<IntentInputValues>(() => initialInputValues(fields));
+  // Field errors show only after an approve attempt, then track edits live.
+  const [showInputErrors, setShowInputErrors] = React.useState(false);
+  const inputErrors = showInputErrors ? inputValueErrors(fields, values) : {};
 
   // Cosmetic countdown. The daemon's auto-resolve is authoritative — at zero we
   // show "resolving…" and wait for the resolved event to remove the card, never
@@ -324,8 +467,16 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
   }
 
   const approve = (): void => {
+    if (fields.length > 0 && Object.keys(inputValueErrors(fields, values)).length > 0) {
+      setShowInputErrors(true);
+      return;
+    }
     void resolve(() =>
-      window.hiveryn.sessions.approveIntent(intent.origin.session_id, intent.intent_id),
+      window.hiveryn.sessions.approveIntent(
+        intent.origin.session_id,
+        intent.intent_id,
+        fields.length > 0 ? values : undefined,
+      ),
     );
   };
 
@@ -339,8 +490,16 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
     );
   };
 
+  // Unresolved inputs block automatic approval, so there is nothing to count
+  // down to: the card waits for the user.
   const verb = autoVerb(intent.policy);
-  const countdown = remaining > 0 ? (verb ? `${verb} ${remaining}s` : `${remaining}s`) : 'resolving…';
+  const countdown = awaitsUserInput(intent)
+    ? 'needs input'
+    : remaining > 0
+      ? verb
+        ? `${verb} ${remaining}s`
+        : `${remaining}s`
+      : 'resolving…';
 
   const kind = kindOf(intent.intent_type);
   // Surfaced at the card level so a rejected conclusion's accent edge turns
@@ -400,6 +559,16 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
             ))}
           </div>
         )
+      )}
+      {fields.length > 0 && (
+        <IntentInputsForm
+          intent={intent}
+          fields={fields}
+          values={values}
+          errors={inputErrors}
+          disabled={submitting}
+          onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))}
+        />
       )}
       <div className={styles.actions}>
         <Button
