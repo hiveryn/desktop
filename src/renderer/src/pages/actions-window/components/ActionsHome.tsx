@@ -225,7 +225,7 @@ export default function ActionsHome({
                   </span>
                   <span className={styles.runTime}>{formatTimestamp(run.created_at)}</span>
                   <span className={styles.runSummary}>
-                    {run.summary || run.error || run.prompt}
+                    {run.summary || run.error || run.reason || run.prompt}
                   </span>
                 </button>
               </li>

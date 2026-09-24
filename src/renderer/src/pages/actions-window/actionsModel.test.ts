@@ -1,6 +1,12 @@
 import type { ActionDefinition, ActionRun } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
-import { defaultActionName, launchBlocker, runsFor, sessionTabLabel } from './actionsModel';
+import {
+  defaultActionName,
+  launchBlocker,
+  requestNote,
+  runsFor,
+  sessionTabLabel,
+} from './actionsModel';
 
 const action = (overrides: Partial<ActionDefinition> = {}): ActionDefinition => ({
   name: 'demo-evidence',
@@ -57,5 +63,31 @@ describe('defaultActionName / sessionTabLabel', () => {
     expect(defaultActionName([])).toBeNull();
     expect(sessionTabLabel(run('a', 'demo', 'x'), 'fallback')).toBe('demo');
     expect(sessionTabLabel(undefined, 'fallback')).toBe('fallback');
+  });
+});
+
+describe('requestNote', () => {
+  const request = (overrides: Partial<ActionRun>): ActionRun => ({
+    ...run('x', 'demo', '2026-09-24T08:00:00Z'),
+    trigger: 'architect',
+    architect_key: 'hiveryn',
+    profile_name: '',
+    ...overrides,
+  });
+
+  it('points a pending architect request at its approval surface', () => {
+    expect(requestNote(request({ status: 'pending_approval' }))).toMatch(/architect hiveryn/);
+  });
+
+  it('says a denied or failed request never started', () => {
+    expect(requestNote(request({ status: 'denied' }))).toMatch(/never started/);
+    expect(requestNote(request({ status: 'failed' }))).toMatch(/never started/);
+  });
+
+  it('has nothing to add once it started, or for manual launches', () => {
+    expect(
+      requestNote(request({ status: 'running', started_at: '2026-09-24T08:01:00Z' })),
+    ).toBeNull();
+    expect(requestNote(run('m', 'demo', '2026-09-24T08:00:00Z'))).toBeNull();
   });
 });

@@ -279,6 +279,35 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   );
 };
 
+// executeAction: an architect's request to run an Action. The summary names
+// it; the payload carries the action and the architect's prompt (shown in
+// full when expanded). The variant is chosen in the approval form below.
+const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
+  intent,
+  expanded,
+}) => {
+  const payload = requirePayload(intent);
+  const action = requireString(payload, 'action', intent.intent_id);
+  const prompt = requireString(payload, 'prompt', intent.intent_id);
+
+  return (
+    <div className={styles.details}>
+      <div className={styles.metaRow}>
+        <span className={styles.chip}>{action}</span>
+        <span className={styles.metaNote}>runs only once you approve</span>
+      </div>
+      {expanded ? (
+        <MarkdownBlock label="prompt">{prompt}</MarkdownBlock>
+      ) : (
+        <div className={styles.field}>
+          <span className={styles.fieldName}>prompt</span>
+          <span className={styles.fieldValue}>{truncate(prompt)}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Approval inputs ──────────────────────────────────────────────────────────
 
 const InputControl: React.FC<{
@@ -404,17 +433,19 @@ const IntentInputsForm: React.FC<{
   </fieldset>
 );
 
-type IntentKind = 'ticket' | 'conclude' | null;
+type IntentKind = 'ticket' | 'conclude' | 'action' | null;
 
 function kindOf(type: Intent['intent_type']): IntentKind {
   if (type === 'createWorkTicket') return 'ticket';
   if (type === 'concludeSession') return 'conclude';
+  if (type === 'executeAction') return 'action';
   return null;
 }
 
 const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   ticket: 'new ticket',
   conclude: 'conclude session',
+  action: 'run action',
 };
 
 export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
@@ -537,6 +568,8 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
         <TicketIntentDetails intent={intent} expanded={expanded} />
       ) : kind === 'conclude' ? (
         <ConclusionIntentDetails intent={intent} expanded={expanded} />
+      ) : kind === 'action' ? (
+        <ActionIntentDetails intent={intent} expanded={expanded} />
       ) : (
         intent.payload && (
           <div className={styles.details}>

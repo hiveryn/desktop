@@ -15,6 +15,23 @@ export function statusLabel(status: ActionRunStatus): string {
   }
 }
 
+/**
+ * Context for an architect's request that has not started: where it is
+ * approved while pending, or that it never ran. Null otherwise.
+ */
+export function requestNote(run: ActionRun): string | null {
+  if (run.trigger !== 'architect' || run.started_at) return null;
+  switch (run.status) {
+    case 'pending_approval':
+      return `Requested by architect ${run.architect_key ?? ''} — approve or deny it in that architect's window, where you also choose the agent variant.`;
+    case 'denied':
+    case 'failed':
+      return 'This request never started.';
+    default:
+      return null;
+  }
+}
+
 /** Why an action cannot be launched right now, or null when it can. */
 export function launchBlocker(
   action: ActionDefinition | undefined,

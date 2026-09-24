@@ -38,13 +38,18 @@
 }
 
 /* Type accent edge: cyan for a new ticket, green for a conclusion — flipped to
-   red when the conclusion's outcome is rejected. */
+   red when the conclusion's outcome is rejected — and amber for an Action
+   request. */
 .card[data-kind='ticket'] {
   border-left: 2px solid var(--theme-status-info);
 }
 
 .card[data-kind='conclude'] {
   border-left: 2px solid var(--theme-status-success);
+}
+
+.card[data-kind='action'] {
+  border-left: 2px solid var(--theme-status-warning);
 }
 
 .card[data-kind='conclude'][data-outcome='rejected'] {
@@ -154,6 +159,10 @@
 
 .kindBadge[data-kind='conclude'] {
   color: var(--theme-status-success);
+}
+
+.kindBadge[data-kind='action'] {
+  color: var(--theme-status-warning);
 }
 
 .summary {

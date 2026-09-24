@@ -2,7 +2,7 @@ import type { ActionRun } from '@hiveryn/shared/domain';
 import { useEffect, useState } from 'react';
 import type { FsEntry } from '../../../../../shared/types';
 import Button from '../../../components/Button/Button';
-import { formatTimestamp, statusLabel } from '../actionsModel';
+import { formatTimestamp, requestNote, statusLabel } from '../actionsModel';
 import styles from './actions.module.css';
 
 interface Props {
@@ -22,12 +22,20 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
   const [entries, setEntries] = useState<FsEntry[] | null>(null);
   const [entriesError, setEntriesError] = useState<string | null>(null);
 
+  // The output folder exists only once the execution started; a request that
+  // is pending, denied or failed before starting has none.
+  const started = Boolean(run.started_at);
+
   // The artifact listing is reread whenever the execution changes status, so
   // a concluded run shows what was actually delivered.
   // biome-ignore lint/correctness/useExhaustiveDependencies: status is a trigger — the folder is reread when the execution changes state
   useEffect(() => {
     let cancelled = false;
     setEntriesError(null);
+    if (!started) {
+      setEntries(null);
+      return;
+    }
     window.hiveryn.fs.listDir(run.output_dir).then(
       (tree) => {
         if (!cancelled) setEntries(tree.entries);
@@ -42,9 +50,10 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
     return () => {
       cancelled = true;
     };
-  }, [run.output_dir, run.status]);
+  }, [run.output_dir, run.status, started]);
 
   const running = run.status === 'running';
+  const note = requestNote(run);
 
   return (
     <div className={styles.detail}>
@@ -59,10 +68,18 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
       <dl className={styles.fields}>
         <dt>Execution</dt>
         <dd className={styles.mono}>{run.id}</dd>
+        {run.trigger === 'architect' ? (
+          <>
+            <dt>Requested by</dt>
+            <dd>architect {run.architect_key}</dd>
+            <dt>Requested</dt>
+            <dd>{formatTimestamp(run.created_at)}</dd>
+          </>
+        ) : null}
         <dt>Variant</dt>
-        <dd>{run.profile_name}</dd>
+        <dd>{run.profile_name || '—'}</dd>
         <dt>Started</dt>
-        <dd>{formatTimestamp(run.started_at ?? run.created_at)}</dd>
+        <dd>{formatTimestamp(run.started_at)}</dd>
         <dt>Ended</dt>
         <dd>{running ? '—' : formatTimestamp(run.ended_at)}</dd>
         <dt>Repository</dt>
@@ -73,6 +90,15 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
         <h3 className={styles.sectionTitle}>Prompt</h3>
         <p className={styles.prose}>{run.prompt}</p>
       </section>
+
+      {note ? <p className={styles.muted}>{note}</p> : null}
+
+      {run.status === 'denied' ? (
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>Denied</h3>
+          <p className={styles.prose}>{run.reason || 'No reason given.'}</p>
+        </section>
+      ) : null}
 
       {(run.summary || run.error || running) && (
         <section className={styles.section}>
@@ -87,45 +113,47 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
         </section>
       )}
 
-      <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Output folder</h3>
-        <p className={styles.mono}>{run.output_dir}</p>
-        <div className={styles.buttonRow}>
-          <Button
-            theme="SECONDARY"
-            onClick={() => void window.hiveryn.fs.revealInFinder(run.output_dir)}
-          >
-            Reveal in Finder
-          </Button>
-          <Button
-            theme="SECONDARY"
-            onClick={() => void navigator.clipboard.writeText(run.output_dir)}
-          >
-            Copy path
-          </Button>
-        </div>
-        {entriesError ? <p className={styles.errorText}>{entriesError}</p> : null}
-        {entries && entries.length === 0 ? <p className={styles.muted}>Empty</p> : null}
-        {entries && entries.length > 0 ? (
-          <ul className={styles.entries}>
-            {entries.map((entry) => (
-              <li key={entry.name}>
-                <button
-                  type="button"
-                  className={styles.entryButton}
-                  title={`Open ${entry.name}`}
-                  onClick={() =>
-                    void window.hiveryn.fs.openExternal(`${run.output_dir}/${entry.name}`)
-                  }
-                >
-                  {entry.name}
-                  {entry.kind === 'dir' ? '/' : ''}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+      {started ? (
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>Output folder</h3>
+          <p className={styles.mono}>{run.output_dir}</p>
+          <div className={styles.buttonRow}>
+            <Button
+              theme="SECONDARY"
+              onClick={() => void window.hiveryn.fs.revealInFinder(run.output_dir)}
+            >
+              Reveal in Finder
+            </Button>
+            <Button
+              theme="SECONDARY"
+              onClick={() => void navigator.clipboard.writeText(run.output_dir)}
+            >
+              Copy path
+            </Button>
+          </div>
+          {entriesError ? <p className={styles.errorText}>{entriesError}</p> : null}
+          {entries && entries.length === 0 ? <p className={styles.muted}>Empty</p> : null}
+          {entries && entries.length > 0 ? (
+            <ul className={styles.entries}>
+              {entries.map((entry) => (
+                <li key={entry.name}>
+                  <button
+                    type="button"
+                    className={styles.entryButton}
+                    title={`Open ${entry.name}`}
+                    onClick={() =>
+                      void window.hiveryn.fs.openExternal(`${run.output_dir}/${entry.name}`)
+                    }
+                  >
+                    {entry.name}
+                    {entry.kind === 'dir' ? '/' : ''}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
 
       {running && (onOpenSession || onCancel) ? (
         <div className={styles.buttonRow}>
