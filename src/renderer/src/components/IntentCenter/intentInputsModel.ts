@@ -1,7 +1,6 @@
 import type {
   Intent,
   IntentInputField,
-  IntentInputIssue,
   IntentInputOption,
   IntentInputType,
   IntentInputValue,
@@ -69,24 +68,10 @@ export function parseIntentInputs(raw: unknown): IntentInputField[] | undefined 
   return raw.length > 0 ? raw.map(parseField) : undefined;
 }
 
-/** Parses raw.unresolved_inputs of an intent/required event. */
-export function parseIntentInputIssues(raw: unknown): IntentInputIssue[] | undefined {
-  if (raw == null) return undefined;
-  if (!Array.isArray(raw)) throw malformed('raw.unresolved_inputs', raw);
-  const issues = raw.map((item) => {
-    const i = item as Record<string, unknown> | null;
-    if (!i || typeof i !== 'object' || typeof i.field !== 'string' || typeof i.message !== 'string') {
-      throw malformed('raw.unresolved_inputs entry', item);
-    }
-    return { field: i.field, message: i.message };
-  });
-  return issues.length > 0 ? issues : undefined;
-}
-
 /**
  * The form's starting values: each field's default when it is usable, else
- * empty. A choice default that is not among the options starts unselected —
- * the daemon reports it as unresolved, and the user must pick.
+ * empty. Defaults only prefill — the daemon never applies them — so a choice
+ * default that is not among the options starts unselected and the user picks.
  */
 export function initialInputValues(fields: readonly IntentInputField[]): IntentInputValues {
   const values: IntentInputValues = {};
@@ -127,7 +112,31 @@ export function inputValueErrors(
   return errors;
 }
 
-/** Whether the daemon will withhold automatic approval until the user answers. */
-export function awaitsUserInput(intent: Intent): boolean {
-  return (intent.unresolved_inputs?.length ?? 0) > 0 && intent.policy !== 'wait-then-deny';
+/**
+ * Whether the intent is deferred: the agent is not waiting on it and nothing
+ * resolves it but the user, so there is no countdown. Every intent with inputs
+ * is deferred.
+ */
+export function isDeferred(intent: Intent): boolean {
+  return intent.policy === 'manual';
+}
+
+// The verb for what a blocking policy does on expiry; auto-allow never raises a
+// card and manual never expires.
+function autoVerb(policy: Intent['policy']): string | null {
+  if (policy === 'wait-then-allow') return 'auto-approve';
+  if (policy === 'wait-then-deny') return 'auto-deny';
+  return null;
+}
+
+/**
+ * The card's status label. A blocking intent shows a cosmetic countdown (the
+ * daemon's expiry is authoritative, so at zero it waits for the resolved
+ * event); a deferred one waits for the user without a timer.
+ */
+export function intentStatusLabel(intent: Intent, remainingSeconds: number): string {
+  if (isDeferred(intent)) return 'awaiting approval';
+  if (remainingSeconds <= 0) return 'resolving…';
+  const verb = autoVerb(intent.policy);
+  return verb ? `${verb} ${remainingSeconds}s` : `${remainingSeconds}s`;
 }

@@ -15,7 +15,12 @@ import ApiEnvelopeError from '../ApiEnvelopeError/ApiEnvelopeError';
 import Button from '../Button/Button';
 import { ChevronRight } from '../icons';
 import styles from './IntentCenter.module.css';
-import { awaitsUserInput, initialInputValues, inputValueErrors } from './intentInputsModel';
+import {
+  initialInputValues,
+  inputValueErrors,
+  intentStatusLabel,
+  isDeferred,
+} from './intentInputsModel';
 
 // A 404 from approve/deny means the intent already resolved (policy fired, or
 // another client answered). Treat it as success and let the card fall away.
@@ -31,14 +36,6 @@ function originLabel(origin: IntentOrigin): string {
     default:
       return `${key} · architect`;
   }
-}
-
-// The label under the countdown. wait-then-allow auto-approves on expiry,
-// wait-then-deny auto-denies; auto-allow never actually raises a card.
-function autoVerb(policy: Intent['policy']): string | null {
-  if (policy === 'wait-then-allow') return 'auto-approve';
-  if (policy === 'wait-then-deny') return 'auto-deny';
-  return null;
 }
 
 const MAX_STRING = 200;
@@ -394,12 +391,6 @@ const IntentInputsForm: React.FC<{
   onChange: (name: string, value: IntentInputValue) => void;
 }> = ({ intent, fields, values, errors, disabled, onChange }) => (
   <fieldset className={styles.inputs} disabled={disabled}>
-    {awaitsUserInput(intent) && (
-      <p className={styles.inputNotice} role="status">
-        Needs your input — will not {intent.policy === 'auto-allow' ? 'run' : 'auto-approve'}:{' '}
-        {intent.unresolved_inputs?.map((i) => `${i.field} ${i.message}`).join('; ')}
-      </p>
-    )}
     {fields.map((field) => (
       <InputControl
         key={field.name}
@@ -426,7 +417,7 @@ const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   conclude: 'conclude session',
 };
 
-const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
+export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
   const clearPendingIntent = useSessionStore((s) => s.clearPendingIntent);
   const [remaining, setRemaining] = React.useState(intent.wait_seconds);
   const [reason, setReason] = React.useState('');
@@ -439,14 +430,16 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
   const [showInputErrors, setShowInputErrors] = React.useState(false);
   const inputErrors = showInputErrors ? inputValueErrors(fields, values) : {};
 
-  // Cosmetic countdown. The daemon's auto-resolve is authoritative — at zero we
-  // show "resolving…" and wait for the resolved event to remove the card, never
-  // taking the action locally.
+  // Cosmetic countdown for blocking intents. The daemon's auto-resolve is
+  // authoritative — at zero we show "resolving…" and wait for the resolved
+  // event to remove the card, never taking the action locally. A deferred
+  // intent has no timer at all.
+  const deferred = isDeferred(intent);
   React.useEffect(() => {
-    if (remaining <= 0) return;
+    if (deferred || remaining <= 0) return;
     const id = setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
     return () => clearInterval(id);
-  }, [remaining]);
+  }, [deferred, remaining]);
 
   async function resolve(action: () => Promise<unknown>): Promise<void> {
     setSubmitting(true);
@@ -490,16 +483,7 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
     );
   };
 
-  // Unresolved inputs block automatic approval, so there is nothing to count
-  // down to: the card waits for the user.
-  const verb = autoVerb(intent.policy);
-  const countdown = awaitsUserInput(intent)
-    ? 'needs input'
-    : remaining > 0
-      ? verb
-        ? `${verb} ${remaining}s`
-        : `${remaining}s`
-      : 'resolving…';
+  const countdown = intentStatusLabel(intent, remaining);
 
   const kind = kindOf(intent.intent_type);
   // Surfaced at the card level so a rejected conclusion's accent edge turns
@@ -532,7 +516,9 @@ const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
             {originLabel(intent.origin)}
           </span>
         </button>
-        <span className={styles.countdown}>{countdown}</span>
+        <span className={styles.countdown} data-deferred={deferred || undefined}>
+          {countdown}
+        </span>
       </div>
       <button
         type="button"

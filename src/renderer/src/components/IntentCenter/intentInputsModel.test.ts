@@ -1,10 +1,10 @@
 import type { Intent, IntentInputField } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
-  awaitsUserInput,
   initialInputValues,
   inputValueErrors,
-  parseIntentInputIssues,
+  intentStatusLabel,
+  isDeferred,
   parseIntentInputs,
 } from './intentInputsModel';
 
@@ -68,14 +68,6 @@ describe('parseIntentInputs', () => {
     );
     expect(() => parseIntentInputs({})).toThrow(/raw.inputs/);
   });
-
-  it('parses unresolved input issues', () => {
-    expect(parseIntentInputIssues([{ field: 'variant', message: 'is required' }])).toEqual([
-      { field: 'variant', message: 'is required' },
-    ]);
-    expect(parseIntentInputIssues(undefined)).toBeUndefined();
-    expect(() => parseIntentInputIssues([{ field: 1 }])).toThrow(/malformed/);
-  });
 });
 
 describe('initialInputValues', () => {
@@ -110,20 +102,34 @@ describe('inputValueErrors', () => {
   });
 });
 
-describe('awaitsUserInput', () => {
-  const unresolved = [{ field: 'variant', message: 'is required and has no default' }];
+describe('deferred intents', () => {
+  const deferred = intent({ policy: 'manual', wait_seconds: 0, inputs: fields });
 
-  it('holds allow policies when inputs are unresolved', () => {
-    expect(awaitsUserInput(intent({ unresolved_inputs: unresolved }))).toBe(true);
-    expect(awaitsUserInput(intent({ policy: 'auto-allow', unresolved_inputs: unresolved }))).toBe(
-      true,
-    );
+  it('are recognised by their manual policy', () => {
+    expect(isDeferred(deferred)).toBe(true);
+    expect(isDeferred(intent({}))).toBe(false);
   });
 
-  it('does not hold wait-then-deny or resolved intents', () => {
-    expect(awaitsUserInput(intent({ policy: 'wait-then-deny', unresolved_inputs: unresolved }))).toBe(
-      false,
-    );
-    expect(awaitsUserInput(intent({}))).toBe(false);
+  it('never show a countdown, whatever their defaults', () => {
+    expect(intentStatusLabel(deferred, 0)).toBe('awaiting approval');
+    expect(intentStatusLabel(deferred, 20)).toBe('awaiting approval');
+  });
+
+  it('prefill defaults without making them the answer', () => {
+    // Prefilled, but still the user's explicit submission on approve.
+    expect(initialInputValues(deferred.inputs ?? [])).toEqual({
+      variant: 'codex',
+      note: '',
+      body: '',
+      notify: true,
+    });
+  });
+});
+
+describe('intentStatusLabel for blocking intents', () => {
+  it('counts down by policy and then waits for the daemon', () => {
+    expect(intentStatusLabel(intent({}), 12)).toBe('auto-approve 12s');
+    expect(intentStatusLabel(intent({ policy: 'wait-then-deny' }), 3)).toBe('auto-deny 3s');
+    expect(intentStatusLabel(intent({}), 0)).toBe('resolving…');
   });
 });

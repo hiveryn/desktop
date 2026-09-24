@@ -121,6 +121,11 @@
   font-size: var(--font-size-xs);
 }
 
+/* Deferred: nothing is counting down, so no warning colour. */
+.countdown[data-deferred] {
+  color: var(--theme-text-muted);
+}
+
 .summaryToggle {
   background: none;
   border: none;
@@ -369,8 +374,3 @@
   color: var(--theme-text-subtle);
 }
 
-.inputNotice {
-  margin: 0;
-  color: var(--theme-status-warning);
-  overflow-wrap: anywhere;
-}
