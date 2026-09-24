@@ -102,6 +102,8 @@ interface Props {
   /** Per-session repository scope (primary + additional repos). */
   repoScope: SessionRepoScope;
   shortcutConfig: ShortcutConfig | null;
+  /** Roots offered after the workspace root, before repos (no git decoration). */
+  extraRoots?: RootOption[];
 }
 
 export default function FilesPane({
@@ -110,6 +112,7 @@ export default function FilesPane({
   isActive,
   repoScope,
   shortcutConfig,
+  extraRoots,
 }: Props) {
   const customRoots = useFilesStore((s) => s.customRoots);
   const slice = useFilesStore((s) => s.bySession[sessionId]);
@@ -146,6 +149,7 @@ export default function FilesPane({
     }
     return [
       { id: 'workspace', label: architect.name, path: architect.path, kind: 'workspace' },
+      ...(extraRoots ?? []),
       ...repoOptions.values(),
       ...customRoots.map(
         (root): RootOption => ({
@@ -156,7 +160,7 @@ export default function FilesPane({
         }),
       ),
     ];
-  }, [architect, customRoots, repoScope]);
+  }, [architect, customRoots, repoScope, extraRoots]);
 
   // First time this session's tab is used, default the root from the session's
   // repository scope: ticket sessions open on their primary repo (using the

@@ -1,10 +1,10 @@
-import type { Intent, SessionEvent, SessionTab } from '@hiveryn/shared/domain';
+import type { Intent, SessionEvent, SessionTab, SessionType } from '@hiveryn/shared/domain';
 import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface SessionRecord {
   id: string;
-  type: 'architect' | 'ticket';
+  type: SessionType;
   label: string;
   contextId: string;
   mainTerminalId: string;

@@ -13,7 +13,13 @@ function sessionLabel(intent: Session): string {
   return label;
 }
 
-export function buildSessionRecord(intent: Session, tabs: SessionTab[]): SessionRecord {
+// label overrides the derived tab label (the Actions window names a tab after
+// its action rather than the execution id held in context_id).
+export function buildSessionRecord(
+  intent: Session,
+  tabs: SessionTab[],
+  label?: string,
+): SessionRecord {
   if (intent.current_run?.status !== 'running') {
     throw new Error(`Cannot build session record for non-running session ${intent.id}`);
   }
@@ -24,7 +30,7 @@ export function buildSessionRecord(intent: Session, tabs: SessionTab[]): Session
   return {
     id: intent.id,
     type: intent.session_type,
-    label: sessionLabel(intent),
+    label: label ?? sessionLabel(intent),
     contextId: intent.context_id,
     mainTerminalId: intent.current_run.main_terminal_id,
     tabs,

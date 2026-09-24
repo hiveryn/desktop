@@ -47,7 +47,7 @@ export type {
   ValidationError,
 } from '@hiveryn/shared/domain';
 
-import type { ArchitectEvent } from '@hiveryn/shared/domain';
+import type { ActionEvent, ArchitectEvent } from '@hiveryn/shared/domain';
 
 // ── Backward-compat aliases (gradual rename targets) ───────────────────────
 export type SessionKind = import('@hiveryn/shared/domain').SessionType;
@@ -370,6 +370,12 @@ export interface StreamConnectedEvent {
 // Everything delivered on the architect:workspace-event channel: real daemon
 // events plus the local (re)connect signal.
 export type ArchitectStreamEvent = ArchitectEvent | StreamConnectedEvent;
+
+// Everything delivered on the actions:event channel: daemon execution status
+// changes plus the local (re)connect signal (the actions stream has no key).
+export type ActionStreamEvent =
+  | ActionEvent
+  | { type: typeof STREAM_CONNECTED_EVENT_TYPE; at: string };
 
 // ── System / daemon ────────────────────────────────────────────────────────
 

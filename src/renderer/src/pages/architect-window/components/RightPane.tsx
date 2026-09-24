@@ -8,7 +8,7 @@ import {
   type TabBarTab,
 } from '@components';
 import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Architect } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
@@ -23,6 +23,7 @@ import styles from '../index.module.css';
 import { requestTerminalCreation } from '../terminalWorkdirPicker';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import FilesPane from './files/FilesPane';
+import type { RootOption } from './files/RootPicker';
 import GitDiffPane from './GitDiffPane';
 import TicketPane from './TicketPane';
 
@@ -68,6 +69,13 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
+  /**
+   * Context tabs owned by the embedding window, keyed by tab type (the Actions
+   * window's `action` tab). Rendered like the built-in panels.
+   */
+  extraPanels?: Record<string, ReactNode>;
+  /** Additional Files roots for the active session (e.g. an action's repo). */
+  extraFileRoots?: RootOption[];
 }
 
 export default function RightPane({
@@ -81,6 +89,8 @@ export default function RightPane({
   onTicketSelect,
   onSpawnTicket,
   onRefreshBoard,
+  extraPanels,
+  extraFileRoots,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -353,10 +363,19 @@ export default function RightPane({
               isActive={effectiveTab === 'files'}
               repoScope={repoScope}
               shortcutConfig={shortcutConfig}
+              extraRoots={extraFileRoots}
             />
           </ErrorBoundary>
         )}
       </div>
+
+      {Object.entries(extraPanels ?? {}).map(([type, panel]) => (
+        <div key={type} className={styles.tabPanel} data-active={effectiveTab === type}>
+          <ErrorBoundary paneLabel={type} resetKeys={[activeSession?.id]}>
+            {panel}
+          </ErrorBoundary>
+        </div>
+      ))}
 
       <ExtraTerminalStack
         mode="primary"

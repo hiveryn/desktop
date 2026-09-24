@@ -1,4 +1,4 @@
-import type { Intent, IntentOrigin } from '@hiveryn/shared/domain';
+import type { Intent, IntentOrigin, SessionType } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
 import { parseIntentInputs } from '../../../components/IntentCenter/intentInputsModel';
 import { useSessionStore } from '../../../state/sessionStore';
@@ -91,17 +91,15 @@ function mainTerminalResumeEvent(event: {
   return { mainTerminalId: mainTerminalID, previousTerminalId: previousTerminalID };
 }
 
-// A session end that should tear down the tab: either concluded (normal) or
-// discarded (ticket session moved back to backlog as if never spawned).
+// A session end that should tear down the tab: concluded (normal), discarded
+// (ticket session moved back to backlog as if never spawned) or cancelled (an
+// action execution stopped by the user).
 function isFinalSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
   const lifecycle = event.raw?.lifecycle;
-  return lifecycle === 'concluded' || lifecycle === 'discarded';
+  return lifecycle === 'concluded' || lifecycle === 'discarded' || lifecycle === 'cancelled';
 }
 
-async function cleanupEndedSession(
-  sessionId: string,
-  sessionType: 'architect' | 'ticket',
-): Promise<void> {
+async function cleanupEndedSession(sessionId: string, sessionType: SessionType): Promise<void> {
   await window.hiveryn.session.disconnect(sessionId);
 
   const store = useSessionStore.getState();

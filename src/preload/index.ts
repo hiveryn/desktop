@@ -1,8 +1,13 @@
 import type {
+  ActionDefinition,
+  ActionList,
+  ActionRun,
   ConcludeSessionParams,
   CreateTerminalParams,
   Intent,
   IntentInputValues,
+  LaunchActionRequest,
+  LaunchActionResult,
   Session,
   SessionEvent,
   SessionTab,
@@ -17,6 +22,7 @@ import type {
 } from '@hiveryn/shared/domain';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  ActionStreamEvent,
   AgentProfile,
   AppMode,
   Architect,
@@ -116,6 +122,15 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'fs:pickDirectory': { method: 'IPC', path: '/fs/pick-directory' },
   'fs:revealInFinder': { method: 'IPC', path: '/fs/reveal-in-finder' },
   'fs:openExternal': { method: 'IPC', path: '/fs/open-external' },
+  'actions:open-window': { method: 'IPC', path: '/actions/open-window' },
+  'actions:list': { method: 'GET', path: '/api/actions' },
+  'actions:get': { method: 'GET', path: '/api/actions/:name' },
+  'actions:launch': { method: 'POST', path: '/api/actions/:name/runs' },
+  'actions:runs': { method: 'GET', path: '/api/action-runs?action=:action' },
+  'actions:run': { method: 'GET', path: '/api/action-runs/:id' },
+  'actions:cancel': { method: 'POST', path: '/api/action-runs/:id/cancel' },
+  'actions:events:subscribe': { method: 'SSE', path: '/api/actions/events' },
+  'actions:events:unsubscribe': { method: 'SSE', path: '/api/actions/events' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -250,6 +265,27 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   launcher: {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
+  },
+  actions: {
+    openWindow: (): Promise<void> => invoke('actions:open-window'),
+    list: (): Promise<ActionList> => invoke('actions:list'),
+    get: (name: string): Promise<ActionDefinition> => invoke('actions:get', name),
+    launch: (name: string, request: LaunchActionRequest): Promise<LaunchActionResult> =>
+      invoke('actions:launch', name, request),
+    runs: (action?: string, limit?: number): Promise<ActionRun[]> =>
+      invoke('actions:runs', action, limit),
+    run: (id: string): Promise<ActionRun> => invoke('actions:run', id),
+    cancel: (id: string): Promise<ActionRun> => invoke('actions:cancel', id),
+    subscribeEvents: (callback: (event: ActionStreamEvent) => void): (() => void) => {
+      void ipcRenderer.invoke('actions:events:subscribe');
+      const listener = (_event: Electron.IpcRendererEvent, actionEvent: ActionStreamEvent): void =>
+        callback(actionEvent);
+      ipcRenderer.on('actions:event', listener);
+      return () => {
+        void ipcRenderer.invoke('actions:events:unsubscribe');
+        ipcRenderer.removeListener('actions:event', listener);
+      };
+    },
   },
   tray: {
     hide: (): Promise<void> => invoke('tray:hide'),

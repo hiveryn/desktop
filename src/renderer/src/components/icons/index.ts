@@ -21,3 +21,4 @@ export { default as GitDiff } from './GitDiff';
 export { default as AlertTriangle } from './AlertTriangle';
 export { default as Folder } from './Folder';
 export { default as Keyboard } from './Keyboard';
+export { default as ActionIcon } from './ActionIcon';

@@ -1,3 +1,4 @@
+import { registerActionsIpc } from './actions';
 import { registerAppIpc } from './app';
 import { registerArchitectIpc } from './architect';
 import { registerArchitectsIpc } from './architects';
@@ -23,6 +24,7 @@ import { registerWorkflowsIpc } from './workflows';
 interface RegisterIpcOptions {
   openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
   openLauncherWindow: () => void;
+  openActionsWindow: () => void;
   isLauncherWindow: Parameters<typeof registerLauncherIpc>[0]['isLauncherWindow'];
 }
 
@@ -48,4 +50,5 @@ export function registerIpc(options: RegisterIpcOptions): void {
   registerReposIpc();
   registerTrayIpc();
   registerWorkflowsIpc();
+  registerActionsIpc({ openActionsWindow: options.openActionsWindow });
 }

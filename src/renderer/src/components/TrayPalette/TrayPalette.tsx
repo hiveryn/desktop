@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { AgentProfile, ArchitectStatus } from '../../../../shared/types';
 import { formatElapsed } from '../../lib/formatElapsed';
 import paletteStyles from '../palette/palette.module.css';
-import { buildRows, type PaletteRow, rowKey } from '../palette/rows';
+import { ACTIONS_ROW_LABEL, buildRows, type PaletteRow, rowKey } from '../palette/rows';
 import ProfileSelector from '../ProfileSelector/ProfileSelector';
 import styles from './TrayPalette.module.css';
 
@@ -102,6 +102,13 @@ const TrayPalette: React.FC = () => {
   const confirm = (index: number): void => {
     const row: PaletteRow | undefined = rows[index];
     if (!row) return;
+    if (row.kind === 'actions') {
+      window.hiveryn.actions
+        .openWindow()
+        .then(() => window.hiveryn.tray.hide())
+        .catch(setError);
+      return;
+    }
     if (row.kind === 'session') {
       window.hiveryn.palette
         .focusArchitect(row.architect.key, row.session.id)
@@ -174,7 +181,7 @@ const TrayPalette: React.FC = () => {
             setActiveIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="search architects and sessions..."
+          placeholder="search architects, sessions and actions..."
           spellCheck={false}
           autoComplete="off"
           autoFocus
@@ -185,6 +192,30 @@ const TrayPalette: React.FC = () => {
           <ul className={styles.list} role="listbox">
             {rows.map((row, i) => {
               const isActive = i === activeIndex;
+              if (row.kind === 'actions') {
+                return (
+                  <li
+                    key={rowKey(row)}
+                    ref={isActive ? activeItemRef : undefined}
+                    role="option"
+                    aria-selected={isActive}
+                    className={[
+                      paletteStyles.item,
+                      paletteStyles.architectRow,
+                      isActive ? paletteStyles.itemActive : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => confirm(i)}
+                    onMouseEnter={() => setActiveIndex(i)}
+                  >
+                    <span className={paletteStyles.itemName}>{ACTIONS_ROW_LABEL}</span>
+                    <span className={paletteStyles.itemMeta}>
+                      <span className={paletteStyles.itemStatus}>open window</span>
+                    </span>
+                  </li>
+                );
+              }
               if (row.kind === 'architect') {
                 const itemClass = [
                   paletteStyles.item,
@@ -246,7 +277,7 @@ const TrayPalette: React.FC = () => {
           </ul>
         ) : (
           <div className={styles.empty}>
-            {spawning ? 'spawning session…' : 'no architects or sessions match'}
+            {spawning ? 'spawning session…' : 'no architects, sessions or actions match'}
           </div>
         )}
       </div>

@@ -30,6 +30,8 @@ export function focusIdForTab(tabId: string): string {
       return 'right-git-diff';
     case 'files':
       return 'right-files';
+    case 'action':
+      return 'right-action';
   }
   return `right-terminal:${tabId}`;
 }

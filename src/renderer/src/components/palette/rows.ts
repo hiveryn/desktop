@@ -2,10 +2,21 @@ import type { ArchitectStatus, ArchitectStatusSession } from '../../../../shared
 
 export type PaletteRow =
   | { kind: 'architect'; architect: ArchitectStatus; active: boolean }
-  | { kind: 'session'; architect: ArchitectStatus; session: ArchitectStatusSession };
+  | { kind: 'session'; architect: ArchitectStatus; session: ArchitectStatusSession }
+  // Opens the global Actions window; Actions belong to no architect.
+  | { kind: 'actions' };
+
+export const ACTIONS_ROW_LABEL = 'Actions';
 
 export function rowKey(row: PaletteRow): string {
-  return row.kind === 'architect' ? `architect:${row.architect.key}` : `session:${row.session.id}`;
+  switch (row.kind) {
+    case 'architect':
+      return `architect:${row.architect.key}`;
+    case 'session':
+      return `session:${row.session.id}`;
+    case 'actions':
+      return 'actions';
+  }
 }
 
 // An architect is active when it has a running architect session (`status`
@@ -44,6 +55,9 @@ export function buildRows(statuses: ArchitectStatus[], query: string): PaletteRo
     for (const session of keyMatches ? architect.sessions : matchingSessions) {
       rows.push({ kind: 'session', architect, session });
     }
+  }
+  if (!q || ACTIONS_ROW_LABEL.toLowerCase().includes(q)) {
+    rows.push({ kind: 'actions' });
   }
   return rows;
 }
