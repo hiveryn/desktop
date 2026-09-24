@@ -2,7 +2,14 @@ import type { ActionRun } from '@hiveryn/shared/domain';
 import { useEffect, useState } from 'react';
 import type { FsEntry } from '../../../../../shared/types';
 import Button from '../../../components/Button/Button';
-import { formatTimestamp, requestNote, statusLabel } from '../actionsModel';
+import {
+  attentionNote,
+  attentionSourceLabel,
+  formatTimestamp,
+  needsInput,
+  requestNote,
+  statusLabel,
+} from '../actionsModel';
 import styles from './actions.module.css';
 
 interface Props {
@@ -54,6 +61,8 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
 
   const running = run.status === 'running';
   const note = requestNote(run);
+  const input = needsInput(run);
+  const noAttention = attentionNote(run);
 
   return (
     <div className={styles.detail}>
@@ -92,6 +101,25 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
       </section>
 
       {note ? <p className={styles.muted}>{note}</p> : null}
+
+      {input ? (
+        <section className={styles.attention} data-testid="action-attention">
+          <h3 className={styles.sectionTitle}>Needs your input</h3>
+          <p className={styles.prose}>{input.message}</p>
+          <p className={styles.muted}>
+            Detected {formatTimestamp(input.since)} from {attentionSourceLabel(input)}. The
+            execution keeps running until you answer in its terminal.
+          </p>
+          {onOpenSession && run.session_id ? (
+            <div className={styles.buttonRow}>
+              <Button onClick={() => run.session_id && onOpenSession(run.session_id)}>
+                Open terminal
+              </Button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {noAttention ? <p className={styles.muted}>{noAttention}</p> : null}
 
       {run.status === 'denied' ? (
         <section className={styles.section}>

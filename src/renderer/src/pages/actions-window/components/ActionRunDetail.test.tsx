@@ -41,6 +41,47 @@ describe('ActionRunDetail', () => {
     );
     expect(html).toContain('Open session');
     expect(html).toContain('Stop execution');
+    // Nothing is known about its attention yet: said so, never "not waiting".
+    expect(html).toContain('its terminal is not live');
+    expect(html).not.toContain('Needs your input');
+  });
+
+  it('shows a detected prompt with a route to the terminal, still running', () => {
+    const waiting: ActionRun = {
+      ...completed,
+      status: 'running',
+      summary: undefined,
+      session_id: 's-1',
+      attention: {
+        state: 'input_required',
+        reason: 'folder_trust',
+        message: 'Codex is asking whether to trust this folder before it starts.',
+        source: 'terminal',
+        since: '2026-09-24T08:01:00Z',
+        coverage: 'Codex: …',
+      },
+    };
+    const html = renderToStaticMarkup(
+      <ActionRunDetail run={waiting} onOpenSession={() => undefined} />,
+    );
+    expect(html).toContain('Needs your input');
+    expect(html).toContain('whether to trust this folder');
+    expect(html).toContain('its terminal screen');
+    expect(html).toContain('Open terminal');
+    expect(html).toContain('running');
+  });
+
+  it('states detection coverage when no prompt was detected', () => {
+    const quiet: ActionRun = {
+      ...completed,
+      status: 'running',
+      summary: undefined,
+      session_id: 's-1',
+      attention: { state: 'none_detected', coverage: 'Codex: approval prompts are detected.' },
+    };
+    const html = renderToStaticMarkup(<ActionRunDetail run={quiet} />);
+    expect(html).toContain('No prompt detected. Codex: approval prompts are detected.');
+    expect(html).not.toContain('Needs your input');
   });
 });
 
@@ -93,6 +134,30 @@ describe('ActionsHome', () => {
     expect(html).toContain('run-2');
     expect(html).toContain('One execution of an action runs at a time');
     expect(html).toContain('LDN run 2 recovered');
+  });
+
+  it('marks a history entry whose agent needs input', () => {
+    const waiting: ActionRun = {
+      ...completed,
+      id: 'run-2',
+      status: 'running',
+      attention: { state: 'input_required', reason: 'awaiting_input', source: 'hook' },
+    };
+    const html = renderToStaticMarkup(
+      <ActionsHome
+        list={list}
+        runs={[waiting, completed]}
+        profiles={[]}
+        selectedAction="demo-evidence"
+        onSelectAction={() => undefined}
+        selectedRunId={null}
+        onSelectRun={() => undefined}
+        onLaunched={() => undefined}
+        onOpenSession={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    expect(html.match(/needs input/g)).toHaveLength(1);
   });
 
   it('reports an invalid definition with its problems', () => {

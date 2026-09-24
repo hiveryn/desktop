@@ -1,8 +1,10 @@
 import type { ActionDefinition, ActionRun } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
+  attentionNote,
   defaultActionName,
   launchBlocker,
+  needsInput,
   requestNote,
   runsFor,
   sessionTabLabel,
@@ -89,5 +91,34 @@ describe('requestNote', () => {
       requestNote(request({ status: 'running', started_at: '2026-09-24T08:01:00Z' })),
     ).toBeNull();
     expect(requestNote(run('m', 'demo', '2026-09-24T08:00:00Z'))).toBeNull();
+  });
+});
+
+describe('needsInput / attentionNote', () => {
+  const running = (attention?: ActionRun['attention']): ActionRun => ({
+    ...run('a', 'demo', 'x'),
+    status: 'running',
+    attention,
+  });
+
+  it('reports input only for a running execution with an explicit signal', () => {
+    const waiting = running({
+      state: 'input_required',
+      reason: 'folder_trust',
+      source: 'terminal',
+    });
+    expect(needsInput(waiting)?.reason).toBe('folder_trust');
+    expect(attentionNote(waiting)).toBeNull();
+    expect(needsInput({ ...waiting, status: 'completed' })).toBeNull();
+    expect(needsInput(running({ state: 'none_detected' }))).toBeNull();
+  });
+
+  it('never states that an agent without a detected prompt is not waiting', () => {
+    expect(attentionNote(running({ state: 'none_detected', coverage: 'Codex: x.' }))).toBe(
+      'No prompt detected. Codex: x. If it seems stuck, open the session to check its terminal.',
+    );
+    expect(attentionNote(running())).toMatch(/unknown/);
+    expect(attentionNote(running({ state: 'unavailable' }))).toMatch(/unknown/);
+    expect(attentionNote(run('a', 'demo', 'x'))).toBeNull();
   });
 });

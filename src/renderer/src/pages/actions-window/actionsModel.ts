@@ -1,4 +1,9 @@
-import type { ActionDefinition, ActionRun, ActionRunStatus } from '@hiveryn/shared/domain';
+import type {
+  ActionAgentAttention,
+  ActionDefinition,
+  ActionRun,
+  ActionRunStatus,
+} from '@hiveryn/shared/domain';
 
 // Pure view model for the Actions window: kept free of React and the bridge so
 // it can be unit-tested directly.
@@ -30,6 +35,35 @@ export function requestNote(run: ActionRun): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * The prompt a running execution's agent is known to be waiting on, or null.
+ * Only an explicit provider signal counts; the execution itself stays running.
+ */
+export function needsInput(run: ActionRun): ActionAgentAttention | null {
+  return run.status === 'running' && run.attention?.state === 'input_required'
+    ? run.attention
+    : null;
+}
+
+/**
+ * What is known about a running execution's agent attention when no prompt
+ * was detected, stated so it never reads as "not waiting". Null when the
+ * execution is not running or input is required (see needsInput).
+ */
+export function attentionNote(run: ActionRun): string | null {
+  if (run.status !== 'running' || needsInput(run)) return null;
+  if (!run.attention || run.attention.state === 'unavailable') {
+    return 'Whether the agent is waiting for input is unknown: its terminal is not live. Open the session to check.';
+  }
+  const coverage = run.attention.coverage ? ` ${run.attention.coverage}` : '';
+  return `No prompt detected.${coverage} If it seems stuck, open the session to check its terminal.`;
+}
+
+/** Where an input_required signal came from, in words. */
+export function attentionSourceLabel(attention: ActionAgentAttention): string {
+  return attention.source === 'terminal' ? 'its terminal screen' : "the agent's hooks";
 }
 
 /** Why an action cannot be launched right now, or null when it can. */

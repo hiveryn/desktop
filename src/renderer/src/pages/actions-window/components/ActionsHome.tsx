@@ -5,7 +5,7 @@ import ApiEnvelopeError from '../../../components/ApiEnvelopeError/ApiEnvelopeEr
 import Button from '../../../components/Button/Button';
 import AgentSelect from '../../architect-window/components/TicketLaunchDialog/AgentSelect';
 import { resolvePreferredProfile } from '../../architect-window/components/TicketLaunchDialog/launchSelection';
-import { formatTimestamp, launchBlocker, runsFor, statusLabel } from '../actionsModel';
+import { formatTimestamp, launchBlocker, needsInput, runsFor, statusLabel } from '../actionsModel';
 import ActionRunDetail from './ActionRunDetail';
 import styles from './actions.module.css';
 
@@ -223,6 +223,11 @@ export default function ActionsHome({
                     <span className={styles.statusDot} />
                     {statusLabel(run.status)}
                   </span>
+                  {needsInput(run) ? (
+                    <span className={styles.statusBadge} data-status="attention">
+                      needs input
+                    </span>
+                  ) : null}
                   <span className={styles.runTime}>{formatTimestamp(run.created_at)}</span>
                   <span className={styles.runSummary}>
                     {run.summary || run.error || run.reason || run.prompt}

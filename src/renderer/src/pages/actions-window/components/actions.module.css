@@ -267,6 +267,19 @@
   border-color: var(--theme-status-success);
 }
 
+.statusBadge[data-status="attention"] {
+  color: var(--theme-status-info);
+  border-color: var(--theme-status-info);
+}
+
+.attention {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding-left: 1ch;
+  border-left: 2px solid var(--theme-status-info);
+}
+
 .statusBadge[data-status="failed"],
 .statusBadge[data-status="denied"] {
   color: var(--theme-status-error);
