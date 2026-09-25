@@ -5,6 +5,7 @@ import {
   defaultActionName,
   launchBlocker,
   needsInput,
+  requesterLabel,
   requestNote,
   runsFor,
   sessionTabLabel,
@@ -79,6 +80,18 @@ describe('requestNote', () => {
 
   it('points a pending architect request at its approval surface', () => {
     expect(requestNote(request({ status: 'pending_approval' }))).toMatch(/architect hiveryn/);
+  });
+
+  it('attributes a worker request to its ticket and project', () => {
+    const worker = request({
+      status: 'pending_approval',
+      trigger: 'worker',
+      requester_ticket_id: 'ticket-1',
+    });
+    expect(requesterLabel(worker)).toBe('worker on ticket ticket-1 (architect hiveryn)');
+    expect(requestNote(worker)).toMatch(/worker on ticket ticket-1.*architect hiveryn's window/);
+    expect(requesterLabel(request({}))).toBe('architect hiveryn');
+    expect(requesterLabel(run('m', 'demo', 'x'))).toBeNull();
   });
 
   it('says a denied or failed request never started', () => {

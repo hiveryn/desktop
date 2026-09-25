@@ -21,14 +21,31 @@ export function statusLabel(status: ActionRunStatus): string {
 }
 
 /**
- * Context for an architect's request that has not started: where it is
- * approved while pending, or that it never ran. Null otherwise.
+ * Who requested an agent-requested execution: the architect, or the worker
+ * and its ticket. Null for manual launches.
+ */
+export function requesterLabel(run: ActionRun): string | null {
+  const architect = `architect ${run.architect_key ?? ''}`;
+  switch (run.trigger) {
+    case 'architect':
+      return architect;
+    case 'worker':
+      return `worker on ticket ${run.requester_ticket_id || 'unknown'} (${architect})`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Context for an agent's request that has not started: where it is approved
+ * while pending, or that it never ran. Null otherwise.
  */
 export function requestNote(run: ActionRun): string | null {
-  if (run.trigger !== 'architect' || run.started_at) return null;
+  const requester = requesterLabel(run);
+  if (!requester || run.started_at) return null;
   switch (run.status) {
     case 'pending_approval':
-      return `Requested by architect ${run.architect_key ?? ''} — approve or deny it in that architect's window, where you also choose the agent variant.`;
+      return `Requested by ${requester} — approve or deny it in architect ${run.architect_key ?? ''}'s window, where you also choose the agent variant.`;
     case 'denied':
     case 'failed':
       return 'This request never started.';

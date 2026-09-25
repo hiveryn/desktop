@@ -29,6 +29,22 @@ describe('ActionRunDetail', () => {
     expect(html).not.toContain('Stop execution');
   });
 
+  it('attributes a worker request to its ticket and project', () => {
+    const html = renderToStaticMarkup(
+      <ActionRunDetail
+        run={{
+          ...completed,
+          trigger: 'worker',
+          architect_key: 'hiveryn',
+          requester_session_id: 's-9',
+          requester_ticket_id: 'ticket-1',
+        }}
+      />,
+    );
+    expect(html).toContain('Requested by');
+    expect(html).toContain('worker on ticket ticket-1 (architect hiveryn)');
+  });
+
   it('offers follow-up and stop for a running execution', () => {
     const running: ActionRun = {
       ...completed,

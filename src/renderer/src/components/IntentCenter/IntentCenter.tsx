@@ -293,8 +293,8 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   );
 };
 
-// executeAction: an architect's request to run an Action. The summary names
-// it; the payload carries the action and the architect's prompt (shown in
+// executeAction: an architect's or worker's request to run an Action. The
+// summary names it; the payload carries the action and the requester's prompt (shown in
 // full when expanded). The variant is chosen in the approval form below.
 const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,

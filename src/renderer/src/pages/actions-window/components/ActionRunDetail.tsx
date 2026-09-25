@@ -7,6 +7,7 @@ import {
   attentionSourceLabel,
   formatTimestamp,
   needsInput,
+  requesterLabel,
   requestNote,
   statusLabel,
 } from '../actionsModel';
@@ -61,6 +62,7 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
 
   const running = run.status === 'running';
   const note = requestNote(run);
+  const requester = requesterLabel(run);
   const input = needsInput(run);
   const noAttention = attentionNote(run);
 
@@ -77,10 +79,10 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
       <dl className={styles.fields}>
         <dt>Execution</dt>
         <dd className={styles.mono}>{run.id}</dd>
-        {run.trigger === 'architect' ? (
+        {requester ? (
           <>
             <dt>Requested by</dt>
-            <dd>architect {run.architect_key}</dd>
+            <dd>{requester}</dd>
             <dt>Requested</dt>
             <dd>{formatTimestamp(run.created_at)}</dd>
           </>
