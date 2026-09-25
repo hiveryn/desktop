@@ -72,4 +72,29 @@ describe('IntentCard', () => {
     const blocking: Intent = { ...deferred, inputs: undefined, policy: 'wait-then-allow', wait_seconds: 20 };
     expect(renderToStaticMarkup(<IntentCard intent={blocking} />)).toContain('auto-approve 20s');
   });
+
+  it('renders an Action conclusion with its action, outcome and auto-approve countdown', () => {
+    const conclusion: Intent = {
+      intent_id: 'conc-1',
+      intent_type: 'concludeSession',
+      summary: 'Collector missing',
+      payload: {
+        body: 'Collector missing',
+        outcome: 'failed',
+        action: 'demo-evidence',
+        execution_id: 'run-1',
+        output_dir: '/out/run-1',
+      },
+      origin: { architect_key: '', session_id: 's-2', session_type: 'action' },
+      wait_seconds: 20,
+      policy: 'wait-then-allow',
+      created_at: '2026-09-25T00:00:00Z',
+    };
+    const html = renderToStaticMarkup(<IntentCard intent={conclusion} />);
+    expect(html).toContain('conclude session');
+    expect(html).toContain('action · demo-evidence');
+    expect(html).not.toContain('architect');
+    expect(html).toMatch(/data-outcome="failed"/);
+    expect(html).toContain('auto-approve 20s');
+  });
 });

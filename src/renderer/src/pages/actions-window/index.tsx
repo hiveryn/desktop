@@ -6,6 +6,7 @@ import {
   ErrorBoundary,
   ErrorCenterIndicator,
   ErrorCenterSheet,
+  IntentCenter,
   Navigation,
   Text,
   WorkdirSelector,
@@ -308,6 +309,8 @@ export default function ActionsWindow() {
         <div className={layout.backdrop} onClick={() => setMaximizedPane(null)} />
       )}
 
+      {/* Approvals raised by action agents, e.g. a proposed conclusion. */}
+      <IntentCenter />
       <WorkdirSelector
         choices={terminalWorkdirs}
         open={terminalRequest !== null && terminalWorkdirs.length > 0}

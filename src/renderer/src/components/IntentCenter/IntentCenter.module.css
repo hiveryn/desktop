@@ -52,7 +52,8 @@
   border-left: 2px solid var(--theme-status-warning);
 }
 
-.card[data-kind='conclude'][data-outcome='rejected'] {
+.card[data-kind='conclude'][data-outcome='rejected'],
+.card[data-kind='conclude'][data-outcome='failed'] {
   border-left-color: var(--theme-status-error);
 }
 
@@ -203,7 +204,8 @@
   color: var(--theme-status-info);
 }
 
-.outcomeBadge[data-outcome='rejected'] {
+.outcomeBadge[data-outcome='rejected'],
+.outcomeBadge[data-outcome='failed'] {
   color: var(--theme-status-error);
 }
 

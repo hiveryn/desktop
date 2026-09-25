@@ -28,11 +28,17 @@ function isAlreadyResolved(err: unknown): boolean {
   return (err as { status?: number } | null)?.status === 404;
 }
 
-function originLabel(origin: IntentOrigin): string {
+function originLabel(intent: Intent): string {
+  const origin: IntentOrigin = intent.origin;
   const key = origin.architect_key || 'architect';
   switch (origin.session_type) {
     case 'ticket':
       return origin.ticket_id ? `${key} · ${origin.ticket_id}` : `${key} · ticket`;
+    case 'action': {
+      // Action sessions belong to no architect; the payload names the action.
+      const action = intent.payload?.action;
+      return `action · ${typeof action === 'string' && action ? action : 'execution'}`;
+    }
     default:
       return `${key} · architect`;
   }
@@ -233,7 +239,8 @@ const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
 
 // concludeSession: the summary is the TL;DR; the payload carries the outcome,
 // commits, optional rejection reason, and the full rendered conclusion body
-// (shown expanded). Architect conclusions only carry the body.
+// (shown expanded). Architect conclusions only carry the body; Action
+// conclusions carry their summary as the body plus the output directory.
 const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,
   expanded,
@@ -243,6 +250,7 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   const outcome = optionalString(payload, 'outcome', intent.intent_id);
   const rejectionReason = optionalString(payload, 'rejection_reason', intent.intent_id);
   const commits = optionalCommitArray(payload, 'commits', intent.intent_id);
+  const outputDir = optionalString(payload, 'output_dir', intent.intent_id);
 
   return (
     <div className={styles.details}>
@@ -272,6 +280,12 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
           <span className={styles.fieldValue}>
             {expanded ? rejectionReason : truncate(rejectionReason)}
           </span>
+        </div>
+      )}
+      {expanded && outputDir && (
+        <div className={styles.fieldBlock}>
+          <span className={styles.fieldName}>output directory</span>
+          <span className={styles.fieldValue}>{outputDir}</span>
         </div>
       )}
       {expanded && <MarkdownBlock label="conclusion">{body}</MarkdownBlock>}
@@ -543,8 +557,8 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
             className={expanded ? `${styles.chevron} ${styles.chevronOpen}` : styles.chevron}
             aria-hidden="true"
           />
-          <span className={styles.origin} title={originLabel(intent.origin)}>
-            {originLabel(intent.origin)}
+          <span className={styles.origin} title={originLabel(intent)}>
+            {originLabel(intent)}
           </span>
         </button>
         <span className={styles.countdown} data-deferred={deferred || undefined}>
