@@ -38,6 +38,7 @@ import ActionsBottomTabs from './components/ActionsBottomTabs';
 import ActionsHome from './components/ActionsHome';
 import styles from './components/actions.module.css';
 import { useActionsData } from './hooks/useActionsData';
+import { useOpenSessionRequest } from './hooks/useOpenSessionRequest';
 
 const EMPTY_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
@@ -105,6 +106,9 @@ export default function ActionsWindow() {
     },
     [refresh, openSession],
   );
+
+  // The command palette's running-execution rows land here.
+  useOpenSessionRequest(openSession, refresh);
 
   const requestStop = useCallback(
     (session: SessionRecord) => {

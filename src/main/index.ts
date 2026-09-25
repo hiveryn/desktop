@@ -215,9 +215,7 @@ function focusArchitectSession(architectKey: string, sessionId: string): void {
 registerIpc({
   openArchitectWindow: createArchitectWindow,
   openLauncherWindow: createLauncherWindow,
-  openActionsWindow: () => {
-    createActionsWindow();
-  },
+  openActionsWindow: createActionsWindow,
   isLauncherWindow: (window) => window === launcherWindow,
 });
 

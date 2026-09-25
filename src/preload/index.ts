@@ -267,7 +267,13 @@ contextBridge.exposeInMainWorld('hiveryn', {
     openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
   },
   actions: {
-    openWindow: (): Promise<void> => invoke('actions:open-window'),
+    openWindow: (sessionId?: string): Promise<void> => invoke('actions:open-window', sessionId),
+    onOpenSession: (callback: (sessionId: string) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string): void =>
+        callback(sessionId);
+      ipcRenderer.on('actions:open-session', listener);
+      return () => ipcRenderer.removeListener('actions:open-session', listener);
+    },
     list: (): Promise<ActionList> => invoke('actions:list'),
     get: (name: string): Promise<ActionDefinition> => invoke('actions:get', name),
     launch: (name: string, request: LaunchActionRequest): Promise<LaunchActionResult> =>

@@ -24,7 +24,7 @@ import { registerWorkflowsIpc } from './workflows';
 interface RegisterIpcOptions {
   openArchitectWindow: Parameters<typeof registerLauncherIpc>[0]['openArchitectWindow'];
   openLauncherWindow: () => void;
-  openActionsWindow: () => void;
+  openActionsWindow: Parameters<typeof registerActionsIpc>[0]['openActionsWindow'];
   isLauncherWindow: Parameters<typeof registerLauncherIpc>[0]['isLauncherWindow'];
 }
 

@@ -427,7 +427,9 @@ interface HiverynAPI {
     openArchitect: (key: string) => Promise<void>;
   };
   actions: {
-    openWindow: () => Promise<void>;
+    /** Open/focus the Actions window; with `sessionId`, land on that execution's session tab. */
+    openWindow: (sessionId?: string) => Promise<void>;
+    onOpenSession: (callback: (sessionId: string) => void) => () => void;
     list: () => Promise<ActionList>;
     get: (name: string) => Promise<ActionDefinition>;
     launch: (name: string, request: LaunchActionRequest) => Promise<LaunchActionResult>;

@@ -5,14 +5,14 @@ import type {
   LaunchActionRequest,
   LaunchActionResult,
 } from '@hiveryn/shared/domain';
-import { ipcMain } from 'electron';
+import { type BrowserWindow, ipcMain } from 'electron';
 import type { DaemonResult } from '../../shared/types';
 import * as actionEvents from '../daemon/action-events';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, ok, withData, withNullData } from './results';
 
 interface ActionsIpcOptions {
-  openActionsWindow: () => void;
+  openActionsWindow: () => BrowserWindow;
 }
 
 // Launching starts an agent (setup, PTY, MCP config), which can take longer
@@ -20,8 +20,20 @@ interface ActionsIpcOptions {
 const LAUNCH_TIMEOUT_MS = 30_000;
 
 export function registerActionsIpc({ openActionsWindow }: ActionsIpcOptions): void {
-  ipcMain.handle('actions:open-window', (): DaemonResult<null> => {
-    openActionsWindow();
+  // `sessionId` (the command palette's running-execution rows) asks the window
+  // to land on that execution's session tab; without it the window just opens
+  // or focuses wherever it was, so the home stays reachable.
+  ipcMain.handle('actions:open-window', (_event, sessionId?: string): DaemonResult<null> => {
+    const window = openActionsWindow();
+    if (!sessionId) return ok(null);
+    const send = (): void => {
+      window.webContents.send('actions:open-session', sessionId);
+    };
+    if (window.webContents.isLoading()) {
+      window.webContents.once('did-finish-load', send);
+    } else {
+      send();
+    }
     return ok(null);
   });
 
