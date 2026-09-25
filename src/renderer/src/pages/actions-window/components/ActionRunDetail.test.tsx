@@ -97,6 +97,7 @@ describe('ActionsHome', () => {
         valid: true,
         problems: [],
         running_execution_id: 'run-2',
+        suggestions: ['Compare AMS and LDN three times', 'Compare with a first-attempt failure'],
       },
       {
         name: 'broken',
@@ -107,15 +108,16 @@ describe('ActionsHome', () => {
         problems: [
           { path: '/home/.hiveryn/actions/broken/KICKOFF.md', message: 'file is missing' },
         ],
+        suggestions: ['never offered'],
       },
     ],
   };
 
-  const render = (selected: string) =>
+  const render = (selected: string, runs: ActionRun[] = [completed]) =>
     renderToStaticMarkup(
       <ActionsHome
         list={list}
-        runs={[completed]}
+        runs={runs}
         profiles={[{ name: 'claude-sonnet', agent: 'claude', args: [], env: {} }]}
         selectedAction={selected}
         onSelectAction={() => undefined}
@@ -164,5 +166,47 @@ describe('ActionsHome', () => {
     const html = render('broken');
     expect(html).toContain('file is missing');
     expect(html).toMatch(/<textarea[^>]*disabled/);
+  });
+
+  it('orders the column: launch form, executions, then the definition', () => {
+    const html = render('demo-evidence');
+    const form = html.indexOf('<form');
+    const executions = html.indexOf('Executions');
+    const description = html.indexOf('Say how many runs.');
+    const delivers = html.indexOf('Delivers');
+    expect(form).toBeGreaterThanOrEqual(0);
+    expect(form).toBeLessThan(executions);
+    expect(executions).toBeLessThan(description);
+    expect(description).toBeLessThan(delivers);
+  });
+
+  it('offers suggested prompts as non-submitting chips inside the launch form', () => {
+    const html = render('demo-evidence');
+    const form = html.slice(html.indexOf('<form'), html.indexOf('</form>'));
+    const chips = form.match(/<button type="button"[^>]*title="[^"]*"[^>]*>[^<]*<\/button>/g) ?? [];
+    expect(chips).toHaveLength(2);
+    expect(chips[0]).toContain('Compare AMS and LDN three times');
+    expect(chips[1]).toContain('Compare with a first-attempt failure');
+  });
+
+  it('offers no suggestions for an invalid definition', () => {
+    expect(render('broken')).not.toContain('never offered');
+    expect(render('broken')).not.toContain('Suggested prompts');
+  });
+
+  it('lists at most the latest ten executions of the selected action', () => {
+    const runs = Array.from({ length: 12 }, (_, i) => ({
+      ...completed,
+      id: `run-${i}`,
+      summary: `summary ${String(i).padStart(2, '0')}`,
+      created_at: `2026-09-24T08:${String(i).padStart(2, '0')}:00Z`,
+    }));
+    const html = render('demo-evidence', runs);
+    const listed = html.match(/summary \d\d/g) ?? [];
+    // The newest is also shown in the detail column; the list holds 11..2.
+    expect(new Set(listed)).toEqual(
+      new Set(Array.from({ length: 10 }, (_, i) => `summary ${String(11 - i).padStart(2, '0')}`)),
+    );
+    expect(html).toContain('latest 10 of 12');
   });
 });

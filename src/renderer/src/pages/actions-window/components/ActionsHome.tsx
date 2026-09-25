@@ -5,7 +5,14 @@ import ApiEnvelopeError from '../../../components/ApiEnvelopeError/ApiEnvelopeEr
 import Button from '../../../components/Button/Button';
 import AgentSelect from '../../architect-window/components/TicketLaunchDialog/AgentSelect';
 import { resolvePreferredProfile } from '../../architect-window/components/TicketLaunchDialog/launchSelection';
-import { formatTimestamp, launchBlocker, needsInput, runsFor, statusLabel } from '../actionsModel';
+import {
+  formatTimestamp,
+  LISTED_RUNS_LIMIT,
+  launchBlocker,
+  needsInput,
+  runsFor,
+  statusLabel,
+} from '../actionsModel';
 import ActionRunDetail from './ActionRunDetail';
 import styles from './actions.module.css';
 
@@ -41,10 +48,11 @@ interface Props {
 }
 
 /**
- * The Actions home: the library on the left, the selected action's launch form
- * and execution history in the middle, and the selected execution on the
- * right. A manual launch needs only a prompt and an agent variant; the launch
- * itself is the approval.
+ * The Actions home: the library on the left, the selected action in the middle
+ * — launch form (with the definition's suggested prompts), its latest
+ * executions, then the description and artifact contract — and the selected
+ * execution on the right. A manual launch needs only a prompt and an agent
+ * variant; the launch itself is the approval.
  */
 export default function ActionsHome({
   list,
@@ -61,7 +69,9 @@ export default function ActionsHome({
   const actions = list?.actions ?? [];
   const action = actions.find((candidate) => candidate.name === selectedAction);
   const history = useMemo(() => runsFor(runs, selectedAction), [runs, selectedAction]);
+  const listed = history.slice(0, LISTED_RUNS_LIMIT);
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? history[0] ?? null;
+  const suggestions = action?.valid ? (action.suggestions ?? []) : [];
 
   const [prompt, setPrompt] = useState('');
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -135,87 +145,101 @@ export default function ActionsHome({
 
       <section className={styles.middle}>
         {action ? (
-          <>
-            <div className={styles.section}>
-              <h2 className={styles.columnTitle}>{action.name}</h2>
-              <p className={styles.prose}>{action.description || '—'}</p>
-              <h3 className={styles.sectionTitle}>Delivers</h3>
-              <p className={styles.prose}>{action.artifacts || '—'}</p>
-              {!action.valid ? (
-                <ul className={styles.problems}>
-                  {action.problems.map((problem) => (
-                    <li key={`${problem.path}:${problem.message}`}>
-                      <span className={styles.mono}>{problem.path}</span>: {problem.message}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-
-            <form
-              className={styles.launchForm}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void launch();
+          <form
+            className={styles.launchForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void launch();
+            }}
+          >
+            <h2 className={styles.columnTitle}>{action.name}</h2>
+            {!action.valid ? (
+              <ul className={styles.problems}>
+                {action.problems.map((problem) => (
+                  <li key={`${problem.path}:${problem.message}`}>
+                    <span className={styles.mono}>{problem.path}</span>: {problem.message}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <textarea
+              className={styles.prompt}
+              aria-label="Launch prompt"
+              value={prompt}
+              placeholder="What should this execution do?"
+              rows={5}
+              disabled={!action.valid || submitting}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void launch();
+                }
               }}
-            >
-              <h3 className={styles.sectionTitle}>Launch</h3>
-              <textarea
-                className={styles.prompt}
-                value={prompt}
-                placeholder="What should this execution do?"
-                rows={5}
-                disabled={!action.valid || submitting}
-                onChange={(event) => setPrompt(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    void launch();
-                  }
-                }}
-              />
-              <div className={styles.launchRow}>
-                <div className={styles.agentSelect}>
-                  <AgentSelect
-                    names={profiles.map((profile) => profile.name)}
-                    selectedName={profileName}
-                    onSelect={setProfileName}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className={styles.launchButton}
-                  disabled={blocker !== null || submitting}
-                >
-                  {submitting ? 'Launching…' : 'Launch'}
-                </Button>
+            />
+            {suggestions.length > 0 ? (
+              <ul className={styles.chips} aria-label="Suggested prompts">
+                {suggestions.map((suggestion) => (
+                  <li key={suggestion}>
+                    <button
+                      type="button"
+                      className={styles.chip}
+                      title={suggestion}
+                      disabled={submitting}
+                      onClick={() => setPrompt(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className={styles.launchRow}>
+              <div className={styles.agentSelect}>
+                <AgentSelect
+                  names={profiles.map((profile) => profile.name)}
+                  selectedName={profileName}
+                  onSelect={setProfileName}
+                />
               </div>
-              {blocker && prompt.trim() ? <p className={styles.muted}>{blocker}</p> : null}
-              {action.running_execution_id ? (
-                <p className={styles.muted}>
-                  Busy: execution{' '}
-                  <button
-                    type="button"
-                    className={styles.linkButton}
-                    onClick={() => onSelectRun(action.running_execution_id ?? null)}
-                  >
-                    {action.running_execution_id}
-                  </button>{' '}
-                  is running. One execution of an action runs at a time.
-                </p>
-              ) : null}
-              {submitError ? <ApiEnvelopeError error={submitError} /> : null}
-            </form>
-          </>
+              <Button
+                type="submit"
+                className={styles.launchButton}
+                disabled={blocker !== null || submitting}
+              >
+                {submitting ? 'Launching…' : 'Launch'}
+              </Button>
+            </div>
+            {blocker && prompt.trim() ? <p className={styles.muted}>{blocker}</p> : null}
+            {action.running_execution_id ? (
+              <p className={styles.muted}>
+                Busy: execution{' '}
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => onSelectRun(action.running_execution_id ?? null)}
+                >
+                  {action.running_execution_id}
+                </button>{' '}
+                is running. One execution of an action runs at a time.
+              </p>
+            ) : null}
+            {submitError ? <ApiEnvelopeError error={submitError} /> : null}
+          </form>
         ) : (
           <p className={styles.muted}>Select an action.</p>
         )}
 
         <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Executions</h3>
+          <h3 className={styles.sectionTitle}>
+            Executions
+            {history.length > listed.length
+              ? ` · latest ${listed.length} of ${history.length}`
+              : ''}
+          </h3>
           {history.length === 0 ? <p className={styles.muted}>None yet.</p> : null}
           <ul className={styles.runList}>
-            {history.map((run) => (
+            {listed.map((run) => (
               <li key={run.id}>
                 <button
                   type="button"
@@ -241,6 +265,14 @@ export default function ActionsHome({
             ))}
           </ul>
         </div>
+
+        {action ? (
+          <div className={styles.definition}>
+            <p className={styles.prose}>{action.description || '—'}</p>
+            <h3 className={styles.sectionTitle}>Delivers</h3>
+            <p className={styles.prose}>{action.artifacts || '—'}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className={styles.detailColumn}>

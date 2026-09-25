@@ -86,6 +86,13 @@ export function runsFor(runs: ActionRun[], action: string | null): ActionRun[] {
   return [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+/**
+ * How many executions the selected action's history lists. A presentation
+ * limit only: history is fetched and retained in full, and running-session
+ * discovery does not depend on it.
+ */
+export const LISTED_RUNS_LIMIT = 10;
+
 /** The label a running execution's session tab carries. */
 export function sessionTabLabel(run: ActionRun | undefined, fallback: string): string {
   return run ? run.action : fallback;

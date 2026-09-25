@@ -175,6 +175,60 @@
   outline: 1px solid var(--theme-focus-ring);
 }
 
+/* Suggested prompts: one line each, the full text in the tooltip. A click
+   fills the prompt; it never launches. */
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em 1ch;
+}
+
+.chips li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chip {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  max-width: 100%;
+  padding: 0.1em 1ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--theme-text-muted);
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+}
+
+.chip:hover,
+.chip:focus-visible {
+  color: var(--theme-text);
+  background: var(--theme-surface-raised);
+}
+
+.chip:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* The definition closes the column, below a divider and in a smaller font:
+   the launch form and executions come first. */
+.definition {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding-top: 1em;
+  border-top: 1px solid var(--theme-border);
+  font-size: var(--font-size-sm);
+}
+
 .launchRow {
   display: flex;
   flex-wrap: wrap;
