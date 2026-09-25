@@ -182,7 +182,11 @@ export default function ActionsHome({
                     onSelect={setProfileName}
                   />
                 </div>
-                <Button type="submit" disabled={blocker !== null || submitting}>
+                <Button
+                  type="submit"
+                  className={styles.launchButton}
+                  disabled={blocker !== null || submitting}
+                >
                   {submitting ? 'Launching…' : 'Launch'}
                 </Button>
               </div>

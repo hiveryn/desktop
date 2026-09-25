@@ -177,19 +177,38 @@
 
 .launchRow {
   display: flex;
-  gap: 1ch;
+  flex-wrap: wrap;
+  gap: 0.5em 1ch;
   align-items: center;
 }
 
+/* The selector takes the row; a narrow column wraps Launch below it rather
+   than squeezing the variant name away. */
 .agentSelect {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 24ch;
+  min-width: 16ch;
 }
 
+/* The shared Button fills its container; in the launch row it keeps its own
+   width so the selector gets the space. */
+.launchRow > .launchButton {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* Buttons sit two per row, each taking half of it. */
 .buttonRow {
-  display: flex;
-  gap: 1ch;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5em 1ch;
+}
+
+/* The shared Button's height comes from a 2-line line-height, so a label that
+   wraps in a narrow pane would double it. Here the same height comes from
+   padding instead: one line looks identical, a wrapped label adds one line. */
+.buttonRow > button {
+  line-height: calc(var(--line-height-base) * 1em);
+  padding: calc(var(--line-height-base) * 0.5em) var(--space-h-2);
 }
 
 .detail {
