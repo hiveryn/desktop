@@ -87,7 +87,7 @@ describe('ActionRunDetail', () => {
     expect(html).toContain('running');
   });
 
-  it('states detection coverage when no prompt was detected', () => {
+  it('adds no routine notice when no prompt was detected', () => {
     const quiet: ActionRun = {
       ...completed,
       status: 'running',
@@ -95,9 +95,15 @@ describe('ActionRunDetail', () => {
       session_id: 's-1',
       attention: { state: 'none_detected', coverage: 'Codex: approval prompts are detected.' },
     };
-    const html = renderToStaticMarkup(<ActionRunDetail run={quiet} />);
-    expect(html).toContain('No prompt detected. Codex: approval prompts are detected.');
+    const html = renderToStaticMarkup(
+      <ActionRunDetail run={quiet} onOpenSession={() => undefined} />,
+    );
+    expect(html).not.toContain('No prompt detected');
+    expect(html).not.toContain('approval prompts are detected');
     expect(html).not.toContain('Needs your input');
+    // The terminal stays reachable, and the artifact listing can be reread.
+    expect(html).toContain('Open session');
+    expect(html).toContain('Refresh');
   });
 });
 

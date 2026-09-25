@@ -1,6 +1,7 @@
 import type { ActionDefinition, ActionRun } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
+  artifactListingNote,
   attentionNote,
   defaultActionName,
   launchBlocker,
@@ -126,12 +127,41 @@ describe('needsInput / attentionNote', () => {
     expect(needsInput(running({ state: 'none_detected' }))).toBeNull();
   });
 
-  it('never states that an agent without a detected prompt is not waiting', () => {
-    expect(attentionNote(running({ state: 'none_detected', coverage: 'Codex: x.' }))).toBe(
-      'No prompt detected. Codex: x. If it seems stuck, open the session to check its terminal.',
-    );
+  it('adds no notice when no prompt was detected, and says so when attention is unknown', () => {
+    expect(attentionNote(running({ state: 'none_detected', coverage: 'Codex: x.' }))).toBeNull();
     expect(attentionNote(running())).toMatch(/unknown/);
     expect(attentionNote(running({ state: 'unavailable' }))).toMatch(/unknown/);
     expect(attentionNote(run('a', 'demo', 'x'))).toBeNull();
+  });
+});
+
+describe('artifactListingNote', () => {
+  const listing = (over: Partial<Parameters<typeof artifactListingNote>[0]> = {}) => ({
+    entries: null,
+    error: null,
+    loading: false,
+    ...over,
+  });
+
+  it('says a running execution has no artifacts listed yet, never "Empty"', () => {
+    expect(artifactListingNote(listing({ entries: [] }), true)).toEqual({
+      kind: 'muted',
+      text: 'No artifacts listed yet',
+    });
+    expect(artifactListingNote(listing({ entries: [] }), false)?.text).toBe(
+      'No artifacts in the folder',
+    );
+  });
+
+  it('keeps loading, listed entries and read errors distinct', () => {
+    expect(artifactListingNote(listing({ loading: true }), true)?.text).toBe('Loading artifacts…');
+    // A refresh in flight keeps the previous listing, with no loading note.
+    expect(artifactListingNote(listing({ entries: ['a'], loading: true }), true)).toBeNull();
+    expect(artifactListingNote(listing({ entries: ['a'] }), true)).toBeNull();
+    expect(artifactListingNote(listing({ error: 'EACCES: permission denied' }), true)).toEqual({
+      kind: 'error',
+      text: 'Could not read the output folder: EACCES: permission denied',
+    });
+    expect(artifactListingNote(listing(), false)).toBeNull();
   });
 });

@@ -65,17 +65,47 @@ export function needsInput(run: ActionRun): ActionAgentAttention | null {
 }
 
 /**
- * What is known about a running execution's agent attention when no prompt
- * was detected, stated so it never reads as "not waiting". Null when the
- * execution is not running or input is required (see needsInput).
+ * A note on a running execution's agent attention when it cannot be
+ * observed at all, stated so it never reads as "not waiting". Null when the
+ * execution is not running, input is required (see needsInput), or no prompt
+ * was detected — the routine state of a working agent, which gets no notice
+ * (and no claim that the agent is definitely not waiting).
  */
 export function attentionNote(run: ActionRun): string | null {
   if (run.status !== 'running' || needsInput(run)) return null;
   if (!run.attention || run.attention.state === 'unavailable') {
     return 'Whether the agent is waiting for input is unknown: its terminal is not live. Open the session to check.';
   }
-  const coverage = run.attention.coverage ? ` ${run.attention.coverage}` : '';
-  return `No prompt detected.${coverage} If it seems stuck, open the session to check its terminal.`;
+  return null;
+}
+
+/** The state of an execution's output-folder listing. */
+export interface ArtifactListing {
+  entries: readonly unknown[] | null;
+  error: string | null;
+  loading: boolean;
+}
+
+/**
+ * What the output folder's listing says instead of entries, keeping loading,
+ * an empty folder and a read error distinguishable. Null when entries are
+ * listed. An empty folder of a running execution is not final — the agent
+ * may still write — so it reads "not yet", never a bare "Empty".
+ */
+export function artifactListingNote(
+  listing: ArtifactListing,
+  running: boolean,
+): { kind: 'error' | 'muted'; text: string } | null {
+  if (listing.error) {
+    return { kind: 'error', text: `Could not read the output folder: ${listing.error}` };
+  }
+  if (!listing.entries)
+    return listing.loading ? { kind: 'muted', text: 'Loading artifacts…' } : null;
+  if (listing.entries.length > 0) return null;
+  return {
+    kind: 'muted',
+    text: running ? 'No artifacts listed yet' : 'No artifacts in the folder',
+  };
 }
 
 /** Where an input_required signal came from, in words. */
