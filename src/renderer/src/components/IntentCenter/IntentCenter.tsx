@@ -294,21 +294,26 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
 };
 
 // executeAction: an architect's or worker's request to run an Action. The
-// summary names it; the payload carries the action and the requester's prompt (shown in
-// full when expanded). The variant is chosen in the approval form below.
+// summary names it; the payload carries the action, the agent variant the
+// requester chose and the requester's prompt (shown in full when expanded).
+// There is nothing to fill in: like a ticket, it launches on approval or when
+// the countdown ends.
 const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,
   expanded,
 }) => {
   const payload = requirePayload(intent);
   const action = requireString(payload, 'action', intent.intent_id);
+  const variant = requireString(payload, 'variant', intent.intent_id);
   const prompt = requireString(payload, 'prompt', intent.intent_id);
 
   return (
     <div className={styles.details}>
       <div className={styles.metaRow}>
         <span className={styles.chip}>{action}</span>
-        <span className={styles.metaNote}>runs only once you approve</span>
+        <span className={styles.chip} title="Agent variant">
+          {variant}
+        </span>
       </div>
       {expanded ? (
         <MarkdownBlock label="prompt">{prompt}</MarkdownBlock>

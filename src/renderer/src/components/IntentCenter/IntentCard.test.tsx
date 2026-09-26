@@ -40,32 +40,28 @@ describe('IntentCard', () => {
     expect(html).toContain('Deny');
   });
 
-  it('renders an executeAction request with its action, prompt and a required variant choice', () => {
+  it('renders an executeAction request with its action, variant, prompt and countdown and no form', () => {
     const request: Intent = {
       ...deferred,
       intent_id: 'exec-1',
       intent_type: 'executeAction',
       summary: 'Run demo-evidence',
-      payload: { action: 'demo-evidence', prompt: 'Compare AMS and LDN three times' },
-      inputs: [
-        {
-          name: 'variant',
-          label: 'Agent variant',
-          description: 'The agent that runs this Action.',
-          type: 'choice',
-          required: true,
-          options: [{ value: 'claude-opus', description: 'claude' }, { value: 'codex', description: 'codex' }],
-        },
-      ],
+      payload: { action: 'demo-evidence', variant: 'claude-opus', prompt: 'Compare AMS and LDN three times' },
+      inputs: undefined,
+      policy: 'wait-then-allow',
+      wait_seconds: 20,
     };
     const html = renderToStaticMarkup(<IntentCard intent={request} />);
     expect(html).toContain('run action');
     expect(html).toContain('demo-evidence');
+    expect(html).toContain('claude-opus');
     expect(html).toContain('Compare AMS and LDN three times');
-    expect(html).toContain('awaiting approval');
-    // No default: nothing is preselected, so the user must choose.
-    expect(html).not.toMatch(/<option value="(claude-opus|codex)" selected/);
-    expect(html).toContain('Select…');
+    expect(html).toContain('auto-approve 20s');
+    // The variant is reviewable information, not an approval input.
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('Agent variant</label>');
+    expect(html).toContain('Approve');
+    expect(html).toContain('Deny');
   });
 
   it('keeps the countdown for a blocking request', () => {

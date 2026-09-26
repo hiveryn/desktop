@@ -45,7 +45,7 @@ export function requestNote(run: ActionRun): string | null {
   if (!requester || run.started_at) return null;
   switch (run.status) {
     case 'pending_approval':
-      return `Requested by ${requester} — approve or deny it in architect ${run.architect_key ?? ''}'s window, where you also choose the agent variant.`;
+      return `Requested by ${requester} — approve or deny it in architect ${run.architect_key ?? ''}'s window; it starts automatically if the approval countdown ends.`;
     case 'denied':
     case 'failed':
       return 'This request never started.';
