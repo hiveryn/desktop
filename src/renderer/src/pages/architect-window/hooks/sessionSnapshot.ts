@@ -1,6 +1,10 @@
 import type { Session, SessionTab } from '@hiveryn/shared/domain';
 import { useErrorCenterStore } from '../../../state/errorCenterStore';
-import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
+import {
+  isSplitTerminalTab,
+  type SessionRecord,
+  useSessionStore,
+} from '../../../state/sessionStore';
 
 function sessionLabel(intent: Session): string {
   if (intent.session_type === 'architect') {
@@ -25,6 +29,14 @@ export function buildSessionRecord(
   }
   if (!intent.current_run.main_terminal_id) {
     throw new Error(`Running session ${intent.id} is missing main_terminal_id`);
+  }
+  // The store cannot select a session without a right-pane tab, and rejecting
+  // it there would fail the whole reconcile. Reject this one session here,
+  // where discovery reports it and keeps the window's other sessions.
+  if (!tabs.some((tab) => !isSplitTerminalTab(tab))) {
+    throw new Error(
+      `Running session ${intent.id} has no right-pane tabs; the daemon returned none for ${intent.session_type} sessions (check tabs.yaml)`,
+    );
   }
 
   return {
@@ -112,14 +124,28 @@ const syncChains = new Map<string, Promise<unknown>>();
  */
 export function syncSessionsForArchitect(architectKey: string): Promise<string[]> {
   const previous = syncChains.get(architectKey) ?? Promise.resolve();
-  // A failed sync must not break the chain for every later one, so swallow the
-  // previous result here only — the failure itself still rejects its own caller.
-  const next = previous.catch(() => undefined).then(() => runSync(architectKey));
-  syncChains.set(
-    architectKey,
-    next.catch(() => undefined),
+  // Every caller fires and forgets, so a failed sync is reported here rather
+  // than rejected into nowhere: the window would otherwise just show no
+  // sessions. It resolves to "nothing appeared" and keeps the chain usable.
+  const next = previous.then(() =>
+    runSync(architectKey).catch((error: unknown) => {
+      reportSyncFailure(architectKey, error);
+      return [];
+    }),
   );
+  syncChains.set(architectKey, next);
   return next;
+}
+
+function reportSyncFailure(architectKey: string, error: unknown): void {
+  const err = error instanceof Error ? error : new Error(String(error));
+  useErrorCenterStore.getState().pushError({
+    title: 'Session discovery',
+    message: `Sessions of architect ${architectKey} could not be loaded: ${err.message}`,
+    timestamp: Date.now(),
+    details: { architect_key: architectKey },
+    stacktrace: err.stack,
+  });
 }
 
 async function runSync(architectKey: string): Promise<string[]> {
