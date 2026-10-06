@@ -1,4 +1,11 @@
-import type { Intent, SessionEvent, SessionTab, SessionType } from '@hiveryn/shared/domain';
+import type {
+  AgentQuestion,
+  Intent,
+  QuestionStatus,
+  SessionEvent,
+  SessionTab,
+  SessionType,
+} from '@hiveryn/shared/domain';
 import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
 
@@ -40,6 +47,23 @@ interface SessionState {
   // session can have several open at once; the window-level intent center
   // renders every session's intents, so this is not scoped to the active one.
   pendingIntents: Record<string, Intent>;
+  // Agent questions keyed by question id, across all sessions. A question is
+  // pending until the daemon resolves it; a resolution the user should see
+  // (expired, cancelled, interrupted) is kept as a notice until dismissed.
+  // Each window renders only the questions of the session it shows.
+  questions: Record<string, QuestionEntry>;
+}
+
+export interface QuestionEntry extends AgentQuestion {
+  // Collapsed to a one-line reminder by the user; never answers anything.
+  minimized?: boolean;
+}
+
+export interface QuestionResolution {
+  question_id: string;
+  status: QuestionStatus;
+  answer?: string;
+  reason?: string;
 }
 
 interface SessionActions {
@@ -57,6 +81,12 @@ interface SessionActions {
   clearEventsForSession(sessionId: string): void;
   setPendingIntent(intent: Intent): void;
   clearPendingIntent(intentId: string): void;
+  setQuestion(question: AgentQuestion): void;
+  // keepNotice: keep the question as a no-longer-answerable notice instead of
+  // removing it.
+  resolveQuestion(resolution: QuestionResolution, keepNotice: boolean): void;
+  dismissQuestion(questionId: string): void;
+  setQuestionMinimized(questionId: string, minimized: boolean): void;
   reset(): void;
 }
 
@@ -72,6 +102,7 @@ const initialState: SessionState = {
   maximizedPane: null,
   maximizedPanes: {},
   pendingIntents: {},
+  questions: {},
 };
 
 // Split terminals render beside their primary tab and never become a bar tab.
@@ -160,11 +191,15 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const maximizedPanes = Object.fromEntries(
         Object.entries(state.maximizedPanes).filter(([id]) => id in sessions),
       );
+      const questions = Object.fromEntries(
+        Object.entries(state.questions).filter(([, q]) => q.origin.session_id in sessions),
+      );
       return {
         sessions,
         events,
         sessionRightTabs,
         pendingIntents,
+        questions,
         maximizedPanes,
         ...normalizeSelection(
           sessions,
@@ -190,11 +225,15 @@ export const useSessionStore = create<SessionStore>((set) => ({
         ),
       );
       const { [id]: _removedMaximized, ...maximizedPanes } = state.maximizedPanes;
+      const questions = Object.fromEntries(
+        Object.entries(state.questions).filter(([, q]) => q.origin.session_id !== id),
+      );
       return {
         sessions,
         events,
         sessionRightTabs,
         pendingIntents,
+        questions,
         maximizedPanes,
         ...normalizeSelection(
           sessions,
@@ -352,6 +391,52 @@ export const useSessionStore = create<SessionStore>((set) => ({
       if (!state.pendingIntents[intentId]) return state;
       const { [intentId]: _removed, ...pendingIntents } = state.pendingIntents;
       return { pendingIntents };
+    });
+  },
+
+  setQuestion(question) {
+    set((state) => ({ questions: { ...state.questions, [question.question_id]: question } }));
+  },
+
+  resolveQuestion(resolution, keepNotice) {
+    set((state) => {
+      const current = state.questions[resolution.question_id];
+      if (!current || current.status !== 'pending') return state;
+      if (!keepNotice) {
+        const { [resolution.question_id]: _removed, ...questions } = state.questions;
+        return { questions };
+      }
+      return {
+        questions: {
+          ...state.questions,
+          [resolution.question_id]: {
+            ...current,
+            status: resolution.status,
+            answer: resolution.answer,
+            reason: resolution.reason,
+            minimized: false,
+          },
+        },
+      };
+    });
+  },
+
+  dismissQuestion(questionId) {
+    set((state) => {
+      const current = state.questions[questionId];
+      // A pending question can only be minimized, never dismissed: closing
+      // the UI must not look like an answer.
+      if (!current || current.status === 'pending') return state;
+      const { [questionId]: _removed, ...questions } = state.questions;
+      return { questions };
+    });
+  },
+
+  setQuestionMinimized(questionId, minimized) {
+    set((state) => {
+      const current = state.questions[questionId];
+      if (!current) return state;
+      return { questions: { ...state.questions, [questionId]: { ...current, minimized } } };
     });
   },
 

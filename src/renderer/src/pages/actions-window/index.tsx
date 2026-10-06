@@ -8,6 +8,7 @@ import {
   ErrorCenterSheet,
   IntentCenter,
   Navigation,
+  QuestionPanel,
   Text,
   WorkdirSelector,
 } from '@components';
@@ -218,6 +219,7 @@ export default function ActionsWindow() {
               onClick={() => setFocusedPane('main-terminal')}
             >
               <MainTerminalStack className={layout.terminal} />
+              <QuestionPanel sessionId={showSession ? activeSessionId : null} />
             </div>
             <div
               className={layout.rightPane}

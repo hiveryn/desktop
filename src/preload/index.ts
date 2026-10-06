@@ -2,6 +2,7 @@ import type {
   ActionDefinition,
   ActionList,
   ActionRun,
+  AgentQuestion,
   ConcludeSessionParams,
   CreateTerminalParams,
   Intent,
@@ -68,6 +69,10 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
     path: '/api/sessions/:id/intents/:intentId/approve',
   },
   'sessions:deny-intent': { method: 'POST', path: '/api/sessions/:id/intents/:intentId/deny' },
+  'sessions:answer-question': {
+    method: 'POST',
+    path: '/api/sessions/:id/questions/:questionId/answer',
+  },
   'system:getRuntime': { method: 'GET', path: '/api/system/runtime' },
   'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
   'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
@@ -346,6 +351,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
     ): Promise<Intent> => invoke('sessions:approve-intent', sessionId, intentId, inputs),
     denyIntent: (sessionId: string, intentId: string, reason?: string): Promise<void> =>
       invoke('sessions:deny-intent', sessionId, intentId, reason),
+    answerQuestion: (
+      sessionId: string,
+      questionId: string,
+      answer: string,
+    ): Promise<AgentQuestion> => invoke('sessions:answer-question', sessionId, questionId, answer),
     getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {

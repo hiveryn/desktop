@@ -40,6 +40,9 @@ interface Props {
 export default function ActionsBottomTabs({ homeActive, onHome, onSession, onStop }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const questions = useSessionStore((s) => s.questions);
+  // A session asking a question badges its tab unless it is the one shown.
+  const shownId = homeActive ? null : activeSessionId;
 
   const tabs = useMemo<TabBarTab[]>(
     () => [
@@ -49,13 +52,18 @@ export default function ActionsBottomTabs({ homeActive, onHome, onSession, onSto
           id: session.id,
           icon: iconForStatus(session.status),
           label: session.label,
+          notify:
+            session.id !== shownId &&
+            Object.values(questions).some(
+              (q) => q.status === 'pending' && q.origin.session_id === session.id,
+            ),
           onAction: () => onStop(session),
           actionLabel: 'Stop execution',
           actionIcon: Close,
         }),
       ),
     ],
-    [sessions, onStop],
+    [sessions, questions, shownId, onStop],
   );
 
   return (

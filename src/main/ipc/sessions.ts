@@ -1,4 +1,6 @@
 import type {
+  AgentQuestion,
+  AnswerQuestionRequest,
   ApproveIntentRequest,
   ConcludeSessionParams,
   Intent,
@@ -119,6 +121,22 @@ export function registerSessionsIpc(): void {
       const body: ApproveIntentRequest = inputs ? { inputs } : {};
       return daemonFetch<Intent>(
         `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/approve`,
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+    },
+  );
+
+  ipcMain.handle(
+    'sessions:answer-question',
+    async (
+      _event,
+      sessionId: string,
+      questionId: string,
+      answer: string,
+    ): Promise<DaemonResult<AgentQuestion>> => {
+      const body: AnswerQuestionRequest = { answer };
+      return daemonFetch<AgentQuestion>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/answer`,
         { method: 'POST', body: JSON.stringify(body) },
       );
     },

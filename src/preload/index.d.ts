@@ -105,6 +105,7 @@ type SessionEvent = import('@hiveryn/shared/domain').SessionEvent;
 
 // ── Intents ────────────────────────────────────────────────────────────────
 
+type AgentQuestion = import('@hiveryn/shared/domain').AgentQuestion;
 type IntentType = import('@hiveryn/shared/domain').IntentType;
 type IntentPolicy = import('@hiveryn/shared/domain').IntentPolicy;
 type IntentOrigin = import('@hiveryn/shared/domain').IntentOrigin;
@@ -474,6 +475,13 @@ interface HiverynAPI {
       inputs?: IntentInputValues,
     ) => Promise<Intent>;
     denyIntent: (sessionId: string, intentId: string, reason?: string) => Promise<void>;
+    // A suggested answer's text or free text; 409 when the question is no
+    // longer pending, 404 when it is unknown to this session.
+    answerQuestion: (
+      sessionId: string,
+      questionId: string,
+      answer: string,
+    ) => Promise<AgentQuestion>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {

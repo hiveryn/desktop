@@ -1,6 +1,11 @@
 import type { Intent, IntentOrigin, SessionType } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
 import { parseIntentInputs } from '../../../components/IntentCenter/intentInputsModel';
+import {
+  keepResolutionNotice,
+  parseQuestionRequired,
+  parseQuestionResolved,
+} from '../../../components/QuestionPanel/questionModel';
 import { useSessionStore } from '../../../state/sessionStore';
 
 function parseIntentOrigin(rawOrigin: unknown): IntentOrigin {
@@ -169,6 +174,20 @@ export function useSessionEvents(): void {
         if (typeof intentId === 'string' && intentId) {
           store.clearPendingIntent(intentId);
         }
+        return;
+      }
+
+      // An agent question, shown over its session's main pane. The daemon
+      // publishes a resolved event for every resolution, so backlog replay on
+      // reconnect nets to only the still-pending questions; a fresh
+      // no-longer-answerable resolution stays as a notice until dismissed.
+      if (event.type === 'question' && event.status === 'required') {
+        store.setQuestion(parseQuestionRequired(event));
+        return;
+      }
+      if (event.type === 'question' && event.status === 'resolved') {
+        const resolution = parseQuestionResolved(event);
+        store.resolveQuestion(resolution, keepResolutionNotice(resolution, event.at, Date.now()));
         return;
       }
 

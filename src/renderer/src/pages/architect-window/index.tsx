@@ -12,6 +12,7 @@ import {
   Keyboard,
   Navigation,
   Plus,
+  QuestionPanel,
   Text,
   WorkdirSelector,
 } from '@components';
@@ -231,6 +232,7 @@ export default function ArchitectWindow() {
                 onClick={() => setFocusedPane('main-terminal')}
               >
                 <MainTerminalStack className={styles.terminal} />
+                <QuestionPanel sessionId={activeSessionId} />
               </div>
               <div
                 className={styles.rightPane}

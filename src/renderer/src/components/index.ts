@@ -38,5 +38,6 @@ export { default as WorkdirSelector } from './WorkdirSelector/WorkdirSelector';
 export { default as ErrorCenterIndicator } from './ErrorCenterIndicator/ErrorCenterIndicator';
 export { default as ErrorCenterSheet } from './ErrorCenterSheet/ErrorCenterSheet';
 export { default as IntentCenter } from './IntentCenter/IntentCenter';
+export { default as QuestionPanel } from './QuestionPanel/QuestionPanel';
 export { DiffView } from './DiffView';
 export type { DiffFileStatus, DiffSectionKind, DiffViewFile, DiffViewProps, DiffViewSection } from './DiffView';
