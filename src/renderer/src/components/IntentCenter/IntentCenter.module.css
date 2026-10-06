@@ -38,8 +38,8 @@
 }
 
 /* Type accent edge: cyan for a new ticket, green for a conclusion — flipped to
-   red when the conclusion's outcome is rejected — and amber for an Action
-   request. */
+   red when the conclusion's outcome is rejected — amber for an Action
+   request and the focus colour for a worker launch. */
 .card[data-kind='ticket'] {
   border-left: 2px solid var(--theme-status-info);
 }
@@ -50,6 +50,10 @@
 
 .card[data-kind='action'] {
   border-left: 2px solid var(--theme-status-warning);
+}
+
+.card[data-kind='worker'] {
+  border-left: 2px solid var(--theme-focused-foreground);
 }
 
 .card[data-kind='conclude'][data-outcome='rejected'],
@@ -164,6 +168,10 @@
 
 .kindBadge[data-kind='action'] {
   color: var(--theme-status-warning);
+}
+
+.kindBadge[data-kind='worker'] {
+  color: var(--theme-focused-foreground);
 }
 
 .summary {

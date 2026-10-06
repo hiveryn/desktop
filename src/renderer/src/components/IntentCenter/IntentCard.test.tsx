@@ -64,6 +64,38 @@ describe('IntentCard', () => {
     expect(html).toContain('Deny');
   });
 
+  it('renders a spawnTicketWorker request with its ticket, variant, workflows and countdown', () => {
+    const request: Intent = {
+      ...deferred,
+      intent_id: 'spawn-1',
+      intent_type: 'spawnTicketWorker',
+      summary: 'Ship spawn',
+      payload: {
+        ticket_id: '2026-10-06-0449-ship-spawn',
+        repo: 'daemon',
+        additional_repos: ['desktop'],
+        variant: 'claude-opus',
+        workflows: ['AUTONOMOUS_COMMIT', 'ISOLATED_VERIFICATION'],
+      },
+      inputs: undefined,
+      policy: 'wait-then-allow',
+      wait_seconds: 20,
+    };
+    const html = renderToStaticMarkup(<IntentCard intent={request} />);
+    expect(html).toContain('spawn worker');
+    expect(html).toContain('Ship spawn');
+    expect(html).toContain('claude-opus');
+    expect(html).toContain('desktop');
+    expect(html).toContain('AUTONOMOUS_COMMIT, ISOLATED_VERIFICATION');
+    expect(html).toContain('auto-approve 20s');
+    expect(html).not.toContain('<select');
+
+    const none = renderToStaticMarkup(
+      <IntentCard intent={{ ...request, payload: { ...request.payload, workflows: [] } }} />,
+    );
+    expect(none).toMatch(/workflows<\/span><span[^>]*>none</);
+  });
+
   it('keeps the countdown for a blocking request', () => {
     const blocking: Intent = { ...deferred, inputs: undefined, policy: 'wait-then-allow', wait_seconds: 20 };
     expect(renderToStaticMarkup(<IntentCard intent={blocking} />)).toContain('auto-approve 20s');

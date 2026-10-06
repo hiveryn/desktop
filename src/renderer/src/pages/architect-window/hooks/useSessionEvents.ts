@@ -41,7 +41,8 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
   if (
     intentType !== 'concludeSession' &&
     intentType !== 'createWorkTicket' &&
-    intentType !== 'executeAction'
+    intentType !== 'executeAction' &&
+    intentType !== 'spawnTicketWorker'
   ) {
     throw new Error(`intent/required event has unknown raw.intent_type: ${JSON.stringify(event)}`);
   }

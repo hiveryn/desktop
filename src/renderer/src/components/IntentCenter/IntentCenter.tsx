@@ -327,6 +327,51 @@ const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   );
 };
 
+// spawnTicketWorker: an architect's request to launch a worker. The summary
+// is the ticket title; the payload carries the ticket id, its repo scope, the
+// agent variant the architect chose and the workflow selection — exactly what
+// the worker gets, so an empty selection is shown as none, never omitted.
+const WorkerIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
+  intent,
+  expanded,
+}) => {
+  const payload = requirePayload(intent);
+  const ticketId = requireString(payload, 'ticket_id', intent.intent_id);
+  const variant = requireString(payload, 'variant', intent.intent_id);
+  const repo = requireString(payload, 'repo', intent.intent_id);
+  const additionalRepos = optionalStringArray(payload, 'additional_repos', intent.intent_id);
+  const workflows = optionalStringArray(payload, 'workflows', intent.intent_id);
+
+  return (
+    <div className={styles.details}>
+      <div className={styles.metaRow}>
+        <span className={styles.chip} title="Agent variant">
+          {variant}
+        </span>
+        <span className={styles.chip}>
+          {repo}
+          {additionalRepos.length > 0 && <span className={styles.chipTag}> primary</span>}
+        </span>
+        {additionalRepos.map((key) => (
+          <span key={key} className={styles.chip}>
+            {key}
+          </span>
+        ))}
+      </div>
+      <div className={styles.field}>
+        <span className={styles.fieldName}>workflows</span>
+        <span className={styles.fieldValue}>{workflows.length > 0 ? workflows.join(', ') : 'none'}</span>
+      </div>
+      {expanded && (
+        <div className={styles.field}>
+          <span className={styles.fieldName}>ticket</span>
+          <span className={styles.fieldValue}>{ticketId}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Approval inputs ──────────────────────────────────────────────────────────
 
 const InputControl: React.FC<{
@@ -452,12 +497,13 @@ const IntentInputsForm: React.FC<{
   </fieldset>
 );
 
-type IntentKind = 'ticket' | 'conclude' | 'action' | null;
+type IntentKind = 'ticket' | 'conclude' | 'action' | 'worker' | null;
 
 function kindOf(type: Intent['intent_type']): IntentKind {
   if (type === 'createWorkTicket') return 'ticket';
   if (type === 'concludeSession') return 'conclude';
   if (type === 'executeAction') return 'action';
+  if (type === 'spawnTicketWorker') return 'worker';
   return null;
 }
 
@@ -465,6 +511,7 @@ const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   ticket: 'new ticket',
   conclude: 'conclude session',
   action: 'run action',
+  worker: 'spawn worker',
 };
 
 export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
@@ -589,6 +636,8 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
         <ConclusionIntentDetails intent={intent} expanded={expanded} />
       ) : kind === 'action' ? (
         <ActionIntentDetails intent={intent} expanded={expanded} />
+      ) : kind === 'worker' ? (
+        <WorkerIntentDetails intent={intent} expanded={expanded} />
       ) : (
         intent.payload && (
           <div className={styles.details}>
