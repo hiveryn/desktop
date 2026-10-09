@@ -23,6 +23,7 @@ import type { AgentProfile } from '../../../../shared/types';
 import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
+import { profilesForMachine } from '../../lib/variantMachines';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
 import MainTerminalStack from '../architect-window/components/MainTerminalStack';
 import RightPane from '../architect-window/components/RightPane';
@@ -73,7 +74,11 @@ export default function ActionsWindow() {
   const [stopError, setStopError] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.hiveryn.profiles.list().then(setProfiles, () => undefined);
+    // Actions run locally, so only local variants are offered.
+    void window.hiveryn.profiles.list().then(
+      (list) => setProfiles(profilesForMachine(list, '')),
+      () => undefined,
+    );
   }, []);
 
   useEffect(() => {

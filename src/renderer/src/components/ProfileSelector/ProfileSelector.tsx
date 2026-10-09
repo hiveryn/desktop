@@ -10,6 +10,8 @@ interface ProfileSelectorProps {
   open: boolean;
   onClose: () => void;
   onSelect: (profileName: string) => void;
+  /** Shown instead of the list when there are no profiles at all. */
+  emptyLabel?: string;
 }
 
 /**
@@ -17,7 +19,7 @@ interface ProfileSelectorProps {
  * own. Picking closes it: the one-step selector the launcher and the tray
  * palette need.
  */
-const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClose, onSelect }) => {
+const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClose, onSelect, emptyLabel }) => {
   if (!open) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -31,6 +33,7 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClo
           profiles={profiles}
           onChoose={name => { onSelect(name); onClose(); }}
           onCancel={onClose}
+          emptyLabel={emptyLabel}
         />
       </div>
     </div>,

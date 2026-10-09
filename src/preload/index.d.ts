@@ -82,6 +82,8 @@ interface IpcError extends Error {
 type AgentKind = 'claude' | 'codex' | 'opencode';
 
 interface AgentProfile {
+  /** The machines.yaml key this variant runs on; absent means local only. */
+  machine?: string;
   name: string;
   agent: string;
   args: string[];

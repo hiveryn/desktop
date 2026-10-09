@@ -6,7 +6,14 @@ import type {
   Workflow,
   WorkflowList,
 } from '@hiveryn/shared/domain';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ExecutionMachine,
+  machineLabel,
+  noVariantMessage,
+  profilesForMachine,
+  scopeMachine,
+} from '../../../../lib/variantMachines';
 import AgentSelect from './AgentSelect';
 import {
   groupWorkflows,
@@ -92,9 +99,16 @@ export default function TicketLaunchDialog({
   const [preflight, setPreflight] = useState<WorkerPreflight | null>(null);
   const [loadError, setLoadError] = useState<unknown | null>(null);
   const [selection, setSelection] = useState<string[]>(existingSession?.workflows ?? []);
-  const [profileName, setProfileName] = useState<string | null>(() =>
-    resolvePreferredProfile(readProfilePreference(), profiles),
+  // Where this worker runs, from the architect's repo locations: null while
+  // unknown, or the reason the scope cannot be placed.
+  const [machine, setMachine] = useState<ExecutionMachine | null>(null);
+  const [machineProblem, setMachineProblem] = useState<string | null>(null);
+  // Only the variants configured for that machine may run the worker.
+  const eligible = useMemo(
+    () => (machine === null ? [] : profilesForMachine(profiles, machine)),
+    [profiles, machine],
   );
+  const [profileName, setProfileName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<unknown | null>(null);
 
@@ -114,12 +128,24 @@ export default function TicketLaunchDialog({
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const [workflows, ready] = await Promise.all([
+      const [workflows, ready, architect] = await Promise.all([
         window.hiveryn.workflows.list(architectKey, scopeKey === '' ? [] : scopeKey.split(',')),
         window.hiveryn.workflows.preflight(architectKey),
+        window.hiveryn.architects.get(architectKey),
       ]);
       setList(workflows);
       setPreflight(ready);
+      const placed = scopeMachine(
+        architect.repos ?? [],
+        scopeKey === '' ? [] : scopeKey.split(','),
+      );
+      if ('machine' in placed) {
+        setMachine(placed.machine);
+        setMachineProblem(null);
+      } else {
+        setMachine(null);
+        setMachineProblem(placed.problem);
+      }
       if (existingSession !== null) {
         // The daemon owns this selection; a refresh may not prune it.
         setSelection(existingSession.workflows);
@@ -138,6 +164,16 @@ export default function TicketLaunchDialog({
     void load();
   }, [load]);
 
+  // A choice that is not eligible for this machine — a remembered preference
+  // or a pick made before the scope was placed — is cleared, never replaced
+  // by another variant: the user picks again.
+  useEffect(() => {
+    setProfileName((current) => {
+      const candidate = current ?? readProfilePreference();
+      return resolvePreferredProfile(candidate, eligible);
+    });
+  }, [eligible]);
+
   // A launch failure is usually a workspace that moved under the dialog, so
   // reload both answers and show what changed rather than leaving stale rows.
   const submit = useCallback(async () => {
@@ -154,9 +190,15 @@ export default function TicketLaunchDialog({
     }
   }, [load, onLaunch, profileName, selection, submitting]);
 
+  const placementProblems =
+    machineProblem !== null
+      ? [machineProblem]
+      : machine !== null && eligible.length === 0
+        ? [noVariantMessage(machine)]
+        : [];
   const gate = { profileName, preflight, list, selection, submitting };
-  const blockers = launchBlockers(gate);
-  const problems = launchProblems(gate);
+  const blockers = [...placementProblems, ...launchBlockers(gate)];
+  const problems = [...placementProblems, ...launchProblems(gate)];
   const groups = list === null ? null : groupWorkflows(list);
   // Suggested first, then the rest, then the ones only a file repair can make
   // selectable: the order the user has to decide in.
@@ -213,8 +255,12 @@ export default function TicketLaunchDialog({
         </div>
       )}
 
+      {machine !== null && machine !== '' && (
+        <div className={styles.notice}>Runs on {machineLabel(machine)}.</div>
+      )}
+
       <AgentSelect
-        names={profiles.map((profile) => profile.name)}
+        names={eligible.map((profile) => profile.name)}
         selectedName={profileName}
         onSelect={setProfileName}
       />

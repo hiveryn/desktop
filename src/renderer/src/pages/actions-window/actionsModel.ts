@@ -4,6 +4,7 @@ import type {
   ActionRun,
   ActionRunStatus,
 } from '@hiveryn/shared/domain';
+import { noVariantMessage } from '../../lib/variantMachines';
 
 // Pure view model for the Actions window: kept free of React and the bridge so
 // it can be unit-tested directly.
@@ -89,11 +90,13 @@ export function launchBlocker(
   action: ActionDefinition | undefined,
   prompt: string,
   profileName: string | null,
+  hasVariants = true,
 ): string | null {
   if (!action) return 'Select an action';
   if (!action.valid) return 'This action has an invalid definition';
   if (action.running_execution_id) return 'This action is already running';
   if (!prompt.trim()) return 'Enter a prompt';
+  if (!hasVariants) return noVariantMessage('');
   if (!profileName) return 'Select an agent variant';
   return null;
 }

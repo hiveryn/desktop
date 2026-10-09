@@ -66,6 +66,8 @@ export interface ApiResponse<T> {
 export type AgentKind = 'claude' | 'codex' | 'opencode';
 
 export interface AgentProfile {
+  /** The machines.yaml key this variant runs on; absent means local only. */
+  machine?: string;
   name: string;
   agent: string;
   model?: string;

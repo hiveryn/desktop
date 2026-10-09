@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useErrorCenterCapture } from '../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../keys/useKeyDispatcher';
+import { noVariantMessage, profilesForMachine } from '../lib/variantMachines';
 import styles from './launcher.module.css';
 
 function shortenPath(path: string, home: string | null): string {
@@ -78,7 +79,8 @@ export default function Launcher() {
       }
 
       if (profilesResult.status === 'fulfilled') {
-        setProfiles(profilesResult.value);
+        // Architects run locally, so only local variants are offered.
+        setProfiles(profilesForMachine(profilesResult.value, ''));
       } else {
         setProfilesError(profilesResult.reason);
       }
@@ -175,6 +177,7 @@ export default function Launcher() {
 
       <ProfileSelector
         profiles={profiles}
+        emptyLabel={noVariantMessage('')}
         open={showProfileSelector}
         onSelect={(name: string) => void handleProfileSelect(name)}
         onClose={handleProfileSelectorClose}

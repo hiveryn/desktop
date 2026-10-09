@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { AgentProfile, ArchitectStatus } from '../../../../shared/types';
 import { formatElapsed } from '../../lib/formatElapsed';
+import { noVariantMessage, profilesForMachine } from '../../lib/variantMachines';
 import paletteStyles from '../palette/palette.module.css';
 import {
   ACTIONS_ROW_LABEL,
@@ -71,7 +72,11 @@ const TrayPalette: React.FC = () => {
   // Initial data + profile list.
   React.useEffect(() => {
     loadStatuses();
-    window.hiveryn.profiles.list().then(setProfiles).catch(setError);
+    // Architects run locally, so only local variants are offered.
+    window.hiveryn.profiles
+      .list()
+      .then((list) => setProfiles(profilesForMachine(list, '')))
+      .catch(setError);
   }, [loadStatuses]);
 
   // Refresh whenever the popover is shown, and reset transient UI state.
@@ -352,6 +357,7 @@ const TrayPalette: React.FC = () => {
       ) : null}
       <ProfileSelector
         profiles={profiles}
+        emptyLabel={noVariantMessage('')}
         open={showProfileSelector}
         onClose={() => {
           if (!spawning) {

@@ -2,6 +2,8 @@ import * as React from 'react';
 import styles from './ProfileSelector.module.css';
 
 export interface AgentProfile {
+  /** The machines.yaml key this variant runs on; absent means local only. */
+  machine?: string;
   name: string;
   agent: string;
   model?: string;
@@ -17,6 +19,8 @@ interface ProfileListProps {
   onChoose: (profileName: string) => void;
   /** Escape. */
   onCancel?: () => void;
+  /** Shown instead of the list when there are no profiles at all. */
+  emptyLabel?: string;
 }
 
 /**
@@ -24,7 +28,7 @@ interface ProfileListProps {
  * without a backdrop or a panel of its own — the modal selector (launcher,
  * tray palette) is this list plus a portal.
  */
-const ProfileList: React.FC<ProfileListProps> = ({ profiles, onChoose, onCancel }) => {
+const ProfileList: React.FC<ProfileListProps> = ({ profiles, onChoose, onCancel, emptyLabel }) => {
   const [query, setQuery] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
   const activeItemRef = React.useRef<HTMLLIElement>(null);
@@ -124,7 +128,9 @@ const ProfileList: React.FC<ProfileListProps> = ({ profiles, onChoose, onCancel 
           })}
         </ul>
       ) : (
-        <div className={styles.empty}>no profiles match</div>
+        <div className={styles.empty}>
+          {profiles.length === 0 && emptyLabel ? emptyLabel : 'no profiles match'}
+        </div>
       )}
     </>
   );

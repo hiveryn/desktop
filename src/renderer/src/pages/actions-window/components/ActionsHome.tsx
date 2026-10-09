@@ -91,7 +91,7 @@ export default function ActionsHome({
     setSubmitError(null);
   }, [selectedAction]);
 
-  const blocker = launchBlocker(action, prompt, profileName);
+  const blocker = launchBlocker(action, prompt, profileName, profiles.length > 0);
 
   async function launch(): Promise<void> {
     if (blocker || !action || !profileName) return;
