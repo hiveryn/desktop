@@ -1,6 +1,9 @@
 import type { Intent, IntentOrigin, SessionType } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
-import { parseIntentInputs } from '../../../components/IntentCenter/intentInputsModel';
+import {
+  keepIntentFailure,
+  parseIntentInputs,
+} from '../../../components/IntentCenter/intentInputsModel';
 import {
   keepResolutionNotice,
   parseQuestionRequired,
@@ -175,10 +178,28 @@ export function useSessionEvents(): void {
       // resolves (approved/denied/auto/error/daemon-restart). The SSE backlog
       // replays in order, so a resolved event following a required event nets to
       // "no card" on reconnect. Pairing is by intent id, never session id.
+      // The approved operation is running in the daemon (user approval or
+      // policy expiry). The card stays, unanswerable, until resolved.
+      if (event.type === 'intent' && event.status === 'resolving') {
+        const intentId = event.raw?.intent_id;
+        if (typeof intentId === 'string' && intentId) {
+          store.markIntentResolving(intentId);
+        }
+        return;
+      }
+
       if (event.type === 'intent' && event.status === 'resolved') {
         const intentId = event.raw?.intent_id;
         if (typeof intentId === 'string' && intentId) {
-          store.clearPendingIntent(intentId);
+          const reason = event.raw?.reason;
+          if (keepIntentFailure(event.raw?.outcome, event.at, Date.now())) {
+            store.failPendingIntent(
+              intentId,
+              typeof reason === 'string' && reason ? reason : 'the operation failed',
+            );
+          } else {
+            store.clearPendingIntent(intentId);
+          }
         }
         return;
       }

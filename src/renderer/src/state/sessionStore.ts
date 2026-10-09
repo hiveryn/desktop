@@ -48,12 +48,21 @@ interface SessionState {
   // Pending agent intents awaiting the user's approval, keyed by intent id. A
   // session can have several open at once; the window-level intent center
   // renders every session's intents, so this is not scoped to the active one.
-  pendingIntents: Record<string, Intent>;
+  pendingIntents: Record<string, PendingIntent>;
   // Agent questions keyed by question id, across all sessions. A question is
   // pending until the daemon resolves it; a resolution the user should see
   // (expired, cancelled, interrupted) is kept as a notice until dismissed.
   // Each window renders only the questions of the session it shows.
   questions: Record<string, QuestionEntry>;
+}
+
+// An intent card's view state. resolving: the intent was approved (by the
+// user or its policy) and the daemon is running it — no longer answerable, not
+// yet resolved. failure: it resolved with an error the user should read; the
+// card stays as a notice until dismissed.
+export interface PendingIntent extends Intent {
+  resolving?: boolean;
+  failure?: string;
 }
 
 export interface QuestionEntry extends AgentQuestion {
@@ -84,6 +93,8 @@ interface SessionActions {
   clearEventsForSession(sessionId: string): void;
   setPendingIntent(intent: Intent): void;
   clearPendingIntent(intentId: string): void;
+  markIntentResolving(intentId: string): void;
+  failPendingIntent(intentId: string, reason: string): void;
   setQuestion(question: AgentQuestion): void;
   // keepNotice: keep the question as a no-longer-answerable notice instead of
   // removing it.
@@ -378,6 +389,29 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set((state) => ({
       pendingIntents: { ...state.pendingIntents, [intent.intent_id]: intent },
     }));
+  },
+
+  markIntentResolving(intentId) {
+    set((state) => {
+      const intent = state.pendingIntents[intentId];
+      if (!intent || intent.resolving) return state;
+      return {
+        pendingIntents: { ...state.pendingIntents, [intentId]: { ...intent, resolving: true } },
+      };
+    });
+  },
+
+  failPendingIntent(intentId, reason) {
+    set((state) => {
+      const intent = state.pendingIntents[intentId];
+      if (!intent) return state;
+      return {
+        pendingIntents: {
+          ...state.pendingIntents,
+          [intentId]: { ...intent, resolving: false, failure: reason },
+        },
+      };
+    });
   },
 
   clearPendingIntent(intentId) {

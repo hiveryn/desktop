@@ -125,4 +125,28 @@ describe('IntentCard', () => {
     expect(html).toMatch(/data-outcome="failed"/);
     expect(html).toContain('auto-approve 20s');
   });
+
+  it('shows a resolving intent as unanswerable until the daemon reports its outcome', () => {
+    const resolving = { ...deferred, inputs: undefined, policy: 'wait-then-allow' as const, wait_seconds: 20, resolving: true };
+    const html = renderToStaticMarkup(<IntentCard intent={resolving} />);
+    expect(html).toContain('resolving…');
+    expect(html).toContain('Resolving…');
+    expect(html).toContain('the daemon is carrying it out');
+    expect(html).not.toContain('auto-approve 20s');
+    expect(html).not.toMatch(/>Approve</);
+  });
+
+  it('keeps a failed approval as a dismissible notice with its original reason', () => {
+    const failed = {
+      ...deferred,
+      inputs: undefined,
+      policy: 'wait-then-allow' as const,
+      failure: 'remote termination not confirmed on bk; session retained: ssh: killed',
+    };
+    const html = renderToStaticMarkup(<IntentCard intent={failed} />);
+    expect(html).toContain('approved, then failed');
+    expect(html).toContain('remote termination not confirmed on bk');
+    expect(html).toContain('Dismiss');
+    expect(html).not.toContain('Deny');
+  });
 });

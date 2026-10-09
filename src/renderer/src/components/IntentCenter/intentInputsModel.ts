@@ -134,9 +134,35 @@ function autoVerb(policy: Intent['policy']): string | null {
  * daemon's expiry is authoritative, so at zero it waits for the resolved
  * event); a deferred one waits for the user without a timer.
  */
-export function intentStatusLabel(intent: Intent, remainingSeconds: number): string {
+export function intentStatusLabel(
+  intent: Intent,
+  remainingSeconds: number,
+  resolving = false,
+): string {
+  if (resolving) return 'resolving…';
   if (isDeferred(intent)) return 'awaiting approval';
   if (remainingSeconds <= 0) return 'resolving…';
   const verb = autoVerb(intent.policy);
   return verb ? `${verb} ${remainingSeconds}s` : `${remainingSeconds}s`;
+}
+
+// A failed resolution stays on screen as a notice only while it is fresh: an
+// approved operation that failed (remote cleanup not confirmed, a launch error)
+// must not vanish with its card, but old backlog replayed on reconnect is not
+// news.
+const FAILURE_FRESH_MS = 10 * 60 * 1000;
+
+export function keepIntentFailure(outcome: unknown, eventAt: string, now: number): boolean {
+  if (outcome !== 'error') return false;
+  const at = Date.parse(eventAt);
+  return Number.isFinite(at) && now - at <= FAILURE_FRESH_MS;
+}
+
+// Whether an answer attempt ended without learning the outcome: the client
+// stopped waiting (TIMEOUT) or the daemon reports the intent already resolving
+// (409). Either way the operation may still be running; the card waits for
+// the daemon's resolved event instead of guessing.
+export function outcomeStillPending(err: unknown): boolean {
+  const e = err as { status?: number; code?: string } | null;
+  return e?.code === 'TIMEOUT' || e?.status === 409;
 }

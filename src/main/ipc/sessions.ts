@@ -19,6 +19,27 @@ import { invalidDaemonResponse, withNullData } from './results';
 // its own error; this bound sits beyond it so that error is what the user sees.
 const RUN_LAUNCH_TIMEOUT_MS = 150_000;
 
+// Concluding or discarding a session confirms remote termination over SSH. The
+// daemon owns that operation once accepted, bounded at two minutes; this sits
+// beyond it so its own error is what the user sees.
+const SESSION_END_TIMEOUT_MS = 150_000;
+
+// Approving runs the approved operation (a remote conclusion, a worker launch)
+// on the daemon, bounded at three minutes plus recording its outcome. Denying
+// runs nothing but records the denial. Both sit beyond the daemon's bounds.
+const INTENT_APPROVE_TIMEOUT_MS = 240_000;
+const INTENT_DENY_TIMEOUT_MS = 45_000;
+
+// A client timeout is not the operation's outcome: once accepted, the daemon
+// finishes it and publishes the result whether or not anyone is still waiting.
+function explainStoppedWaiting<T>(result: DaemonResult<T>, continuation: string): DaemonResult<T> {
+  const error = result.envelope.error;
+  if (error?.code === 'TIMEOUT') {
+    error.message += `. Hiveryn stopped waiting, but the daemon did not stop: ${continuation}`;
+  }
+  return result;
+}
+
 export function registerSessionsIpc(): void {
   ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
     const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
@@ -97,24 +118,38 @@ export function registerSessionsIpc(): void {
       sessionId: string,
       params: ConcludeSessionParams,
     ): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/conclude`, {
-        method: 'POST',
-        body: JSON.stringify({
-          body: params.body,
-          commits: params.commits,
-          outcome: params.outcome,
-          rejection_reason: params.rejection_reason,
-        }),
-      });
+      const result = await daemonFetch<null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/conclude`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            body: params.body,
+            commits: params.commits,
+            outcome: params.outcome,
+            rejection_reason: params.rejection_reason,
+          }),
+        },
+        { timeoutMs: SESSION_END_TIMEOUT_MS },
+      );
+      return explainStoppedWaiting(
+        result,
+        'the session closes when the conclusion is applied; if it stays open, conclude again to see its error.',
+      );
     },
   );
 
   ipcMain.handle(
     'sessions:discard',
     async (_event, sessionId: string): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(`/api/sessions/${encodeURIComponent(sessionId)}/discard`, {
-        method: 'POST',
-      });
+      const result = await daemonFetch<null>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/discard`,
+        { method: 'POST' },
+        { timeoutMs: SESSION_END_TIMEOUT_MS },
+      );
+      return explainStoppedWaiting(
+        result,
+        'the session closes when the discard is applied; if it stays open, discard again to see its error.',
+      );
     },
   );
 
@@ -132,9 +167,14 @@ export function registerSessionsIpc(): void {
       inputs?: IntentInputValues,
     ): Promise<DaemonResult<Intent>> => {
       const body: ApproveIntentRequest = inputs ? { inputs } : {};
-      return daemonFetch<Intent>(
+      const result = await daemonFetch<Intent>(
         `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/approve`,
         { method: 'POST', body: JSON.stringify(body) },
+        { timeoutMs: INTENT_APPROVE_TIMEOUT_MS },
+      );
+      return explainStoppedWaiting(
+        result,
+        'the approved operation continues, and the request shows its outcome when the daemon reports it.',
       );
     },
   );
@@ -163,10 +203,12 @@ export function registerSessionsIpc(): void {
       intentId: string,
       reason?: string,
     ): Promise<DaemonResult<null>> => {
-      return daemonFetch<null>(
+      const result = await daemonFetch<null>(
         `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/deny`,
         { method: 'POST', body: JSON.stringify({ reason: reason ?? '' }) },
+        { timeoutMs: INTENT_DENY_TIMEOUT_MS },
       );
+      return explainStoppedWaiting(result, 'the denial is recorded when the daemon finishes it.');
     },
   );
 

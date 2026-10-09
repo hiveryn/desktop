@@ -9,6 +9,7 @@ import { invalidDaemonResponse, withNullData } from './results';
 // finishes either way once started; this bound sits beyond both, so the
 // daemon's own outcome is what the user sees.
 const TERMINAL_CREATE_TIMEOUT_MS = 90_000;
+const TERMINAL_KILL_TIMEOUT_MS = 45_000;
 
 export function registerTerminalsIpc(): void {
   ipcMain.handle(
@@ -67,6 +68,9 @@ export function registerTerminalsIpc(): void {
       return daemonFetch<null>(
         `/api/sessions/${encodeURIComponent(sessionId)}/terminals/${encodeURIComponent(terminalId)}`,
         { method: 'DELETE' },
+        // Closing a remote terminal confirms its removal over SSH; the daemon
+        // bounds that at 30 s on its own, whether or not we keep waiting.
+        { timeoutMs: TERMINAL_KILL_TIMEOUT_MS },
       );
     },
   );

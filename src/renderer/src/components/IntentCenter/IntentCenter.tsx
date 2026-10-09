@@ -10,7 +10,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useSessionStore } from '../../state/sessionStore';
+import { type PendingIntent, useSessionStore } from '../../state/sessionStore';
 import ApiEnvelopeError from '../ApiEnvelopeError/ApiEnvelopeError';
 import Button from '../Button/Button';
 import { ChevronRight } from '../icons';
@@ -20,6 +20,7 @@ import {
   inputValueErrors,
   intentStatusLabel,
   isDeferred,
+  outcomeStillPending,
 } from './intentInputsModel';
 
 // A 404 from approve/deny means the intent already resolved (policy fired, or
@@ -514,8 +515,11 @@ const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   worker: 'spawn worker',
 };
 
-export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
+export const IntentCard: React.FC<{ intent: PendingIntent }> = ({ intent }) => {
   const clearPendingIntent = useSessionStore((s) => s.clearPendingIntent);
+  const markIntentResolving = useSessionStore((s) => s.markIntentResolving);
+  // Set when an answer attempt ended without its outcome; says so honestly.
+  const [waitNotice, setWaitNotice] = React.useState<string | null>(null);
   const [remaining, setRemaining] = React.useState(intent.wait_seconds);
   const [reason, setReason] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -551,6 +555,13 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
         clearPendingIntent(intent.intent_id);
         return;
       }
+      if (outcomeStillPending(err)) {
+        // Not a failure: the daemon owns the operation now. Stay resolving,
+        // with the buttons disabled, until its resolved event arrives.
+        markIntentResolving(intent.intent_id);
+        setWaitNotice(err instanceof Error ? err.message : String(err));
+        return;
+      }
       setError(err);
       setSubmitting(false);
     }
@@ -580,7 +591,8 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
     );
   };
 
-  const countdown = intentStatusLabel(intent, remaining);
+  const resolving = intent.resolving === true || submitting;
+  const countdown = intent.failure ? 'failed' : intentStatusLabel(intent, remaining, resolving);
 
   const kind = kindOf(intent.intent_type);
   // Surfaced at the card level so a rejected conclusion's accent edge turns
@@ -647,48 +659,82 @@ export const IntentCard: React.FC<{ intent: Intent }> = ({ intent }) => {
           </div>
         )
       )}
-      {fields.length > 0 && (
-        <IntentInputsForm
-          intent={intent}
-          fields={fields}
-          values={values}
-          errors={inputErrors}
-          disabled={submitting}
-          onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))}
-        />
+      {intent.failure ? (
+        <div className={styles.failure} role="alert">
+          <span className={styles.fieldName}>approved, then failed</span>
+          <span className={styles.fieldValue}>{intent.failure}</span>
+          <Button className={styles.dismiss} onClick={() => clearPendingIntent(intent.intent_id)}>
+            Dismiss
+          </Button>
+        </div>
+      ) : (
+        <>
+          {fields.length > 0 && (
+            <IntentInputsForm
+              intent={intent}
+              fields={fields}
+              values={values}
+              errors={inputErrors}
+              disabled={resolving}
+              onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))}
+            />
+          )}
+          {resolving && (
+            <p className={styles.resolvingNote} role="status">
+              {waitNotice ??
+                'Approved — the daemon is carrying it out. A remote operation can take a while over SSH; this card updates with its outcome.'}
+            </p>
+          )}
+          <IntentActions
+            resolving={resolving}
+            reason={reason}
+            onReason={setReason}
+            onApprove={approve}
+            onDeny={deny}
+          />
+        </>
       )}
+      {error ? <ApiEnvelopeError error={error} title="Intent API Error" /> : null}
+    </li>
+  );
+};
+
+const IntentActions: React.FC<{
+  resolving: boolean;
+  reason: string;
+  onReason: (reason: string) => void;
+  onApprove: () => void;
+  onDeny: () => void;
+}> = ({ resolving, reason, onReason, onApprove, onDeny }) => (
       <div className={styles.actions}>
         <Button
           className={styles.approve}
           intent="success"
-          onClick={approve}
-          isDisabled={submitting}
+          onClick={onApprove}
+          isDisabled={resolving}
         >
-          Approve
+          {resolving ? 'Resolving…' : 'Approve'}
         </Button>
         <div className={styles.denyRow}>
           <input
             className={styles.reason}
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={(e) => onReason(e.target.value)}
             placeholder="reason (optional)"
-            disabled={submitting}
+            disabled={resolving}
             aria-label="Denial reason"
           />
           <Button
             className={styles.deny}
             intent="destructive"
-            onClick={deny}
-            isDisabled={submitting}
+            onClick={onDeny}
+            isDisabled={resolving}
           >
             Deny
           </Button>
         </div>
       </div>
-      {error ? <ApiEnvelopeError error={error} title="Intent API Error" /> : null}
-    </li>
-  );
-};
+);
 
 // Window-level, cross-session popup of every pending intent for the sessions in
 // this architect window. Keyed by intent id; a single session can raise several.

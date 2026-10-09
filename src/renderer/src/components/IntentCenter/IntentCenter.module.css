@@ -393,3 +393,29 @@
   color: var(--theme-text-subtle);
 }
 
+
+/* An approved operation the daemon is still carrying out. */
+.resolvingNote {
+  margin: 0;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* An approved operation that failed: kept until dismissed. */
+.failure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left: 2px solid var(--theme-status-error);
+  padding-left: var(--space-h-2);
+}
+
+.failure .fieldValue {
+  color: var(--theme-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  align-self: flex-start;
+}
