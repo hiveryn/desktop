@@ -45,6 +45,17 @@ export default function MainTerminalStack({ className }: Props) {
               overflow: 'hidden',
             }}
           >
+            {session.machine && (
+              <Caption role="status">
+                {session.machine} ·{' '}
+                {session.connection === 'connected'
+                  ? 'Connected'
+                  : session.connection === 'missing'
+                    ? 'Remote worker unavailable'
+                    : 'Disconnected — remote worker may still be running; activity is stale.'}
+                {session.connectionMessage && ` ${session.connectionMessage}`}
+              </Caption>
+            )}
             <ErrorBoundary paneLabel="Terminal" resetKeys={[session.id, terminalId]}>
               <SessionTerminal
                 sessionId={session.id}

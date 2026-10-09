@@ -411,3 +411,8 @@ pnpm format       # Biome check --fix
 pnpm build        # Production build (all three processes)
 pnpm dist:mac     # Build + package DMG
 ```
+
+
+## Remote worker presentation
+
+Session snapshots expose optional `machine` and `connection` (`connected`, `disconnected`, `missing`). `connection` SSE events update the session banner independently of lifecycle and clear stale activity; disconnected agent status must not appear fresh. Reattachment uses the existing `main_terminal_resumed` event and terminal-ID replacement. Repository and terminal-workdir responses include optional machine metadata; terminal display paths are daemon-provided, and Git/terminal operations stay behind the daemon bridge. The desktop never resolves remote paths through the local filesystem.

@@ -137,6 +137,11 @@ export function useSessionEvents(): void {
       const store = useSessionStore.getState();
       store.appendEvent(event);
 
+      if (event.type === 'connection') {
+        if (event.status) store.setSessionConnection(event.session_id, event.status, event.message);
+        return;
+      }
+
       if (event.type === 'main_terminal_resumed') {
         const session = store.sessions[event.session_id];
         if (!session) {

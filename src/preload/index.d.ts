@@ -239,6 +239,7 @@ interface DesktopConfig {
 type AppMode = 'development' | 'production';
 
 interface ArchitectRepo {
+  machine?: string;
   key: string;
   path: string;
 }

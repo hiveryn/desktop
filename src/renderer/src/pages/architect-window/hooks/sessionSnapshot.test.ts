@@ -53,3 +53,24 @@ describe('syncSessionsForArchitect', () => {
     expect(entry?.message).toContain('daemon unreachable');
   });
 });
+
+describe('remote activity freshness', () => {
+  it('clears activity on disconnect and waits for a new hook after reconnect', async () => {
+    useSessionStore.getState().reset();
+    const session = running('remote', 'ticket');
+    session.machine = 'buildbox';
+    session.connection = 'connected';
+    if (session.current_run) session.current_run.agent_status = 'active';
+    stubDaemon([session], { remote: [{ type: 'ticket' } as SessionTab] });
+    await syncSessionsForArchitect('iso');
+    expect(useSessionStore.getState().sessions.remote.machine).toBe('buildbox');
+    const store = useSessionStore.getState();
+    store.setSessionConnection('remote', 'disconnected', 'SSH lost');
+    store.setSessionStatus('remote', 'active');
+    expect(useSessionStore.getState().sessions.remote.status).toBeUndefined();
+    store.setSessionConnection('remote', 'connected');
+    expect(useSessionStore.getState().sessions.remote.status).toBeUndefined();
+    store.setSessionStatus('remote', 'idle');
+    expect(useSessionStore.getState().sessions.remote.status).toBe('idle');
+  });
+});

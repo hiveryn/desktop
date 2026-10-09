@@ -183,6 +183,7 @@ export interface TicketDeleteResult {
 // ── Architects ─────────────────────────────────────────────────────────────
 
 export interface ArchitectRepo {
+  machine?: string;
   key: string;
   path: string;
 }

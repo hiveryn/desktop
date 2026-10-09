@@ -40,6 +40,8 @@ export function buildSessionRecord(
   }
 
   return {
+    machine: intent.machine,
+    connection: intent.connection,
     id: intent.id,
     type: intent.session_type,
     label: label ?? sessionLabel(intent),

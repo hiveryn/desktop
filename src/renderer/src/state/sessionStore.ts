@@ -10,6 +10,9 @@ import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface SessionRecord {
+  machine?: string;
+  connection?: string;
+  connectionMessage?: string;
   id: string;
   type: SessionType;
   label: string;
@@ -72,6 +75,7 @@ interface SessionActions {
   unregisterSession(id: string): void;
   updateSessionMainTerminal(id: string, mainTerminalId: string): void;
   setSessionStatus(id: string, status: string): void;
+  setSessionConnection(id: string, connection: string, message?: string): void;
   setActiveSession(sessionId: string | null): void;
   setActiveRightTab(tab: string): void;
   setFocusedPane(pane: string): void;
@@ -265,6 +269,24 @@ export const useSessionStore = create<SessionStore>((set) => ({
     });
   },
 
+  setSessionConnection(id, connection, connectionMessage) {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            connection,
+            connectionMessage,
+            status: connection === 'connected' ? session.status : undefined,
+          },
+        },
+      };
+    });
+  },
+
   setSessionStatus(id, status) {
     set((state) => {
       const session = state.sessions[id];
@@ -276,7 +298,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
           ...state.sessions,
           [id]: {
             ...session,
-            status,
+            status: session.connection && session.connection !== 'connected' ? undefined : status,
           },
         },
       };
