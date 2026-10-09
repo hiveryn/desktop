@@ -1,21 +1,16 @@
 import { Dialog } from '@components';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
-import {
-  FILES_BINDING_DEFAULTS,
-  GIT_DIFF_BINDING_DEFAULTS,
-  resolveBindings,
-} from '../../../keys/paneBindings';
+import { GIT_DIFF_BINDING_DEFAULTS, resolveBindings } from '../../../keys/paneBindings';
 import styles from './ShortcutsDialog.module.css';
 
 // Sections in reading order; anything else in the config (e.g. os-global)
 // follows alphabetically.
-const SECTION_ORDER = ['global', 'kanban', 'event-log', 'ticket', 'files', 'git-diff'];
+const SECTION_ORDER = ['global', 'kanban', 'event-log', 'ticket', 'git-diff'];
 
 const SECTION_HINTS: Record<string, string> = {
   global: 'everywhere',
   kanban: 'kanban pane focused',
   'event-log': 'activity pane focused',
-  files: 'files pane focused',
   'git-diff': 'git diff pane focused',
   'os-global': 'system-wide',
 };
@@ -26,12 +21,11 @@ interface Props {
 }
 
 // Read-only listing of the effective keybindings: the daemon's shortcut
-// config (~/.hiveryn/shortcuts.yaml) with the desktop's files/git-diff
+// config (~/.hiveryn/shortcuts.yaml) with the desktop's git-diff
 // defaults layered underneath — exactly what the panes resolve at key time.
 export default function ShortcutsDialog({ config, onClose }: Props) {
   const effective: ShortcutConfig = {
     ...config,
-    files: resolveBindings(config.files, FILES_BINDING_DEFAULTS),
     'git-diff': resolveBindings(config['git-diff'], GIT_DIFF_BINDING_DEFAULTS),
   };
 

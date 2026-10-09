@@ -79,35 +79,6 @@ export function attentionNote(run: ActionRun): string | null {
   return null;
 }
 
-/** The state of an execution's output-folder listing. */
-export interface ArtifactListing {
-  entries: readonly unknown[] | null;
-  error: string | null;
-  loading: boolean;
-}
-
-/**
- * What the output folder's listing says instead of entries, keeping loading,
- * an empty folder and a read error distinguishable. Null when entries are
- * listed. An empty folder of a running execution is not final — the agent
- * may still write — so it reads "not yet", never a bare "Empty".
- */
-export function artifactListingNote(
-  listing: ArtifactListing,
-  running: boolean,
-): { kind: 'error' | 'muted'; text: string } | null {
-  if (listing.error) {
-    return { kind: 'error', text: `Could not read the output folder: ${listing.error}` };
-  }
-  if (!listing.entries)
-    return listing.loading ? { kind: 'muted', text: 'Loading artifacts…' } : null;
-  if (listing.entries.length > 0) return null;
-  return {
-    kind: 'muted',
-    text: running ? 'No artifacts listed yet' : 'No artifacts in the folder',
-  };
-}
-
 /** Where an input_required signal came from, in words. */
 export function attentionSourceLabel(attention: ActionAgentAttention): string {
   return attention.source === 'terminal' ? 'its terminal screen' : "the agent's hooks";

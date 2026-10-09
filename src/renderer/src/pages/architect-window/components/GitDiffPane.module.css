@@ -176,7 +176,7 @@
   font-size: var(--font-size-xs);
 }
 
-/* ── Tree rows (mirrors files/EntryRow) ──────────────────────── */
+/* ── Tree rows ───────────────────────────────────────────────── */
 .row {
   display: flex;
   align-items: center;
@@ -285,7 +285,7 @@
   color: var(--theme-status-warning);
 }
 
-/* ── Filter match rows (mirrors files/SearchResults) ─────────── */
+/* ── Filter match rows ───────────────────────────────────────── */
 .matchRow {
   display: flex;
   align-items: baseline;

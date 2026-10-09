@@ -5,7 +5,6 @@ import * as daemonHealth from './daemon/health';
 import { loadAndRegisterGlobalShortcut } from './globalShortcut';
 import { configureIntentNotifications } from './intentNotifications';
 import { registerIpc } from './ipc';
-import { guardCloseOnDirtyEditors } from './ipc/editor';
 import { initializeDesktopLogging, shutdownDesktopLogging } from './logging';
 import { DESKTOP_RUNTIME_HOME, IS_DESKTOP_DEVELOPMENT } from './runtime';
 import { createTray, stopTrayStatusPoll } from './tray';
@@ -151,7 +150,6 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
   });
 
   architectWindows.set(architectKey, architectWindow);
-  guardCloseOnDirtyEditors(architectWindow);
   architectWindow.on('closed', () => {
     architectWindows.delete(architectKey);
   });
@@ -189,8 +187,6 @@ function createActionsWindow(): BrowserWindow {
   });
 
   actionsWindow = window;
-  // The Files tab can edit files in the output folder and action repository.
-  guardCloseOnDirtyEditors(window);
   window.on('closed', () => {
     if (actionsWindow === window) actionsWindow = null;
   });

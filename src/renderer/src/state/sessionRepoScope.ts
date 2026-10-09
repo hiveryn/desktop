@@ -12,8 +12,7 @@ export interface RepoScopeEntry {
 // The per-session repository scope, derived once from the ticket (primary repo
 // key) and the session snapshot (primary workdir + the daemon's positionally
 // aligned additional_repos / additional_workdirs). This is the single source
-// both the Files and Git review panes read, so they can never derive
-// conflicting defaults.
+// the Git review pane reads.
 //
 //  - loading: fetch in flight
 //  - none:    not a ticket session (architect) — no ticket repo scope
@@ -96,9 +95,8 @@ export const useSessionRepoScopeStore = create<SessionRepoScopeState>((set, get)
   },
 }));
 
-// Reads (and lazily populates) the repository scope for a session. Both the
-// Files pane and the Git review pane call this with the same sessionId, so they
-// share one resolved scope.
+// Reads (and lazily populates) the repository scope for a session. The Git review
+// pane calls this per session; the resolved scope is cached by session id.
 export function useSessionRepoScope(sessionId: string | undefined): SessionRepoScope {
   const isTicketSession = useSessionStore((s) =>
     sessionId ? s.sessions[sessionId]?.type === 'ticket' : false,

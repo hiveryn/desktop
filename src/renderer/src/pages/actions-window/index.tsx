@@ -19,12 +19,11 @@ import type {
   TicketBoard,
 } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AgentProfile, Architect } from '../../../../shared/types';
+import type { AgentProfile } from '../../../../shared/types';
 import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
-import type { RootOption } from '../architect-window/components/files/RootPicker';
 import MainTerminalStack from '../architect-window/components/MainTerminalStack';
 import RightPane from '../architect-window/components/RightPane';
 import { useSessionEvents } from '../architect-window/hooks/useSessionEvents';
@@ -134,25 +133,6 @@ export default function ActionsWindow() {
     }
   }
 
-  // Files for the active execution: its output folder first, then its repo.
-  const filesRoot = useMemo<Architect | null>(
-    () => (activeRun ? { key: '', name: 'Output folder', path: activeRun.output_dir } : null),
-    [activeRun],
-  );
-  const extraFileRoots = useMemo<RootOption[]>(
-    () =>
-      activeRun
-        ? [
-            {
-              id: 'action-repo',
-              label: 'Action repository',
-              path: activeRun.repo_path,
-              kind: 'custom',
-            },
-          ]
-        : [],
-    [activeRun],
-  );
   const extraPanels = useMemo(
     () => ({
       action: activeRun ? (
@@ -229,7 +209,7 @@ export default function ActionsWindow() {
               <ErrorBoundary paneLabel="Right Pane" resetKeys={[activeSessionId]}>
                 <RightPane
                   architectKey=""
-                  architect={filesRoot}
+                  architect={null}
                   board={EMPTY_BOARD}
                   boardLoading={false}
                   boardError={null}
@@ -239,7 +219,6 @@ export default function ActionsWindow() {
                   onSpawnTicket={() => undefined}
                   onRefreshBoard={() => undefined}
                   extraPanels={extraPanels}
-                  extraFileRoots={extraFileRoots}
                 />
               </ErrorBoundary>
             </div>

@@ -33,16 +33,10 @@ import type {
   DaemonHealthState,
   DaemonResult,
   DesktopConfig,
-  FsContentSearchResponse,
-  FsFileResponse,
-  FsSearchResponse,
-  FsTreeResponse,
-  FsWriteResponse,
   InfraErrorEvent,
   RendererLogPayload,
   RepoCommitDiffResponse,
   RepoDiffResponse,
-  RepoStatusResponse,
   RequestLogEntry,
   SessionRunResult,
   SystemRuntime,
@@ -111,22 +105,13 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
   'repos:diff': { method: 'GET', path: '/api/architects/:key/repos/:repoKey/diff' },
-  'repos:status': { method: 'GET', path: '/api/architects/:key/repos/:repoKey/status' },
   'repos:commitDiff': {
     method: 'GET',
     path: '/api/architects/:key/repos/:repoKey/commits/:sha/diff',
   },
   'tray:hide': { method: 'IPC', path: '/tray/hide' },
   'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
-  'fs:listDir': { method: 'GET', path: '/api/fs/tree?path=:path' },
-  'fs:readFile': { method: 'GET', path: '/api/fs/file?path=:path' },
-  'fs:writeFile': { method: 'PUT', path: '/api/fs/file?path=:path' },
-  'fs:createFile': { method: 'PUT', path: '/api/fs/file?path=:path&create=true' },
-  'fs:search': { method: 'GET', path: '/api/fs/search?path=:path&q=:q' },
-  'fs:searchContent': { method: 'GET', path: '/api/fs/search-content?path=:path&q=:q' },
-  'fs:pickDirectory': { method: 'IPC', path: '/fs/pick-directory' },
-  'fs:revealInFinder': { method: 'IPC', path: '/fs/reveal-in-finder' },
-  'fs:openExternal': { method: 'IPC', path: '/fs/open-external' },
+  'finder:reveal': { method: 'IPC', path: '/finder/reveal' },
   'actions:open-window': { method: 'IPC', path: '/actions/open-window' },
   'actions:list': { method: 'GET', path: '/api/actions' },
   'actions:get': { method: 'GET', path: '/api/actions/:name' },
@@ -392,32 +377,12 @@ contextBridge.exposeInMainWorld('hiveryn', {
   tabs: {
     list: (sessionId: string): Promise<SessionTab[]> => invoke('tabs:list', sessionId),
   },
-  fs: {
-    listDir: (path: string): Promise<FsTreeResponse> => invoke('fs:listDir', path),
-    search: (path: string, query: string): Promise<FsSearchResponse> =>
-      invoke('fs:search', path, query),
-    searchContent: (path: string, query: string): Promise<FsContentSearchResponse> =>
-      invoke('fs:searchContent', path, query),
-    readFile: (path: string): Promise<FsFileResponse> => invoke('fs:readFile', path),
-    writeFile: (path: string, content: string): Promise<FsWriteResponse> =>
-      invoke('fs:writeFile', path, content),
-    createFile: (path: string): Promise<FsWriteResponse> => invoke('fs:createFile', path),
-    pickDirectory: (): Promise<string | null> => invoke('fs:pickDirectory'),
-    revealInFinder: (path: string): Promise<null> => invoke('fs:revealInFinder', path),
-    openExternal: (path: string): Promise<null> => invoke('fs:openExternal', path),
-  },
-  editor: {
-    // One-way dirty-buffer count for the main-process close guard; not a
-    // daemon call, so it bypasses invoke()/the request log.
-    setDirtyCount: (count: number): void => {
-      ipcRenderer.send('editor:dirty-count', count);
-    },
+  finder: {
+    reveal: (path: string): Promise<null> => invoke('finder:reveal', path),
   },
   repos: {
     diff: (architectKey: string, repoKey: string): Promise<RepoDiffResponse> =>
       invoke('repos:diff', architectKey, repoKey),
-    status: (architectKey: string, repoKey: string): Promise<RepoStatusResponse> =>
-      invoke('repos:status', architectKey, repoKey),
     commitDiff: (
       architectKey: string,
       repoKey: string,

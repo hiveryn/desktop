@@ -75,7 +75,6 @@
 
 .actionList,
 .runList,
-.entries,
 .problems {
   list-style: none;
   margin: 0;
@@ -92,7 +91,6 @@
 
 .actionItem,
 .runItem,
-.entryButton,
 .linkButton {
   all: unset;
   cursor: pointer;
@@ -145,12 +143,10 @@
   white-space: nowrap;
 }
 
-.entryButton,
 .linkButton {
   color: var(--theme-status-info);
 }
 
-.entryButton:hover,
 .linkButton:hover {
   text-decoration: underline;
 }

@@ -1,10 +1,5 @@
 import { ipcMain } from 'electron';
-import type {
-  DaemonResult,
-  RepoCommitDiffResponse,
-  RepoDiffResponse,
-  RepoStatusResponse,
-} from '../../shared/types';
+import type { DaemonResult, RepoCommitDiffResponse, RepoDiffResponse } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 
 function repoDiffPath(architectKey: string, repoKey: string): string {
@@ -24,19 +19,6 @@ export function registerReposIpc(): void {
       repoKey: string,
     ): Promise<DaemonResult<RepoDiffResponse>> => {
       return daemonFetch<RepoDiffResponse>(repoDiffPath(architectKey, repoKey));
-    },
-  );
-
-  ipcMain.handle(
-    'repos:status',
-    async (
-      _event,
-      architectKey: string,
-      repoKey: string,
-    ): Promise<DaemonResult<RepoStatusResponse>> => {
-      return daemonFetch<RepoStatusResponse>(
-        `/api/architects/${encodeURIComponent(architectKey)}/repos/${encodeURIComponent(repoKey)}/status`,
-      );
     },
   );
 

@@ -27,9 +27,6 @@ const CHANNEL_TITLES: Record<string, string> = {
   'terminals:kill': 'Terminal',
   'session:connect': 'Terminal',
   'launcher:open-architect': 'Launcher',
-  'fs:listDir': 'File Explorer',
-  'fs:readFile': 'File Explorer',
-  'fs:pickDirectory': 'File Explorer',
 };
 
 interface PushableEntry {

@@ -13,8 +13,7 @@ interface Props {
 }
 
 // Repository selector for the Git review pane: every repository scoped to the
-// ticket, primary first and marked. Always shown (even single-repo sessions),
-// mirroring the Files pane's root picker.
+// ticket, primary first and marked. Always shown (even single-repo sessions).
 export default function RepoPicker({ options, selectedRepoKey, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);

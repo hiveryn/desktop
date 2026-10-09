@@ -30,8 +30,7 @@ import RepoPicker, { type RepoOption } from './RepoPicker';
 const FILE_MUTATING_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'ApplyPatch']);
 const REFETCH_DEBOUNCE_MS = 1500;
 
-// Chord / jump parameters — same values as the files explorer so the two
-// panes share one keyboard feel.
+// Chord / jump parameters for the file-list navigation.
 const CHORD_TIMEOUT_MS = 1000;
 const JUMP_ROWS = 6;
 
@@ -290,8 +289,7 @@ export default function GitDiffPane({
     setCursorKey(path);
   };
 
-  // Cursor moves auto-open file diffs (unlike the explorer's cursor-then-o
-  // model): one-keystroke file hopping is the core diff-review motion.
+  // Cursor moves auto-open file diffs: one-keystroke file hopping is the core diff-review motion.
   const moveCursorToRow = (row: DiffTreeRow): void => {
     setCursorKey(row.key);
     if (row.node.kind === 'file') setSelectedPath(row.node.file.path);
@@ -318,8 +316,7 @@ export default function GitDiffPane({
     const consume = (): void => {
       e.preventDefault();
       // Without this the event still bubbles to the document-level key
-      // dispatcher, which re-handles it against post-handler DOM state (see
-      // the equivalent guard in FilesPane).
+      // dispatcher, which re-handles it against post-handler DOM state.
       e.stopPropagation();
     };
     if (e.key === 'ArrowDown') {

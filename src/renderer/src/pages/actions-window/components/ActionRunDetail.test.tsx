@@ -20,12 +20,16 @@ const completed: ActionRun = {
 };
 
 describe('ActionRunDetail', () => {
-  it('keeps a completed execution browsable: conclusion and output folder', () => {
+  it('keeps a completed execution reachable: conclusion and output folder', () => {
     const html = renderToStaticMarkup(<ActionRunDetail run={completed} />);
     expect(html).toContain('completed');
     expect(html).toContain('LDN run 2 recovered');
     expect(html).toContain(completed.output_dir);
     expect(html).toContain('Reveal in Finder');
+    expect(html).toContain('Copy path');
+    // The folder is never listed or reread — no artifact browser.
+    expect(html).not.toContain('Refresh');
+    expect(html).not.toContain('artifacts');
     expect(html).not.toContain('Stop execution');
   });
 
@@ -101,9 +105,8 @@ describe('ActionRunDetail', () => {
     expect(html).not.toContain('No prompt detected');
     expect(html).not.toContain('approval prompts are detected');
     expect(html).not.toContain('Needs your input');
-    // The terminal stays reachable, and the artifact listing can be reread.
+    // The terminal stays reachable.
     expect(html).toContain('Open session');
-    expect(html).toContain('Refresh');
   });
 });
 

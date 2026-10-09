@@ -44,7 +44,7 @@ export default function TicketWorkflow({
   const handleReference = (reference: TicketReference): void => {
     if (!reference.exists) return;
     if (reference.type === 'ticket') onTicketReference(reference.value);
-    else void window.hiveryn.fs.revealInFinder(reference.value);
+    else void window.hiveryn.finder.reveal(reference.value);
   };
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [launchTicket, setLaunchTicket] = useState<LaunchableTicket | null>(null);

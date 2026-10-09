@@ -14,7 +14,6 @@ import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { getTabPlugin } from '../../../plugins/registry';
-import { useFilesStore } from '../../../state/filesStore';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionRepoScope } from '../../../state/sessionRepoScope';
 import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
@@ -22,8 +21,6 @@ import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
 import { requestTerminalCreation } from '../terminalWorkdirPicker';
 import ExtraTerminalStack from './ExtraTerminalStack';
-import FilesPane from './files/FilesPane';
-import type { RootOption } from './files/RootPicker';
 import GitDiffPane from './GitDiffPane';
 import TicketPane from './TicketPane';
 
@@ -74,8 +71,6 @@ interface Props {
    * window's `action` tab). Rendered like the built-in panels.
    */
   extraPanels?: Record<string, ReactNode>;
-  /** Additional Files roots for the active session (e.g. an action's repo). */
-  extraFileRoots?: RootOption[];
 }
 
 export default function RightPane({
@@ -90,7 +85,6 @@ export default function RightPane({
   onSpawnTicket,
   onRefreshBoard,
   extraPanels,
-  extraFileRoots,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -100,13 +94,6 @@ export default function RightPane({
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
 
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
-  // Sourced only to give the Files pane's ErrorBoundary resetKeys that match
-  // the exact values (currentDir walking outside rootPath) that can crash it.
-  const filesSlice = useFilesStore((s) =>
-    activeSession ? s.bySession[activeSession.id] : undefined,
-  );
-  const filesRootPath = filesSlice?.rootPath;
-  const filesCurrentDir = filesSlice?.currentDir;
   const events = useEventsForActiveSession();
   const eventLogEvents = useMemo(
     () =>
@@ -116,8 +103,8 @@ export default function RightPane({
 
   // Per-session repository scope (primary + additional repos), resolved once
   // from the ticket and the immutable session snapshot. Keyed by session id in
-  // its own store, so the Files and Git review panes share one source and
-  // switching sessions reads the right slice without stale-data races.
+  // its own store, so switching sessions reads the right slice without
+  // stale-data races.
   const repoScope = useSessionRepoScope(activeSession?.id);
 
   const hasAnySplit = useMemo(
@@ -346,24 +333,6 @@ export default function RightPane({
               isActive={effectiveTab === 'git-diff'}
               repoScope={repoScope}
               shortcutConfig={shortcutConfig}
-            />
-          </ErrorBoundary>
-        )}
-      </div>
-
-      <div className={styles.tabPanel} data-active={effectiveTab === 'files'}>
-        {activeSession && architect && (
-          <ErrorBoundary
-            paneLabel="Files"
-            resetKeys={[activeSession.id, filesRootPath, filesCurrentDir]}
-          >
-            <FilesPane
-              sessionId={activeSession.id}
-              architect={architect}
-              isActive={effectiveTab === 'files'}
-              repoScope={repoScope}
-              shortcutConfig={shortcutConfig}
-              extraRoots={extraFileRoots}
             />
           </ErrorBoundary>
         )}

@@ -1,7 +1,7 @@
 /*
  * Prism/refractor token colors, mapped to the app's theme tokens so they
- * follow the terminal palette. Global on purpose: both the files-tab
- * CodeViewer and the git-diff DiffView emit `token` classNames.
+ * follow the terminal palette. Global on purpose: the DiffView (git-diff
+ * pane and the concluded-ticket Changes tab) emits `token` classNames.
  */
 
 .token.comment,

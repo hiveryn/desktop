@@ -2,8 +2,7 @@
 // the pending-prefix state for one key handler: call begin(event) exactly
 // once per event before any match() calls — it snapshots and clears the
 // pending prefix, so a key that neither continues nor restarts a chord is
-// handled normally. Shared by FilesPane and GitDiffPane so their chord
-// semantics can't drift apart.
+// handled normally. Used by GitDiffPane's file-list navigation.
 import { matchesShortcut } from './matchers';
 
 export type ChordResult = 'matched' | 'pending' | 'no';

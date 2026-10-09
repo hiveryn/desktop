@@ -1,9 +1,6 @@
 import type { ActionRun } from '@hiveryn/shared/domain';
-import { useEffect, useState } from 'react';
-import type { FsEntry } from '../../../../../shared/types';
 import Button from '../../../components/Button/Button';
 import {
-  artifactListingNote,
   attentionNote,
   attentionSourceLabel,
   formatTimestamp,
@@ -24,67 +21,20 @@ interface Props {
 
 /**
  * One execution: its request, status, conclusion and delivered artifact
- * folder. Used on the Actions home for any execution (completed ones stay
- * browsable here) and as the `action` context tab of a running session.
+ * folder (revealed in Finder or its path copied — never listed). Used on the
+ * Actions home for any execution (completed ones stay reachable here) and as
+ * the `action` context tab of a running session.
  */
 export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props) {
-  const [entries, setEntries] = useState<FsEntry[] | null>(null);
-  const [entriesError, setEntriesError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  // Bumped by the Refresh control: a running agent writes artifacts without
-  // changing the execution's status, so the listing is also reread on demand.
-  const [refreshSeq, setRefreshSeq] = useState(0);
-
   // The output folder exists only once the execution started; a request that
   // is pending, denied or failed before starting has none.
   const started = Boolean(run.started_at);
-
-  // Another execution's folder: never show the previous one's listing while
-  // this one loads. Declared first so it runs before the read below.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: output_dir is a trigger — a different folder starts from an empty listing
-  useEffect(() => {
-    setEntries(null);
-    setEntriesError(null);
-  }, [run.output_dir]);
-
-  // The artifact listing is reread whenever the execution changes status, so
-  // a concluded run shows what was actually delivered, and on each refresh.
-  // The previous listing stays shown until its replacement lands.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: status and refreshSeq are triggers — the folder is reread when the execution changes state or on refresh
-  useEffect(() => {
-    let cancelled = false;
-    if (!started) {
-      setEntries(null);
-      setEntriesError(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    window.hiveryn.fs.listDir(run.output_dir).then(
-      (tree) => {
-        if (cancelled) return;
-        setEntries(tree.entries);
-        setEntriesError(null);
-        setLoading(false);
-      },
-      (error: unknown) => {
-        if (cancelled) return;
-        setEntries(null);
-        setEntriesError(error instanceof Error ? error.message : String(error));
-        setLoading(false);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [run.output_dir, run.status, started, refreshSeq]);
 
   const running = run.status === 'running';
   const note = requestNote(run);
   const requester = requesterLabel(run);
   const input = needsInput(run);
   const noAttention = attentionNote(run);
-  const listingNote = artifactListingNote({ entries, error: entriesError, loading }, running);
 
   return (
     <div className={styles.detail}>
@@ -170,7 +120,7 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
           <div className={styles.buttonRow}>
             <Button
               theme="SECONDARY"
-              onClick={() => void window.hiveryn.fs.revealInFinder(run.output_dir)}
+              onClick={() => void window.hiveryn.finder.reveal(run.output_dir)}
             >
               Reveal in Finder
             </Button>
@@ -180,39 +130,7 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
             >
               Copy path
             </Button>
-            <Button
-              theme="SECONDARY"
-              isDisabled={loading}
-              title="Reread the output folder"
-              onClick={() => setRefreshSeq((seq) => seq + 1)}
-            >
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </Button>
           </div>
-          {listingNote ? (
-            <p className={listingNote.kind === 'error' ? styles.errorText : styles.muted}>
-              {listingNote.text}
-            </p>
-          ) : null}
-          {entries && entries.length > 0 ? (
-            <ul className={styles.entries}>
-              {entries.map((entry) => (
-                <li key={entry.name}>
-                  <button
-                    type="button"
-                    className={styles.entryButton}
-                    title={`Open ${entry.name}`}
-                    onClick={() =>
-                      void window.hiveryn.fs.openExternal(`${run.output_dir}/${entry.name}`)
-                    }
-                  >
-                    {entry.name}
-                    {entry.kind === 'dir' ? '/' : ''}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </section>
       ) : null}
 

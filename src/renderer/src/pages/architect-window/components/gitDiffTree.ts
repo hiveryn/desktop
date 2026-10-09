@@ -1,9 +1,8 @@
 import type { RepoDiffFile } from '../../../../../shared/types';
 
-// In-memory tree over a repo diff's changed-file paths. Unlike the files
-// explorer's fetch-driven tree, the full file set is already in hand, so this
-// is a pure split-paths → nested-nodes transform, flattened to visible rows
-// the same way the explorer does (keyboard nav and rendering walk one list).
+// In-memory tree over a repo diff's changed-file paths. The full file set is
+// already in hand, so this is a pure split-paths → nested-nodes transform,
+// flattened to visible rows (keyboard nav and rendering walk one list).
 
 export interface DiffTreeDir {
   kind: 'dir';
