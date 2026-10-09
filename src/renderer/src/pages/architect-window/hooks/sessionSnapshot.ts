@@ -1,10 +1,6 @@
 import type { Session, SessionTab } from '@hiveryn/shared/domain';
 import { useErrorCenterStore } from '../../../state/errorCenterStore';
-import {
-  isSplitTerminalTab,
-  type SessionRecord,
-  useSessionStore,
-} from '../../../state/sessionStore';
+import { type SessionRecord, useSessionStore } from '../../../state/sessionStore';
 
 function sessionLabel(intent: Session): string {
   if (intent.session_type === 'architect') {
@@ -33,7 +29,7 @@ export function buildSessionRecord(
   // The store cannot select a session without a right-pane tab, and rejecting
   // it there would fail the whole reconcile. Reject this one session here,
   // where discovery reports it and keeps the window's other sessions.
-  if (!tabs.some((tab) => !isSplitTerminalTab(tab))) {
+  if (tabs.length === 0) {
     throw new Error(
       `Running session ${intent.id} has no right-pane tabs; the daemon returned none for ${intent.session_type} sessions (check tabs.yaml)`,
     );

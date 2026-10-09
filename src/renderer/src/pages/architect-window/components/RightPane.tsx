@@ -16,7 +16,7 @@ import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { getTabPlugin } from '../../../plugins/registry';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionRepoScope } from '../../../state/sessionRepoScope';
-import { isSplitTerminalTab, useSessionStore } from '../../../state/sessionStore';
+import { useSessionStore } from '../../../state/sessionStore';
 import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
 import { requestTerminalCreation } from '../terminalWorkdirPicker';
@@ -61,7 +61,6 @@ interface Props {
   board: TicketBoard;
   boardLoading: boolean;
   boardError: unknown | null;
-  isMaximized: boolean;
   shortcutConfig: ShortcutConfig | null;
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
@@ -79,7 +78,6 @@ export default function RightPane({
   board,
   boardLoading,
   boardError,
-  isMaximized,
   shortcutConfig,
   onTicketSelect,
   onSpawnTicket,
@@ -107,15 +105,10 @@ export default function RightPane({
   // stale-data races.
   const repoScope = useSessionRepoScope(activeSession?.id);
 
-  const hasAnySplit = useMemo(
-    () => activeSession?.tabs.some((tab) => isSplitTerminalTab(tab)) ?? false,
-    [activeSession],
-  );
-
   const tabs = useMemo<TabBarTab[]>(() => {
     const result: TabBarTab[] = [];
     if (activeSession) {
-      for (const tab of activeSession.tabs.filter((candidate) => !isSplitTerminalTab(candidate))) {
+      for (const tab of activeSession.tabs) {
         const mapped = mapTabToBarTab(tab);
         if (mapped) result.push(mapped);
       }
@@ -125,14 +118,6 @@ export default function RightPane({
 
   const tabIsValid = tabs.some((t) => t.id === activeRightTab);
   const effectiveTab = tabIsValid ? activeRightTab : (tabs[0]?.id ?? 'event-log');
-  const splitTab = useMemo(
-    () =>
-      activeSession?.tabs.find(
-        (tab) => isSplitTerminalTab(tab) && tab.base_tab_id === effectiveTab,
-      ) ?? null,
-    [activeSession, effectiveTab],
-  );
-  const splitAppliesToEffectiveTab = splitTab !== null;
 
   // ── Kanban cursor ────────────────────────────────────────────────────────
   const cols = useMemo(() => [board.backlog, board.progress, board.done], [board]);
@@ -347,7 +332,6 @@ export default function RightPane({
       ))}
 
       <ExtraTerminalStack
-        mode="primary"
         onCloseTerminal={(sessionId, terminalId) => void handleCloseTerminal(sessionId, terminalId)}
       />
     </>
@@ -357,29 +341,7 @@ export default function RightPane({
     // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
     <div className={styles.rightPaneInner} onClick={handlePaneClick}>
-      <div className={styles.rightPaneContent}>
-        {hasAnySplit ? (
-          <div
-            className={styles.rightPaneSplit}
-            data-maximized={isMaximized || undefined}
-            data-split-active={splitAppliesToEffectiveTab || undefined}
-          >
-            <div className={styles.rightPaneSplitPrimary}>{primaryContent}</div>
-            <div className={styles.rightPaneSplitSecondary}>
-              <ExtraTerminalStack
-                mode="split"
-                enabled={splitAppliesToEffectiveTab}
-                baseTabId={effectiveTab}
-                onCloseTerminal={(sessionId, terminalId) =>
-                  void handleCloseTerminal(sessionId, terminalId)
-                }
-              />
-            </div>
-          </div>
-        ) : (
-          primaryContent
-        )}
-      </div>
+      <div className={styles.rightPaneContent}>{primaryContent}</div>
 
       <div className={styles.tabColumn}>
         <TabBar
@@ -403,14 +365,12 @@ async function handleOpenNewTerminal(sessionId: string | undefined): Promise<voi
   const state = useSessionStore.getState();
   requestTerminalCreation({
     sessionId,
-    placement: 'tab',
     capturedActiveRightTab: state.activeRightTab,
     capturedFocusedPane: state.focusedPane,
   });
 }
 
 function mapTabToBarTab(tab: SessionTab): TabBarTab | null {
-  if (isSplitTerminalTab(tab)) return null;
   const plugin = getTabPlugin(tab.type);
   if (!plugin) return null;
   return { id: tabIdOf(tab), icon: plugin.icon };

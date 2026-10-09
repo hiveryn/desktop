@@ -31,15 +31,14 @@ interface SessionState {
   events: Record<string, SessionEvent[]>;
   // Which session is selected in the bottom tab bar.
   activeSessionId: string | null;
-  // Which primary right-pane tab is shown. Split terminals are rendered beside
-  // this selection and never become the active tab-bar tab.
+  // Which right-pane tab is shown.
   activeRightTab: string;
   // Last active right tab per session ID — restored on session switch.
   sessionRightTabs: Record<string, string>;
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
-  // Pane currently maximized (same value space as focusedPane), or null for normal split layout.
+  // Pane currently maximized (same value space as focusedPane), or null for the normal layout.
   // Derived from maximizedPanes for the active session — kept as a flat field so
   // components can select it directly without recomputing per render.
   maximizedPane: string | null;
@@ -109,15 +108,6 @@ const initialState: SessionState = {
   questions: {},
 };
 
-// Split terminals render beside their primary tab and never become a bar tab.
-export function isSplitTerminalTab(tab: SessionTab): boolean {
-  return tab.type === 'terminal' && tab.placement === 'split';
-}
-
-function primaryTabIds(session: SessionRecord): string[] {
-  return session.tabs.filter((tab) => !isSplitTerminalTab(tab)).map(tabIdOf);
-}
-
 function normalizeSelection(
   sessions: Record<string, SessionRecord>,
   activeSessionId: string | null,
@@ -143,28 +133,18 @@ function normalizeSelection(
   }
 
   const session = sessions[nextActiveSessionId];
-  const validTabs = primaryTabIds(session);
+  const validTabs = session.tabs.map(tabIdOf);
   const candidate = sessionRightTabs[nextActiveSessionId] ?? activeRightTab;
   const nextActiveRightTab = validTabs.includes(candidate) ? candidate : validTabs[0];
   if (!nextActiveRightTab) {
-    throw new Error(`Session ${session.id} returned no primary tabs`);
+    throw new Error(`Session ${session.id} returned no right-pane tabs`);
   }
-
-  const focusedSplitTerminal =
-    focusedPane.startsWith('right-terminal:') &&
-    session.tabs.some(
-      (tab) => isSplitTerminalTab(tab) && `right-terminal:${tab.id}` === focusedPane,
-    );
 
   return {
     activeSessionId: nextActiveSessionId,
     activeRightTab: nextActiveRightTab,
     focusedPane:
-      focusedPane === 'main-terminal'
-        ? 'main-terminal'
-        : focusedSplitTerminal
-          ? focusedPane
-          : focusIdForTab(nextActiveRightTab),
+      focusedPane === 'main-terminal' ? 'main-terminal' : focusIdForTab(nextActiveRightTab),
     maximizedPane: maximizedPanes[nextActiveSessionId] ?? null,
   };
 }
@@ -310,10 +290,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       if (!sessionId) return { activeSessionId: null };
       const session = state.sessions[sessionId];
       if (!session) throw new Error(`Cannot switch to missing session ${sessionId}`);
-      const validTabIds = primaryTabIds(session);
+      const validTabIds = session.tabs.map(tabIdOf);
       const savedTab = state.sessionRightTabs[sessionId];
       const nextTab = savedTab && validTabIds.includes(savedTab) ? savedTab : validTabIds[0];
-      if (!nextTab) throw new Error(`Session ${sessionId} has no primary tabs`);
+      if (!nextTab) throw new Error(`Session ${sessionId} has no right-pane tabs`);
       return {
         activeSessionId: sessionId,
         activeRightTab: nextTab,
@@ -325,14 +305,6 @@ export const useSessionStore = create<SessionStore>((set) => ({
   setActiveRightTab(tab) {
     set((state) => {
       if (!state.activeSessionId) return { activeRightTab: tab };
-      // A split renders beside its base tab; selecting it would fall back to
-      // the first tab and persist that invalid selection for the session.
-      const session = state.sessions[state.activeSessionId];
-      if (
-        session?.tabs.some((candidate) => isSplitTerminalTab(candidate) && candidate.id === tab)
-      ) {
-        throw new Error(`Cannot select split terminal ${tab} as the active right tab`);
-      }
       return {
         activeRightTab: tab,
         sessionRightTabs: { ...state.sessionRightTabs, [state.activeSessionId]: tab },

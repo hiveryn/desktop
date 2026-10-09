@@ -14,7 +14,7 @@ const WORKDIR: TerminalWorkdir = {
 const BASE_TABS: SessionTab[] = [
   { type: 'kanban' },
   { type: 'event-log' },
-  { type: 'terminal', id: 'term-a', placement: 'tab' },
+  { type: 'terminal', id: 'term-a' },
 ];
 
 let daemonTabs: SessionTab[];
@@ -34,15 +34,9 @@ function record(tabs: SessionTab[]): SessionRecord {
 beforeEach(() => {
   daemonTabs = [...BASE_TABS];
   create.mockReset();
-  create.mockImplementation(async (_sessionId: string, body: CreateTerminalParams) => {
-    const id = body.placement === 'split' ? 'split-1' : 'term-new';
-    daemonTabs = [
-      ...daemonTabs,
-      body.placement === 'split'
-        ? { type: 'terminal', id, placement: 'split', base_tab_id: body.base_tab_id }
-        : { type: 'terminal', id, placement: 'tab' },
-    ];
-    return { terminal_id: id, session_id: SESSION, command: 'zsh', status: 'running' };
+  create.mockImplementation(async (_sessionId: string, _body: CreateTerminalParams) => {
+    daemonTabs = [...daemonTabs, { type: 'terminal', id: 'term-new' }];
+    return { terminal_id: 'term-new', session_id: SESSION, command: 'zsh', status: 'running' };
   });
   vi.stubGlobal('window', {
     hiveryn: {
@@ -63,59 +57,28 @@ afterEach(() => {
 });
 
 describe('createSelectedTerminal', () => {
-  it('keeps a non-first originating tab selected and focuses its new split', async () => {
+  it('creates the terminal in the chosen workdir and activates its tab', async () => {
     await createSelectedTerminal(
       {
         sessionId: SESSION,
-        placement: 'split',
-        baseTabId: 'event-log',
         capturedActiveRightTab: 'event-log',
         capturedFocusedPane: 'right-event-log',
       },
       WORKDIR,
     );
 
-    expect(create).toHaveBeenCalledWith(SESSION, {
-      placement: 'split',
-      base_tab_id: 'event-log',
-      workdir_id: WORKDIR.id,
-    });
+    expect(create).toHaveBeenCalledWith(SESSION, { workdir_id: WORKDIR.id });
     let state = useSessionStore.getState();
-    expect(state.activeRightTab).toBe('event-log');
-    expect(state.sessionRightTabs[SESSION]).toBe('event-log');
-    expect(state.focusedPane).toBe('right-terminal:split-1');
-    expect(state.sessions[SESSION].tabs.find((tab) => tab.id === 'split-1')?.base_tab_id).toBe(
-      'event-log',
-    );
+    expect(state.activeRightTab).toBe('term-new');
+    expect(state.sessionRightTabs[SESSION]).toBe('term-new');
+    expect(state.focusedPane).toBe('right-terminal:term-new');
 
-    // A later tab refresh keeps both the selection and the split focus.
-    state.setSessionTabs(SESSION, [...daemonTabs]);
-    state = useSessionStore.getState();
-    expect(state.activeRightTab).toBe('event-log');
-    expect(state.focusedPane).toBe('right-terminal:split-1');
-
-    // Session restoration (reconcile + switch back) restores the originating tab.
+    // Session restoration (reconcile + switch back) restores the new tab.
     state.reconcileSessions([record([...daemonTabs])]);
     state.setActiveSession(null);
     useSessionStore.getState().setActiveSession(SESSION);
     state = useSessionStore.getState();
-    expect(state.activeRightTab).toBe('event-log');
-  });
-
-  it('still activates an ordinary new terminal tab', async () => {
-    await createSelectedTerminal(
-      {
-        sessionId: SESSION,
-        placement: 'tab',
-        capturedActiveRightTab: 'event-log',
-        capturedFocusedPane: 'right-event-log',
-      },
-      WORKDIR,
-    );
-
-    const state = useSessionStore.getState();
     expect(state.activeRightTab).toBe('term-new');
-    expect(state.focusedPane).toBe('right-terminal:term-new');
   });
 
   it('does nothing when the captured picker context went stale', async () => {
@@ -123,8 +86,6 @@ describe('createSelectedTerminal', () => {
     await createSelectedTerminal(
       {
         sessionId: SESSION,
-        placement: 'split',
-        baseTabId: 'event-log',
         capturedActiveRightTab: 'event-log',
         capturedFocusedPane: 'right-event-log',
       },
@@ -134,14 +95,28 @@ describe('createSelectedTerminal', () => {
     expect(create).not.toHaveBeenCalled();
     expect(useSessionStore.getState().activeRightTab).toBe('kanban');
   });
+});
 
-  it('refuses to select a split terminal as the active right tab', () => {
+describe('legacy split terminals', () => {
+  it('treats a terminal an older daemon reports as a split as an ordinary tab', () => {
+    // Fields from the removed split contract; the desktop must ignore them so
+    // such a terminal is selectable instead of stranded off the tab bar.
+    const legacy = {
+      type: 'terminal',
+      id: 'split-1',
+      placement: 'split',
+      base_tab_id: 'event-log',
+    };
     const state = useSessionStore.getState();
-    state.setSessionTabs(SESSION, [
-      ...BASE_TABS,
-      { type: 'terminal', id: 'split-1', placement: 'split', base_tab_id: 'event-log' },
-    ]);
-    expect(() => useSessionStore.getState().setActiveRightTab('split-1')).toThrow(/split terminal/);
-    expect(useSessionStore.getState().activeRightTab).toBe('event-log');
+    state.setSessionTabs(SESSION, [...BASE_TABS, legacy as SessionTab]);
+    useSessionStore.getState().setActiveRightTab('split-1');
+    useSessionStore.getState().setFocusedPane('right-terminal:split-1');
+    const after = useSessionStore.getState();
+    expect(after.activeRightTab).toBe('split-1');
+
+    // A refresh keeps the selection: it is a valid right-pane tab.
+    after.setSessionTabs(SESSION, [...BASE_TABS, legacy as SessionTab]);
+    expect(useSessionStore.getState().activeRightTab).toBe('split-1');
+    expect(useSessionStore.getState().focusedPane).toBe('right-terminal:split-1');
   });
 });

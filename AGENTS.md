@@ -199,11 +199,11 @@ Main terminal disconnect is not session lifecycle. If the main terminal WebSocke
 
 Duplicate `connect()` calls for the same terminal (e.g. from React StrictMode) are deduplicated via `pendingConnects` map keyed by `wcId:sessionId:terminalId`.
 
-Terminal DOM persistence: `TerminalView` (the xterm component in the `terminal/` module, rendered via `SessionTerminal`) instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists — this includes every split (all splits render, not just the one for the current base tab) so switching tabs never unmounts/remounts an xterm (a remount forces a reconnect + replay that flashes black).
+Terminal DOM persistence: `TerminalView` (the xterm component in the `terminal/` module, rendered via `SessionTerminal`) instances are mounted **once per (session, terminal)** in `MainTerminalStack` / `ExtraTerminalStack` and stay mounted as long as the session exists — every terminal tab renders, not just the selected one, so switching tabs never unmounts/remounts an xterm (a remount forces a reconnect + replay that flashes black).
 
 How a pane is hidden matters, because xterm's core runs an `IntersectionObserver` that **pauses the renderer** and a `display:none` element fires **no** `ResizeObserver` events — so a `display:none` pane both stops rendering and misses size changes, then resumes against **stale geometry** and corrupts on switch-back. So:
 
-- **Active-session right-pane terminals (primary tabs and splits) are hidden with `visibility:hidden` in stable layout slots, never `display:none`.** `.extraSlot` is `position:absolute; inset:0` (stacked in a `position:relative` container), and the split secondary stays laid out at half-size always (`visibility`-toggled — see `.rightPaneSplitSecondary`). A `visibility:hidden` pane keeps a real box, so xterm never pauses it and the `ResizeObserver` keeps it fitted; switching is a pure visibility flip with nothing stale.
+- **Active-session right-pane terminal tabs are hidden with `visibility:hidden` in stable layout slots, never `display:none`.** `.extraSlot` is `position:absolute; inset:0` (stacked in a `position:relative` container). A `visibility:hidden` pane keeps a real box, so xterm never pauses it and the `ResizeObserver` keeps it fitted; switching is a pure visibility flip with nothing stale.
 - **Mains and background sessions stay on `display:none`** (one main per session; only switched on session change, which is infrequent), so they pause and don't render in the background.
 
 The WebGL renderer (crisp glyphs; the DOM renderer leaves seams in box-drawing borders) is driven by the **layout box, not the `visible` prop**: attach when the container has a real box, dispose when it collapses to 0×0 (`display:none`) — both via the `ResizeObserver`. A `visibility:hidden` pane keeps its box, so its context **persists across tab switches** (no recreate, which previously raced Chromium's async context GC and resumed against stale geometry). A `display:none` pane frees its context, keeping live contexts under the browser's ~16-context cap — past which Chromium force-loses the oldest (the main left pane) to black. The box-driven re-attach on switch-back runs after layout, so the new renderer always reads a valid cell size. A module-scope counter (`liveWebglContexts` in `TerminalView.tsx`) tracks the live count against that cap and logs it on every attach/dispose.
@@ -224,7 +224,7 @@ Each `SessionTerminal` routes its own `onData`/`onResize` via `(sessionId, termi
 
 ### Adding a new terminal
 
-1. Call `window.hiveryn.terminals.create(sessionId, {})` and let the daemon choose the default shell → POST to daemon
+1. Call `window.hiveryn.terminals.create(sessionId, { workdir_id })` with a directory from `terminals:listWorkdirs` (the workdir picker); the daemon launches its default shell there → POST to daemon
 2. The daemon returns `{ terminal_id, session_id, command, status }`
 3. Re-fetch `window.hiveryn.tabs.list(sessionId)` and store that layout via `setSessionTabs()`
 4. Set `activeRightTab` to the returned `terminal_id`; `ExtraTerminalStack` will pick it up from the refreshed daemon tabs and render a `SessionTerminal`

@@ -213,7 +213,6 @@ export default function ActionsWindow() {
                   board={EMPTY_BOARD}
                   boardLoading={false}
                   boardError={null}
-                  isMaximized={maximizedPane?.startsWith('right-') ?? false}
                   shortcutConfig={shortcutConfig}
                   onTicketSelect={() => undefined}
                   onSpawnTicket={() => undefined}

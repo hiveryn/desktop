@@ -18,13 +18,12 @@
   padding: 2rem;
 }
 
-/* Stable layout slot. All of a session's primary terminals are stacked here
+/* Stable layout slot. All of a session's terminal tabs are stacked here
    (position:absolute; inset:0 over the same pane area) and switched with
    visibility, not display:none. Staying laid out means each pane keeps a real
    box at all times, so xterm's grid stays fitted and never resumes against
    stale geometry on tab switch (the corruption this fixes). The parent
-   (.rightPaneContent / .rightPaneSplitPrimary / .rightPaneSplitSecondary) is
-   position:relative so these absolutely-positioned slots fill it.
+   (.rightPaneContent) is position:relative so these absolutely-positioned slots fill it.
 
    overflow:hidden so a too-large xterm grid (e.g. fitted while maximized) can't
    prop the box open; inset:0 already pins the size to the parent. */

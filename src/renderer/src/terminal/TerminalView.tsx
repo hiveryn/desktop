@@ -123,10 +123,10 @@ const TerminalView: React.FC<TerminalViewProps> = ({
   // while hidden. Nothing is stale on switch-back, so no fit/refresh is needed.
   //
   // Focus is the one thing the browser drops: hiding an element (or a
-  // display:none ancestor, still used for the split secondary and background
-  // sessions) moves focus to document.body. The `focused` prop may not change
-  // on switch-back, so the focus useEffect below won't re-fire — restore focus
-  // here whenever we become visible.
+  // display:none ancestor, still used for background sessions) moves focus to
+  // document.body. The `focused` prop may not change on switch-back, so the
+  // focus useEffect below won't re-fire — restore focus here whenever we
+  // become visible.
   React.useLayoutEffect(() => {
     if (!visible) return;
     const term = termRef.current;
@@ -219,7 +219,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     //     geometry.
     //
     //   - A pane that is genuinely removed from layout (display:none — used for
-    //     background SESSIONS and the split secondary) collapses to a 0×0 box.
+    //     background sessions) collapses to a 0×0 box.
     //     We dispose its context then (freeing it back under Chromium's ~16
     //     live-context cap; exceeding it force-loses the oldest → black main
     //     pane) and re-attach when the box reappears. Attaching on box-appear
@@ -251,7 +251,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
       if (webglAddon || disposedRef.current) return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) {
-        // No layout box → display:none (background session / split secondary).
+        // No layout box → display:none (background session).
         // attach no-ops here; the ResizeObserver re-attaches on box-appear when
         // the pane is shown again. Logged so a GPU-crash recovery trace shows
         // exactly which panes deferred re-attach vs. recovered in place.
@@ -456,8 +456,8 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     // Fit on initial mount whenever the container has a real box. A pane mounted
     // into a stable layout slot (visibility:hidden) is laid out at full size, so
     // it can — and should — fit immediately, sizing its PTY before the first
-    // connect. A pane mounted under a display:none ancestor (split secondary,
-    // background session) has a 0×0 box; skip it and let the ResizeObserver fit
+    // connect. A pane mounted under a display:none ancestor (background
+    // session) has a 0×0 box; skip it and let the ResizeObserver fit
     // once the box appears. fit() on a 0×0 box is a no-op anyway (proposeDimensions
     // bails on a zero cell), but checking is clearer.
     const initialRect = containerRef.current.getBoundingClientRect();
@@ -524,7 +524,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({
     //
     // Gate on the observed box size, NOT on the `visible` prop. A backgrounded
     // pane in a stable layout slot is visibility:hidden but fully laid out, so
-    // it must keep fitting as the slot resizes (window resize, split toggle) —
+    // it must keep fitting as the slot resizes (window resize, maximize) —
     // otherwise its grid would go stale exactly while hidden and corrupt on
     // switch-back (the bug this fixes). A pane under a display:none ancestor
     // reports a 0×0 box; skip it (fitting 0×0 would resize xterm to nothing),

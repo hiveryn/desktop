@@ -15,7 +15,7 @@
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
 import { requestTerminalCreation } from '../pages/architect-window/terminalWorkdirPicker';
 import { getTabPlugin } from '../plugins/registry';
-import { isSplitTerminalTab, type SessionRecord, useSessionStore } from '../state/sessionStore';
+import { type SessionRecord, useSessionStore } from '../state/sessionStore';
 import { focusIdForTab } from '../state/tabFocus';
 import { matchesShortcut } from './matchers';
 
@@ -64,23 +64,11 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
   // navigates to a hidden pane nor leaks the keystroke to a maximized
   // terminal's PTY. Un-maximize (Cmd+M) re-enables navigation.
   const isMaximized = useSessionStore.getState().maximizedPane !== null;
-  if (isMaximized) {
-    // Exception: a maximized right-pane split shows both terminals side by side,
-    // so left/right moves focus between them. Up/down/main stay disabled.
-    const split = getMaximizedRightSplit();
-    if (split) {
-      if (matchesShortcut(event, global['focus-left'] ?? '')) {
-        useSessionStore.getState().setFocusedPane(split.leftFocusId);
-        return 'consumed';
-      }
-      if (matchesShortcut(event, global['focus-right'] ?? '')) {
-        useSessionStore.getState().setFocusedPane(split.rightFocusId);
-        return 'consumed';
-      }
-    }
-    if (FOCUS_NAV_SHORTCUTS.some((name) => matchesShortcut(event, global[name] ?? ''))) {
-      return 'consumed';
-    }
+  if (
+    isMaximized &&
+    FOCUS_NAV_SHORTCUTS.some((name) => matchesShortcut(event, global[name] ?? ''))
+  ) {
+    return 'consumed';
   }
 
   if (matchesShortcut(event, global['focus-left'] ?? '')) {
@@ -123,12 +111,6 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
     void openNewTerminal();
     return 'consumed';
   }
-  const splitHorizontal =
-    activeConfig?.['right-pane']?.['split-horizontal'] ?? global['split-horizontal'] ?? '';
-  if (matchesShortcut(event, splitHorizontal)) {
-    void openSplitTerminal();
-    return 'consumed';
-  }
   if (matchesShortcut(event, global['maximize-pane'] ?? '')) {
     const { focusedPane, maximizedPane, setMaximizedPane } = useSessionStore.getState();
     setMaximizedPane(maximizedPane !== null ? null : focusedPane);
@@ -163,36 +145,10 @@ function getRightTabIds(): string[] {
   const { sessions, activeSessionId } = useSessionStore.getState();
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
   return (activeSession?.tabs ?? []).flatMap((t) => {
-    if (isSplitTerminalTab(t)) return [];
     if (!getTabPlugin(t.type)) return [];
     if (t.type === 'terminal') return t.id ? [t.id] : [];
     return [t.type];
   });
-}
-
-// When the right pane is maximized AND its active tab has an applied split, the
-// two terminals lay out side by side (primary left, secondary right — see
-// `.rightPaneSplit[data-maximized] { flex-direction: row }`). Returns the focus
-// ids for the two halves so left/right can move between them; null otherwise.
-function getMaximizedRightSplit(): { leftFocusId: string; rightFocusId: string } | null {
-  const state = useSessionStore.getState();
-  if (!state.maximizedPane?.startsWith('right-')) return null;
-  const activeSession = state.activeSessionId ? state.sessions[state.activeSessionId] : undefined;
-  if (!activeSession) return null;
-  const rightTabIds = getRightTabIds();
-  const effectiveTab =
-    state.activeRightTab && rightTabIds.includes(state.activeRightTab)
-      ? state.activeRightTab
-      : rightTabIds[0];
-  if (!effectiveTab) return null;
-  const splitTab = activeSession.tabs.find(
-    (tab) => isSplitTerminalTab(tab) && tab.base_tab_id === effectiveTab,
-  );
-  if (!splitTab?.id) return null;
-  return {
-    leftFocusId: focusIdForTab(effectiveTab),
-    rightFocusId: `right-terminal:${splitTab.id}`,
-  };
 }
 
 // ── Focus actions ────────────────────────────────────────────────────────────
@@ -240,40 +196,10 @@ function focusUp(): void {
 function cycleRightTabFocus(delta: number): void {
   const state = useSessionStore.getState();
   if (!state.focusedPane.startsWith('right-')) return;
-  const activeSession = state.activeSessionId ? state.sessions[state.activeSessionId] : undefined;
-  const splitTabs = activeSession?.tabs.filter(isSplitTerminalTab) ?? [];
-  const splitForFocusedBase = splitTabs.find(
-    (tab) => tab.base_tab_id && focusIdForTab(tab.base_tab_id) === state.focusedPane,
-  );
-  const focusedSplit = splitTabs.find(
-    (tab) => tab.id && `right-terminal:${tab.id}` === state.focusedPane,
-  );
-  const splitTab = splitForFocusedBase ?? focusedSplit;
-  if (splitTab) {
-    if (!splitTab.id)
-      throw new Error(`Split terminal tab is missing id: ${JSON.stringify(splitTab)}`);
-    if (!splitTab.base_tab_id) {
-      throw new Error(`Split terminal ${splitTab.id} is missing base_tab_id`);
-    }
-    const splitFocusId = `right-terminal:${splitTab.id}`;
-    const baseFocusId = focusIdForTab(splitTab.base_tab_id);
-    if (delta > 0 && state.focusedPane === baseFocusId) {
-      state.setFocusedPane(splitFocusId);
-      return;
-    }
-    if (delta < 0 && state.focusedPane === splitFocusId) {
-      state.setActiveRightTab(splitTab.base_tab_id);
-      state.setFocusedPane(baseFocusId);
-      return;
-    }
-  }
   const rightTabIds = getRightTabIds();
   if (rightTabIds.length === 0) return;
   const focusIds = rightTabIds.map(focusIdForTab);
-  const idx =
-    splitTab && state.focusedPane === `right-terminal:${splitTab.id}`
-      ? rightTabIds.indexOf(splitTab.base_tab_id ?? '')
-      : focusIds.indexOf(state.focusedPane);
+  const idx = focusIds.indexOf(state.focusedPane);
   const n = focusIds.length;
   const nextIdx = idx === -1 ? (delta > 0 ? 0 : n - 1) : (idx + delta + n) % n;
   state.setActiveRightTab(rightTabIds[nextIdx]);
@@ -338,7 +264,6 @@ async function closeCurrentTab(): Promise<void> {
       (tab) =>
         tab.type === 'terminal' &&
         tab.id === activeRightTab &&
-        !isSplitTerminalTab(tab) &&
         activeRightTab !== 'kanban' &&
         activeRightTab !== 'event-log' &&
         activeRightTab !== 'ticket',
@@ -369,26 +294,6 @@ async function openNewTerminal(): Promise<void> {
   if (!activeSessionId) return;
   requestTerminalCreation({
     sessionId: activeSessionId,
-    placement: 'tab',
-    capturedActiveRightTab: activeRightTab,
-    capturedFocusedPane: focusedPane,
-  });
-}
-
-async function openSplitTerminal(): Promise<void> {
-  const { activeSessionId, activeRightTab, sessions, focusedPane } = useSessionStore.getState();
-  if (!activeSessionId || !focusedPane.startsWith('right-')) return;
-  const session = sessions[activeSessionId];
-  if (!session) {
-    throw new Error(`Cannot split right pane for missing session ${activeSessionId}`);
-  }
-  if (session.tabs.some((tab) => isSplitTerminalTab(tab) && tab.base_tab_id === activeRightTab)) {
-    return;
-  }
-  requestTerminalCreation({
-    sessionId: activeSessionId,
-    placement: 'split',
-    baseTabId: activeRightTab,
     capturedActiveRightTab: activeRightTab,
     capturedFocusedPane: focusedPane,
   });

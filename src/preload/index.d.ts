@@ -173,24 +173,9 @@ interface TerminalInfo {
 
 type TerminalWorkdir = import('@hiveryn/shared/domain').TerminalWorkdir;
 
-type TerminalPlacement = 'tab' | 'split';
+type CreateTerminalParams = import('@hiveryn/shared/domain').CreateTerminalParams;
 
-type CreateTerminalParams =
-  | { placement: 'tab'; workdir_id: string }
-  | { placement: 'split'; base_tab_id: string; workdir_id: string };
-
-interface SessionTab {
-  type: string;
-  id?: string;
-  command?: string;
-  status?: string;
-  placement?: TerminalPlacement;
-  base_tab_id?: string;
-  workdir_id?: string;
-  workdir_title?: string;
-  workdir_path?: string;
-  workdir_display_path?: string;
-}
+type SessionTab = import('@hiveryn/shared/domain').SessionTab;
 
 // ── Architects ─────────────────────────────────────────────────────────────
 
