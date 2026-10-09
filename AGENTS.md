@@ -120,7 +120,7 @@ src/
 
 Every daemon-backed IPC call follows this chain:
 
-1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws.
+1. **Main handler** (`ipc/*.ts`) calls `daemonFetch()`, which always returns `{ envelope, httpStatus }` — never throws. Each call is bounded (5 s by default); exceeding it yields code `TIMEOUT` (naming method, path and bound), distinct from an unreachable daemon's `NETWORK_ERROR`. A call that legitimately runs longer passes its own `timeoutMs` instead of raising the default: `sessions:createRun` allows 150 s, past the daemon's own two-minute launch bound, because a remote worker launch is many SSH round trips. The daemon finishes a launch even when the requester stops waiting, so a createRun `TIMEOUT` says the session will appear if it starts.
 2. **Preload `invoke()`** receives the result, notifies `daemon.onRequest` listeners (for the request log and the error center — see below), then either returns `envelope.data` or throws an `IpcError` with `{ status, code, details, stacktrace }` from the envelope.
 3. **Renderer** catches `IpcError` — field-level errors (status 400/409) are set directly on form fields via `details.field`; most other API errors are left uncaught and surface automatically through the error center (see below), since `useErrorCenterCapture` already saw them via `daemon.onRequest`. A few components (whose error is naturally scoped to and dismissed with the surface — `ConcludeSessionDialog`, the intent center's `IntentCard`, `TicketWorkflow`) still render the full daemon error inline via the `ApiEnvelopeError` component (`src/renderer/src/components/ApiEnvelopeError/`).
 

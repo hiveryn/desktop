@@ -256,7 +256,11 @@ export default function TicketLaunchDialog({
       )}
 
       {machine !== null && machine !== '' && (
-        <div className={styles.notice}>Runs on {machineLabel(machine)}.</div>
+        <div className={styles.notice}>
+          {submitting
+            ? `Preparing the worker on ${machineLabel(machine)} over SSH — this can take up to two minutes.`
+            : `Runs on ${machineLabel(machine)}.`}
+        </div>
       )}
 
       <AgentSelect

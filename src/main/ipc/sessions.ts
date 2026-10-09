@@ -14,6 +14,11 @@ import type { DaemonResult, SessionRunResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
+// Launching a run validates and prepares the worker, which for a remote worker
+// is many SSH round trips. The daemon bounds a launch at two minutes and reports
+// its own error; this bound sits beyond it so that error is what the user sees.
+const RUN_LAUNCH_TIMEOUT_MS = 150_000;
+
 export function registerSessionsIpc(): void {
   ipcMain.handle('sessions:list', async (): Promise<DaemonResult<Session[]>> => {
     const result = await daemonFetch<{ sessions: Session[] }>('/api/sessions');
@@ -70,10 +75,18 @@ export function registerSessionsIpc(): void {
       cols?: number,
       rows?: number,
     ): Promise<DaemonResult<SessionRunResult>> => {
-      return daemonFetch<SessionRunResult>(`/api/sessions/${encodeURIComponent(intentId)}/runs`, {
-        method: 'POST',
-        body: JSON.stringify({ profile_name: profileName, cols, rows }),
-      });
+      const result = await daemonFetch<SessionRunResult>(
+        `/api/sessions/${encodeURIComponent(intentId)}/runs`,
+        { method: 'POST', body: JSON.stringify({ profile_name: profileName, cols, rows }) },
+        { timeoutMs: RUN_LAUNCH_TIMEOUT_MS },
+      );
+      const error = result.envelope.error;
+      if (error?.code === 'TIMEOUT') {
+        // The daemon finishes a launch whether or not anyone is still waiting.
+        error.message +=
+          '. The launch continues in the daemon: the session appears when it starts; otherwise Spawn again to see its error.';
+      }
+      return result;
     },
   );
 
