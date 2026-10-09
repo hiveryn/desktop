@@ -13,13 +13,18 @@ import type { Architect } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
+import { useElapsedSeconds } from '../../../lib/useElapsedSeconds';
 import { getTabPlugin } from '../../../plugins/registry';
 import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionRepoScope } from '../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../state/sessionStore';
 import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
 import styles from '../index.module.css';
-import { requestTerminalCreation } from '../terminalWorkdirPicker';
+import {
+  type PendingTerminal,
+  requestTerminalCreation,
+  usePendingTerminalStore,
+} from '../terminalWorkdirPicker';
 import ExtraTerminalStack from './ExtraTerminalStack';
 import GitDiffPane from './GitDiffPane';
 import TicketPane from './TicketPane';
@@ -92,6 +97,9 @@ export default function RightPane({
   const setFocusedPane = useSessionStore((s) => s.setFocusedPane);
 
   const activeSession = activeSessionId ? sessions[activeSessionId] : undefined;
+  const pendingTerminal = usePendingTerminalStore((state) =>
+    activeSessionId ? state.bySession[activeSessionId] : undefined,
+  );
   const events = useEventsForActiveSession();
   const eventLogEvents = useMemo(
     () =>
@@ -341,7 +349,10 @@ export default function RightPane({
     // biome-ignore lint/a11y/noStaticElementInteractions: click tracks keyboard focus state; global keydown handles actual keyboard nav
     // biome-ignore lint/a11y/useKeyWithClickEvents: see above
     <div className={styles.rightPaneInner} onClick={handlePaneClick}>
-      <div className={styles.rightPaneContent}>{primaryContent}</div>
+      <div className={styles.rightPaneContent}>
+        {primaryContent}
+        {pendingTerminal && <PendingTerminalStatus pending={pendingTerminal} />}
+      </div>
 
       <div className={styles.tabColumn}>
         <TabBar
@@ -352,10 +363,22 @@ export default function RightPane({
             setFocusedPane(focusIdForTab(id));
           }}
           onAdd={() => void handleOpenNewTerminal(activeSession?.id)}
-          addLabel="New terminal"
+          addLabel={pendingTerminal ? 'A terminal is being opened' : 'New terminal'}
+          addDisabled={pendingTerminal !== undefined}
           side="right"
         />
       </div>
+    </div>
+  );
+}
+
+function PendingTerminalStatus({ pending }: { pending: PendingTerminal }) {
+  const elapsed = useElapsedSeconds(pending.startedAt);
+  const where = pending.machine ? ` on ${pending.machine} over SSH` : '';
+  return (
+    <div className={styles.pendingTerminal} role="status">
+      Opening terminal in {pending.title}
+      {where}… {elapsed !== null && elapsed > 0 ? `${elapsed}s` : ''}
     </div>
   );
 }

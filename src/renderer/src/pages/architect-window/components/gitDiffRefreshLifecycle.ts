@@ -15,6 +15,8 @@ export class GitDiffRefreshLifecycle {
   private requestSequence = 0;
   private readonly lastSeenSeqBySession = new Map<string, number>();
   private debounce: ReturnType<typeof setTimeout> | null = null;
+  private inFlight: DiffContextToken | null = null;
+  private rerunRequested = false;
 
   activate(contextKey: string | null): void {
     if (this.contextKey === contextKey) return;
@@ -29,6 +31,30 @@ export class GitDiffRefreshLifecycle {
       generation: this.generation,
       requestSequence: this.requestSequence,
     };
+  }
+
+  // One diff request per context at a time: a remote diff is several SSH round
+  // trips, and stacking refreshes only multiplies them. While a request this
+  // context still owns is in flight, another is recorded as wanted (null is
+  // returned) and runs once after it, so no change is missed.
+  tryBeginRequest(contextKey: string): DiffContextToken | null {
+    if (this.inFlight && this.owns(this.inFlight)) {
+      this.rerunRequested = true;
+      return null;
+    }
+    this.rerunRequested = false;
+    this.inFlight = this.beginRequest(contextKey);
+    return this.inFlight;
+  }
+
+  // Ends a request; true when a refresh was asked for meanwhile and the
+  // request's context is still current. A superseded request reports false.
+  finishRequest(token: DiffContextToken): boolean {
+    if (this.inFlight !== token) return false;
+    this.inFlight = null;
+    const rerun = this.rerunRequested && this.owns(token);
+    this.rerunRequested = false;
+    return rerun;
   }
 
   owns(token: DiffContextToken): boolean {

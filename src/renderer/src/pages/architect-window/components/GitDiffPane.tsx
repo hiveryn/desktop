@@ -14,6 +14,7 @@ import { createChordMatcher } from '../../../keys/chords';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
 import { GIT_DIFF_BINDING_DEFAULTS, resolveBindings } from '../../../keys/paneBindings';
+import { useElapsedSeconds } from '../../../lib/useElapsedSeconds';
 import { usePaneLayoutStore } from '../../../state/paneLayoutStore';
 import { useEventsForSession } from '../../../state/selectors';
 import type { SessionRepoScope } from '../../../state/sessionRepoScope';
@@ -135,6 +136,8 @@ export default function GitDiffPane({
     contextKey: string;
     data: RepoDiffResponse | null;
     loading: boolean;
+    // When the in-flight request began (epoch ms); null when idle.
+    startedAt: number | null;
     error: unknown;
   } | null>(null);
   // The file whose diff is shown (background highlight) — distinct from the
@@ -184,31 +187,40 @@ export default function GitDiffPane({
   const data = currentResult?.data ?? null;
   const loading = currentResult?.loading ?? contextKey !== null;
   const error = currentResult?.error ?? null;
+  const elapsed = useElapsedSeconds(currentResult?.loading ? currentResult.startedAt : null);
+  const machine = useSessionStore((s) => s.sessions[sessionId]?.machine);
 
+  const refetchRef = useRef<() => Promise<void>>(async () => {});
   const refetch = useCallback(async () => {
     if (!architectKey || !selectedRepoKey || !contextKey) return;
-    const requestToken = refreshLifecycleRef.current.beginRequest(contextKey);
+    const requestToken = refreshLifecycleRef.current.tryBeginRequest(contextKey);
+    if (!requestToken) return;
     const ownsContext = (): boolean => refreshLifecycleRef.current.owns(requestToken);
     setResult((previous) => ({
       contextKey,
       data: previous?.contextKey === contextKey ? previous.data : null,
       loading: true,
+      startedAt: Date.now(),
       error: null,
     }));
     try {
       const next = await window.hiveryn.repos.diff(architectKey, selectedRepoKey);
       if (!ownsContext()) return;
-      setResult({ contextKey, data: next, loading: false, error: null });
+      setResult({ contextKey, data: next, loading: false, startedAt: null, error: null });
     } catch (err) {
       if (!ownsContext()) return;
       setResult((previous) => ({
         contextKey,
         data: previous?.contextKey === contextKey ? previous.data : null,
         loading: false,
+        startedAt: null,
         error: err,
       }));
+    } finally {
+      if (refreshLifecycleRef.current.finishRequest(requestToken)) void refetchRef.current();
     }
   }, [architectKey, selectedRepoKey, contextKey]);
+  refetchRef.current = refetch;
 
   // Refetch whenever the tab becomes active (including first activation).
   useEffect(() => {
@@ -356,8 +368,6 @@ export default function GitDiffPane({
   filterActiveRef.current = filterActive;
   const filterSelRef = useRef(filterSel);
   filterSelRef.current = filterSel;
-  const refetchRef = useRef(refetch);
-  refetchRef.current = refetch;
   const moveCursorToRowRef = useRef(moveCursorToRow);
   moveCursorToRowRef.current = moveCursorToRow;
   const toggleDirRef = useRef(toggleDir);
@@ -592,51 +602,31 @@ export default function GitDiffPane({
     );
   }
 
-  if (error && !data) {
-    return (
-      <div className={styles.pane}>
-        <div className={styles.errorBlock}>
-          <span>Failed to load git diff: {errorText(error)}</span>
-          <button type="button" className={styles.retryButton} onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const where = machine ? ` on ${machine} over SSH` : '';
+  const waited = elapsed !== null && elapsed > 0 ? ` ${elapsed}s` : '';
 
-  if (loading && !data) {
-    return (
-      <div className={styles.pane}>
-        <span className={styles.loading}>Loading git diff…</span>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  return (
-    <section className={styles.pane}>
-      <header className={styles.header}>
-        <IconButton
-          className={styles.collapseButton}
-          onClick={toggleSidebar}
-          aria-label={sidebarCollapsed ? 'Show file list' : 'Hide file list'}
-          title={sidebarCollapsed ? 'Show file list' : 'Hide file list'}
-        >
-          {sidebarCollapsed ? <Forward /> : <Back />}
-        </IconButton>
-        <GitDiff className={styles.headerIcon} aria-hidden="true" />
-        {selectedRepoKey && (
-          <RepoPicker
-            options={repoOptions}
-            selectedRepoKey={selectedRepoKey}
-            onSelect={(repoKey) =>
-              setRepoSelections((selections) => ({ ...selections, [sessionId]: repoKey }))
-            }
-          />
-        )}
-        <span className={styles.headerPath}>{tildePath(data.repo_path, home)}</span>
+  const header = (
+    <header className={styles.header}>
+      <IconButton
+        className={styles.collapseButton}
+        onClick={toggleSidebar}
+        aria-label={sidebarCollapsed ? 'Show file list' : 'Hide file list'}
+        title={sidebarCollapsed ? 'Show file list' : 'Hide file list'}
+      >
+        {sidebarCollapsed ? <Forward /> : <Back />}
+      </IconButton>
+      <GitDiff className={styles.headerIcon} aria-hidden="true" />
+      {selectedRepoKey && (
+        <RepoPicker
+          options={repoOptions}
+          selectedRepoKey={selectedRepoKey}
+          onSelect={(repoKey) =>
+            setRepoSelections((selections) => ({ ...selections, [sessionId]: repoKey }))
+          }
+        />
+      )}
+      {data && <span className={styles.headerPath}>{tildePath(data.repo_path, home)}</span>}
+      {data && (
         <span className={styles.summary}>
           <span>{data.summary.files} changed</span>
           {data.summary.staged_files !== undefined && (
@@ -648,15 +638,55 @@ export default function GitDiffPane({
           <span className={styles.additions}>+{data.summary.additions}</span>
           <span className={styles.deletions}>-{data.summary.deletions}</span>
         </span>
-        <IconButton
-          className={styles.refreshButton}
-          onClick={() => void refetch()}
-          aria-label="Refresh diff"
-          title="Refresh diff"
-        >
-          <Refresh />
-        </IconButton>
-      </header>
+      )}
+      {loading && data && (
+        <span className={styles.refreshing} role="status">
+          Refreshing{where}…{waited}
+        </span>
+      )}
+      <IconButton
+        className={styles.refreshButton}
+        onClick={() => void refetch()}
+        disabled={loading}
+        aria-label={loading ? 'Diff is loading' : 'Refresh diff'}
+        title={loading ? 'Diff is loading' : 'Refresh diff'}
+      >
+        <Refresh />
+      </IconButton>
+    </header>
+  );
+
+  if (error && !data) {
+    return (
+      <section className={styles.pane}>
+        {header}
+        <div className={styles.errorBlock}>
+          <span>Failed to load git diff: {errorText(error)}</span>
+          <button type="button" className={styles.retryButton} onClick={() => void refetch()}>
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (loading && !data) {
+    return (
+      <section className={styles.pane}>
+        {header}
+        <span className={styles.loading} role="status">
+          Loading git diff of {selectedRepoKey}
+          {where}…{waited}
+        </span>
+      </section>
+    );
+  }
+
+  if (!data) return null;
+
+  return (
+    <section className={styles.pane} aria-busy={loading || undefined}>
+      {header}
 
       {error != null && (
         <div className={styles.errorBanner}>

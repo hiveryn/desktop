@@ -241,3 +241,23 @@ div.bottomBar {
   box-shadow: var(--shadow-modal);
   border-right: none;
 }
+
+/* A terminal being opened (possibly over SSH): an operation-local status line
+   pinned to the right pane's bottom edge, above the tab content but below
+   overlays, so the pane stays usable while it waits. */
+.pendingTerminal {
+  position: absolute;
+  right: var(--space-h-2);
+  bottom: var(--space-2);
+  z-index: 2;
+  max-width: calc(100% - 2 * var(--space-h-2));
+  padding: var(--space-1) var(--space-h-2);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface-raised);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}

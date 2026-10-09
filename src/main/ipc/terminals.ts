@@ -4,6 +4,12 @@ import type { DaemonResult } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 import { invalidDaemonResponse, withNullData } from './results';
 
+// Opening a remote repository terminal creates its tmux server over SSH. The
+// daemon bounds creation at 45 s plus up to 30 s of cleanup when it fails, and
+// finishes either way once started; this bound sits beyond both, so the
+// daemon's own outcome is what the user sees.
+const TERMINAL_CREATE_TIMEOUT_MS = 90_000;
+
 export function registerTerminalsIpc(): void {
   ipcMain.handle(
     'terminals:listWorkdirs',
@@ -40,10 +46,18 @@ export function registerTerminalsIpc(): void {
       sessionId: string,
       body: CreateTerminalParams,
     ): Promise<DaemonResult<TerminalInfo>> => {
-      return daemonFetch<TerminalInfo>(`/api/sessions/${encodeURIComponent(sessionId)}/terminals`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const result = await daemonFetch<TerminalInfo>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/terminals`,
+        { method: 'POST', body: JSON.stringify(body) },
+        { timeoutMs: TERMINAL_CREATE_TIMEOUT_MS },
+      );
+      const error = result.envelope.error;
+      if (error?.code === 'TIMEOUT') {
+        // A timeout does not prove no terminal was created.
+        error.message +=
+          '. The daemon finishes or cleans up the terminal on its own: it appears as a tab if it opened.';
+      }
+      return result;
     },
   );
 

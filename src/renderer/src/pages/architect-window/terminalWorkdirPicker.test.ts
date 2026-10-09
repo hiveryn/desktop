@@ -1,7 +1,12 @@
 import type { CreateTerminalParams, SessionTab, TerminalWorkdir } from '@hiveryn/shared/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
-import { createSelectedTerminal } from './terminalWorkdirPicker';
+import {
+  createSelectedTerminal,
+  requestTerminalCreation,
+  TERMINAL_WORKDIR_REQUEST,
+  usePendingTerminalStore,
+} from './terminalWorkdirPicker';
 
 const SESSION = 'session-1';
 const WORKDIR: TerminalWorkdir = {
@@ -19,6 +24,23 @@ const BASE_TABS: SessionTab[] = [
 
 let daemonTabs: SessionTab[];
 const create = vi.fn();
+const dispatchEvent = vi.fn();
+const REQUEST = {
+  sessionId: SESSION,
+  capturedActiveRightTab: 'event-log',
+  capturedFocusedPane: 'right-event-log',
+};
+const REMOTE: TerminalWorkdir = { ...WORKDIR, id: 'repo:remote', title: 'remote', machine: 'bk' };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (err: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 function record(tabs: SessionTab[]): SessionRecord {
   return {
@@ -34,11 +56,14 @@ function record(tabs: SessionTab[]): SessionRecord {
 beforeEach(() => {
   daemonTabs = [...BASE_TABS];
   create.mockReset();
+  dispatchEvent.mockReset();
   create.mockImplementation(async (_sessionId: string, _body: CreateTerminalParams) => {
     daemonTabs = [...daemonTabs, { type: 'terminal', id: 'term-new' }];
     return { terminal_id: 'term-new', session_id: SESSION, command: 'zsh', status: 'running' };
   });
+  usePendingTerminalStore.setState({ bySession: {} });
   vi.stubGlobal('window', {
+    dispatchEvent,
     hiveryn: {
       terminals: { create },
       tabs: { list: async () => daemonTabs },
@@ -94,6 +119,62 @@ describe('createSelectedTerminal', () => {
 
     expect(create).not.toHaveBeenCalled();
     expect(useSessionStore.getState().activeRightTab).toBe('kanban');
+  });
+});
+
+describe('pending terminal creation', () => {
+  it('shows the pending terminal with its machine until a slow creation succeeds', async () => {
+    const slow = deferred<unknown>();
+    create.mockImplementation(async () => {
+      await slow.promise;
+      daemonTabs = [...daemonTabs, { type: 'terminal', id: 'term-new' }];
+      return { terminal_id: 'term-new', session_id: SESSION, command: 'ssh', status: 'running' };
+    });
+    const done = createSelectedTerminal(REQUEST, REMOTE);
+
+    const pending = usePendingTerminalStore.getState().bySession[SESSION];
+    expect(pending).toMatchObject({ title: 'remote', machine: 'bk' });
+    // A second "+" or a second pick while pending submits nothing.
+    requestTerminalCreation(REQUEST);
+    expect(dispatchEvent).not.toHaveBeenCalled();
+    await createSelectedTerminal(REQUEST, REMOTE);
+    expect(create).toHaveBeenCalledTimes(1);
+
+    slow.resolve(undefined);
+    await done;
+    expect(usePendingTerminalStore.getState().bySession[SESSION]).toBeUndefined();
+    expect(useSessionStore.getState().activeRightTab).toBe('term-new');
+    requestTerminalCreation(REQUEST);
+    expect(dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: TERMINAL_WORKDIR_REQUEST }),
+    );
+  });
+
+  it('clears pending state on failure and shows a terminal the daemon still opened', async () => {
+    // A timed-out request whose terminal the daemon finished anyway.
+    create.mockImplementation(async () => {
+      daemonTabs = [...daemonTabs, { type: 'terminal', id: 'term-late' }];
+      throw Object.assign(new Error('The daemon did not answer POST … within 90s'), {
+        code: 'TIMEOUT',
+      });
+    });
+    await createSelectedTerminal(REQUEST, REMOTE);
+
+    expect(usePendingTerminalStore.getState().bySession[SESSION]).toBeUndefined();
+    const tabs = useSessionStore.getState().sessions[SESSION].tabs;
+    expect(tabs.map((tab) => tab.id)).toContain('term-late');
+    // The user stays where they were; nothing claims success.
+    expect(useSessionStore.getState().activeRightTab).toBe('event-log');
+  });
+
+  it('keeps sessions independent', async () => {
+    const slow = deferred<unknown>();
+    create.mockImplementation(() => slow.promise);
+    const done = createSelectedTerminal(REQUEST, REMOTE);
+    requestTerminalCreation({ ...REQUEST, sessionId: 'other-session' });
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    slow.reject(new Error('failed'));
+    await done;
   });
 });
 

@@ -22,6 +22,9 @@ interface TabBarProps extends React.HTMLAttributes<HTMLDivElement> {
   onTabChange: (id: string) => void;
   onAdd?: () => void;
   addLabel?: string;
+  // Disables the add button (e.g. while an addition is already in flight);
+  // addLabel then says why.
+  addDisabled?: boolean;
   side?: 'left' | 'right' | 'bottom';
 }
 
@@ -31,6 +34,7 @@ const TabBar: React.FC<TabBarProps> = ({
   onTabChange,
   onAdd,
   addLabel = 'Add',
+  addDisabled = false,
   side = 'left',
   className,
   ...rest
@@ -91,7 +95,13 @@ const TabBar: React.FC<TabBarProps> = ({
         );
       })}
       {onAdd && (
-        <button className={styles.addBtn} onClick={onAdd} aria-label={addLabel}>
+        <button
+          className={styles.addBtn}
+          onClick={onAdd}
+          aria-label={addLabel}
+          title={addLabel}
+          disabled={addDisabled}
+        >
           <Plus />
         </button>
       )}

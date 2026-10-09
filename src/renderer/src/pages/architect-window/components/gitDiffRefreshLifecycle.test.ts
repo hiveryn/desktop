@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GitDiffRefreshLifecycle } from './gitDiffRefreshLifecycle';
+import { type DiffContextToken, GitDiffRefreshLifecycle } from './gitDiffRefreshLifecycle';
 
 afterEach(() => vi.useRealTimers());
+
+function began(token: DiffContextToken | null): DiffContextToken {
+  if (!token) throw new Error('request did not start');
+  return token;
+}
 
 describe('GitDiffRefreshLifecycle', () => {
   it('rejects out-of-order responses from another session/repository and older requests', () => {
@@ -51,5 +56,45 @@ describe('GitDiffRefreshLifecycle', () => {
     vi.advanceTimersByTime(1500);
 
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('runs one request per context and one follow-up for refreshes asked meanwhile', () => {
+    const lifecycle = new GitDiffRefreshLifecycle();
+    lifecycle.activate('session-a/repo-a');
+    const first = lifecycle.tryBeginRequest('session-a/repo-a');
+    expect(first).not.toBeNull();
+    // A slow (SSH) request in flight: further refreshes do not stack.
+    expect(lifecycle.tryBeginRequest('session-a/repo-a')).toBeNull();
+    expect(lifecycle.tryBeginRequest('session-a/repo-a')).toBeNull();
+    expect(lifecycle.finishRequest(began(first))).toBe(true);
+
+    const followUp = lifecycle.tryBeginRequest('session-a/repo-a');
+    expect(followUp).not.toBeNull();
+    expect(lifecycle.finishRequest(began(followUp))).toBe(false);
+  });
+
+  it('starts a new context at once and never reruns a superseded request', () => {
+    const lifecycle = new GitDiffRefreshLifecycle();
+    lifecycle.activate('session-a/repo-a');
+    const slowA = lifecycle.tryBeginRequest('session-a/repo-a');
+    expect(lifecycle.tryBeginRequest('session-a/repo-a')).toBeNull();
+
+    lifecycle.activate('session-a/repo-b');
+    const b = lifecycle.tryBeginRequest('session-a/repo-b');
+    expect(b).not.toBeNull();
+    // A's late response neither publishes (owns) nor triggers a rerun, and
+    // does not release B's in-flight slot.
+    expect(lifecycle.owns(began(slowA))).toBe(false);
+    expect(lifecycle.finishRequest(began(slowA))).toBe(false);
+    expect(lifecycle.tryBeginRequest('session-a/repo-b')).toBeNull();
+    expect(lifecycle.finishRequest(began(b))).toBe(true);
+  });
+
+  it('frees the slot after a failed request so Retry works', () => {
+    const lifecycle = new GitDiffRefreshLifecycle();
+    lifecycle.activate('ctx');
+    const failed = lifecycle.tryBeginRequest('ctx');
+    expect(lifecycle.finishRequest(began(failed))).toBe(false);
+    expect(lifecycle.tryBeginRequest('ctx')).not.toBeNull();
   });
 });

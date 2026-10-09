@@ -69,6 +69,16 @@
   flex-shrink: 0;
 }
 
+/* Right-aligned even before a diff (and its summary) has loaded. */
+.refreshButton {
+  margin-left: auto;
+}
+
+/* The summary already right-aligns; keep refresh beside it. */
+.summary ~ .refreshButton {
+  margin-left: 0;
+}
+
 /* ── Error states ────────────────────────────────────────────── */
 .errorBlock {
   display: flex;
@@ -323,4 +333,12 @@
   white-space: nowrap;
   color: var(--theme-text-subtle);
   font-size: var(--font-size-xs);
+}
+
+/* Shown while a refresh is in flight; the previous diff stays visible. */
+.refreshing {
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
