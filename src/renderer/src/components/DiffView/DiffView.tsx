@@ -23,6 +23,8 @@ export interface DiffViewProps {
   viewMode?: 'unified' | 'split';
   onViewModeChange?: (mode: 'unified' | 'split') => void;
   defaultViewMode?: 'unified' | 'split';
+  /** Wrap long lines to the pane width (default); false scrolls horizontally. */
+  wrapLines?: boolean;
   className?: string;
 }
 
@@ -72,11 +74,13 @@ function SyncTokenizedDiff({
   diffType,
   viewType,
   language,
+  wrapLines,
 }: {
   hunks: HunkData[];
   diffType: DiffType;
   viewType: 'unified' | 'split';
   language: string | undefined;
+  wrapLines: boolean;
 }) {
   const tokens = React.useMemo(() => {
     if (!language) return null;
@@ -88,7 +92,7 @@ function SyncTokenizedDiff({
   }, [hunks, language]);
 
   return (
-    <div className={styles.diffScroll} data-diff-type={diffType}>
+    <div className={styles.diffScroll} data-diff-type={diffType} data-wrap={wrapLines || undefined}>
       <Diff viewType={viewType} diffType={diffType} hunks={hunks} tokens={tokens} optimizeSelection>
         {(renderHunks) => renderHunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
       </Diff>
@@ -101,11 +105,13 @@ function WorkerTokenizedDiff({
   diffType,
   viewType,
   language,
+  wrapLines,
 }: {
   hunks: HunkData[];
   diffType: DiffType;
   viewType: 'unified' | 'split';
   language: string | undefined;
+  wrapLines: boolean;
 }) {
   const [worker] = React.useState(
     () => new Worker(new URL('./tokenize.worker.ts', import.meta.url), { type: 'module' }),
@@ -115,7 +121,7 @@ function WorkerTokenizedDiff({
   const { tokens } = useTokenizeWorker(worker, { hunks, oldSource: null, language });
 
   return (
-    <div className={styles.diffScroll} data-diff-type={diffType}>
+    <div className={styles.diffScroll} data-diff-type={diffType} data-wrap={wrapLines || undefined}>
       <Diff viewType={viewType} diffType={diffType} hunks={hunks} tokens={tokens} optimizeSelection>
         {(renderHunks) => renderHunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
       </Diff>
@@ -129,12 +135,14 @@ function DiffSectionBlock({
   viewMode,
   onViewModeChange,
   canSplit,
+  wrapLines,
 }: {
   path: string;
   section: DiffViewSection;
   viewMode: 'unified' | 'split';
   onViewModeChange: (mode: 'unified' | 'split') => void;
   canSplit: boolean;
+  wrapLines: boolean;
 }) {
   const effectiveViewMode = canSplit ? viewMode : 'unified';
 
@@ -153,6 +161,7 @@ function DiffSectionBlock({
         rawUnifiedDiff={section.rawUnifiedDiff}
         path={path}
         viewType={effectiveViewMode}
+        wrapLines={wrapLines}
       />
     );
   }
@@ -182,10 +191,12 @@ function ParsedDiffBody({
   rawUnifiedDiff,
   path,
   viewType,
+  wrapLines,
 }: {
   rawUnifiedDiff: string;
   path: string;
   viewType: 'unified' | 'split';
+  wrapLines: boolean;
 }) {
   const parsed = React.useMemo(() => {
     try {
@@ -197,7 +208,11 @@ function ParsedDiffBody({
   }, [rawUnifiedDiff]);
 
   if (!parsed) {
-    return <pre className={styles.rawFallback}>{rawUnifiedDiff}</pre>;
+    return (
+      <pre className={styles.rawFallback} data-wrap={wrapLines || undefined}>
+        {rawUnifiedDiff}
+      </pre>
+    );
   }
 
   const language = languageForPath(path);
@@ -210,12 +225,19 @@ function ParsedDiffBody({
         diffType={parsed.type}
         viewType={viewType}
         language={language}
+        wrapLines={wrapLines}
       />
     );
   }
 
   return (
-    <SyncTokenizedDiff hunks={parsed.hunks} diffType={parsed.type} viewType={viewType} language={language} />
+    <SyncTokenizedDiff
+      hunks={parsed.hunks}
+      diffType={parsed.type}
+      viewType={viewType}
+      language={language}
+      wrapLines={wrapLines}
+    />
   );
 }
 
@@ -224,6 +246,7 @@ export function DiffView({
   viewMode: viewModeProp,
   onViewModeChange,
   defaultViewMode = 'unified',
+  wrapLines = true,
   className,
 }: DiffViewProps) {
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -255,6 +278,7 @@ export function DiffView({
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           canSplit={canSplit}
+          wrapLines={wrapLines}
         />
       ))}
     </div>

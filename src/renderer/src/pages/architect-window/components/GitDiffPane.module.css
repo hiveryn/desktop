@@ -65,7 +65,8 @@
 }
 
 .collapseButton,
-.refreshButton {
+.refreshButton,
+.wrapButton {
   flex-shrink: 0;
 }
 
@@ -77,6 +78,11 @@
 /* The summary already right-aligns; keep refresh beside it. */
 .summary ~ .refreshButton {
   margin-left: 0;
+}
+
+/* Lit while wrapping is on. */
+.wrapButton[aria-pressed="true"] {
+  color: var(--theme-text);
 }
 
 /* ── Error states ────────────────────────────────────────────── */

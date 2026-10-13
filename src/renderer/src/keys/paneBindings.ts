@@ -19,6 +19,7 @@ export const GIT_DIFF_BINDING_DEFAULTS: Record<string, string> = {
   'jump-up': 'shift+[',
   search: '/',
   'toggle-sidebar': 'b',
+  'toggle-wrap': 'w',
 };
 
 /** Daemon-configured bindings layered over the pane defaults. */

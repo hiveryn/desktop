@@ -110,7 +110,7 @@
   font-size: var(--font-size-xs);
 }
 
-/* ── Diff table: horizontal scroll instead of word-wrap, tight gutters ── */
+/* ── Diff table: horizontal scroll unless wrapping (data-wrap), tight gutters ── */
 .diffScroll {
   overflow-x: auto;
   overflow-y: hidden;
@@ -131,6 +131,33 @@
   white-space: pre;
   word-break: normal;
   overflow-wrap: normal;
+}
+
+/* Wrapped: the table fits the pane (fixed layout, so split halves stay even)
+   and long lines break at the pane edge instead of scrolling. Fixed layout
+   cannot grow the gutters to their content, so they get room for five-digit
+   line numbers. */
+.diffScroll[data-wrap] {
+  overflow-x: hidden;
+}
+
+.diffScroll[data-wrap] :global(.diff) {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+}
+
+.diffScroll[data-wrap] :global(.diff-gutter-col) {
+  width: 6ch;
+}
+
+.diffScroll[data-wrap] :global(.diff-gutter) {
+  padding: 0 0.5ch;
+}
+
+.diffScroll[data-wrap] :global(.diff-code) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* A pure add/delete file (e.g. a new or fully-removed file) never populates
@@ -154,4 +181,9 @@
   white-space: pre;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
+}
+
+.rawFallback[data-wrap] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

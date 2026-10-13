@@ -1,5 +1,5 @@
 import type { DiffViewFile, DiffViewSection } from '@components';
-import { Back, DiffView, Forward, GitDiff, IconButton, Refresh } from '@components';
+import { Back, DiffView, Forward, GitDiff, IconButton, Refresh, WrapLines } from '@components';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -148,6 +148,13 @@ export default function GitDiffPane({
   // Window-lifetime preference — survives session switches and pane remounts.
   const sidebarCollapsed = usePaneLayoutStore((s) => s.gitDiffSidebarCollapsed);
   const toggleSidebar = usePaneLayoutStore((s) => s.toggleGitDiffSidebar);
+  const wrapLines = usePaneLayoutStore((s) => s.gitDiffWrapLines);
+  const toggleWrapLines = usePaneLayoutStore((s) => s.toggleGitDiffWrapLines);
+  // The effective binding (user overrides included) for the button's tooltip;
+  // none while shortcuts are disabled.
+  const wrapKey = shortcutConfig
+    ? resolveBindings(shortcutConfig['git-diff'], GIT_DIFF_BINDING_DEFAULTS)['toggle-wrap']
+    : null;
   const diffPaneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -401,6 +408,7 @@ export default function GitDiffPane({
       const JUMP_UP = bindings['jump-up'];
       const SEARCH = bindings.search;
       const TOGGLE_SIDEBAR = bindings['toggle-sidebar'];
+      const TOGGLE_WRAP = bindings['toggle-wrap'];
 
       // Any key that reaches the handler resets the pending chord prefix
       // (match() below may re-arm it).
@@ -464,6 +472,10 @@ export default function GitDiffPane({
       }
       if (matchesShortcut(e, TOGGLE_SIDEBAR)) {
         usePaneLayoutStore.getState().toggleGitDiffSidebar();
+        return 'consumed';
+      }
+      if (matchesShortcut(e, TOGGLE_WRAP)) {
+        usePaneLayoutStore.getState().toggleGitDiffWrapLines();
         return 'consumed';
       }
       if (matchesShortcut(e, SCROLL_DOWN)) {
@@ -653,6 +665,15 @@ export default function GitDiffPane({
       >
         <Refresh />
       </IconButton>
+      <IconButton
+        className={styles.wrapButton}
+        onClick={toggleWrapLines}
+        aria-pressed={wrapLines}
+        aria-label="Wrap long lines"
+        title={`${wrapLines ? 'Unwrap' : 'Wrap'} long lines${wrapKey ? ` (${wrapKey})` : ''}`}
+      >
+        <WrapLines />
+      </IconButton>
     </header>
   );
 
@@ -814,7 +835,11 @@ export default function GitDiffPane({
 
           <div className={styles.diffPane} ref={diffPaneRef}>
             {selectedFile && (
-              <DiffView key={selectedFile.path} file={toDiffViewFile(selectedFile)} />
+              <DiffView
+                key={selectedFile.path}
+                file={toDiffViewFile(selectedFile)}
+                wrapLines={wrapLines}
+              />
             )}
           </div>
         </div>
