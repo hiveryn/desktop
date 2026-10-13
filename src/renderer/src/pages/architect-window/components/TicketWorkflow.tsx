@@ -1,6 +1,6 @@
 import type { AgentProfile } from '@components';
-import { TicketDetail } from '@components';
-import type { Ticket, TicketReference, TicketSummary } from '@hiveryn/shared/domain';
+import { canRevealPath, TicketDetail } from '@components';
+import type { PathReference, Ticket, TicketSummary } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
@@ -41,10 +41,11 @@ export default function TicketWorkflow({
   onBoardChanged,
   onTicketReference,
 }: Props) {
-  const handleReference = (reference: TicketReference): void => {
-    if (!reference.exists) return;
-    if (reference.type === 'ticket') onTicketReference(reference.value);
-    else void window.hiveryn.finder.reveal(reference.value);
+  // Finder acts on this Mac's filesystem: a path on another (or an unknown)
+  // machine, or one not confirmed present, is never handed to it.
+  const handleRevealPath = (reference: PathReference): void => {
+    if (!canRevealPath(reference)) return;
+    void window.hiveryn.finder.reveal(reference.value);
   };
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [launchTicket, setLaunchTicket] = useState<LaunchableTicket | null>(null);
@@ -177,7 +178,8 @@ export default function TicketWorkflow({
           open
           onClose={onCloseTicket}
           onSpawn={selectedTicket.status === 'backlog' ? handleSpawn : undefined}
-          onReference={handleReference}
+          onOpenTicket={onTicketReference}
+          onRevealPath={handleRevealPath}
         />
       ) : null}
 

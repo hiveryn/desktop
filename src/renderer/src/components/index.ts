@@ -32,6 +32,7 @@ export type { Ticket, TicketConclusion, TicketWarning } from './KanbanBoard/type
 export { default as KanbanColumn } from './KanbanColumn/KanbanColumn';
 export { default as TicketCard } from './TicketCard/TicketCard';
 export { default as TicketDetail } from './TicketDetail/TicketDetail';
+export { canRevealPath, referenceLabel, referenceView } from './TicketDetail/referenceModel';
 export { default as ProfileSelector } from './ProfileSelector/ProfileSelector';
 export type { AgentProfile } from './ProfileSelector/ProfileList';
 export { default as WorkdirSelector } from './WorkdirSelector/WorkdirSelector';

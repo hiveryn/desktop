@@ -1,3 +1,4 @@
+import { referenceLabel, referenceView } from '@components';
 import type { Ticket, TicketConclusion } from '@hiveryn/shared/domain';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -155,16 +156,15 @@ export default function TicketPane({ sessionId }: Props) {
         <div className={styles.section}>
           <div className={styles.sectionLabel}>references</div>
           <ul className={styles.refList}>
-            {ticket.resolved_references.map((ref) => (
-              <li key={ref.value} className={styles.refItem}>
-                {ref.type} · {ref.value}
-                {!ref.exists
-                  ? ' · missing'
-                  : ref.type === 'path' && ref.kind
-                    ? ` · ${ref.kind}`
-                    : ''}
-              </li>
-            ))}
+            {ticket.resolved_references.map((ref) => {
+              const { error } = referenceView(ref);
+              return (
+                <li key={ref.value} className={styles.refItem}>
+                  {referenceLabel(ref)}
+                  {error && <div className={styles.refError}>{error}</div>}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

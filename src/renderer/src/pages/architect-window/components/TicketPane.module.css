@@ -176,6 +176,12 @@
   }
 }
 
+.refError {
+  padding-left: 1.2em;
+  color: var(--theme-text-muted);
+  word-break: break-word;
+}
+
 .markdown {
   composes: markdown from "../../../styles/markdown.module.css";
 }
