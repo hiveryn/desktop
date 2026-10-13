@@ -183,7 +183,7 @@ export default function ActionsWindow() {
                 <span className={layout.navSep} aria-hidden="true">
                   ·
                 </span>
-                <Caption className={layout.navPath}>{list.root}</Caption>
+                <Caption className={layout.navPath}>{list.registry}</Caption>
               </>
             ) : null}
             <DevBadge />

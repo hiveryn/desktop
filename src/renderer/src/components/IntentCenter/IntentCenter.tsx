@@ -10,6 +10,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { machineLabel } from '../../lib/variantMachines';
 import { type PendingIntent, useSessionStore } from '../../state/sessionStore';
 import ApiEnvelopeError from '../ApiEnvelopeError/ApiEnvelopeError';
 import Button from '../Button/Button';
@@ -241,7 +242,8 @@ const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
 // concludeSession: the summary is the TL;DR; the payload carries the outcome,
 // commits, optional rejection reason, and the full rendered conclusion body
 // (shown expanded). Architect conclusions only carry the body; Action
-// conclusions carry their summary as the body plus the output directory.
+// conclusions carry their summary as the body, the output directory and, when
+// completed, the folder to freeze as the package — on the execution machine.
 const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,
   expanded,
@@ -252,6 +254,8 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   const rejectionReason = optionalString(payload, 'rejection_reason', intent.intent_id);
   const commits = optionalCommitArray(payload, 'commits', intent.intent_id);
   const outputDir = optionalString(payload, 'output_dir', intent.intent_id);
+  const deliveryDir = optionalString(payload, 'delivery_dir', intent.intent_id);
+  const machine = optionalString(payload, 'machine', intent.intent_id);
 
   return (
     <div className={styles.details}>
@@ -283,7 +287,15 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
           </span>
         </div>
       )}
-      {expanded && outputDir && (
+      {deliveryDir && (
+        <div className={styles.fieldBlock}>
+          <span className={styles.fieldName}>
+            package folder{machine ? ` on ${machineLabel(machine)}` : ''}
+          </span>
+          <span className={styles.fieldValue}>{deliveryDir}</span>
+        </div>
+      )}
+      {expanded && outputDir && outputDir !== deliveryDir && (
         <div className={styles.fieldBlock}>
           <span className={styles.fieldName}>output directory</span>
           <span className={styles.fieldValue}>{outputDir}</span>
@@ -296,7 +308,8 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
 
 // executeAction: an architect's or worker's request to run an Action. The
 // summary names it; the payload carries the action, the agent variant the
-// requester chose and the requester's prompt (shown in full when expanded).
+// requester chose, where the Action runs and the requester's prompt (shown in
+// full when expanded).
 // There is nothing to fill in: like a ticket, it launches on approval or when
 // the countdown ends.
 const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
@@ -307,6 +320,7 @@ const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   const action = requireString(payload, 'action', intent.intent_id);
   const variant = requireString(payload, 'variant', intent.intent_id);
   const prompt = requireString(payload, 'prompt', intent.intent_id);
+  const machine = optionalString(payload, 'machine', intent.intent_id);
 
   return (
     <div className={styles.details}>
@@ -314,6 +328,9 @@ const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
         <span className={styles.chip}>{action}</span>
         <span className={styles.chip} title="Agent variant">
           {variant}
+        </span>
+        <span className={styles.chip} title="Where the Action runs">
+          {machineLabel(machine)}
         </span>
       </div>
       {expanded ? (

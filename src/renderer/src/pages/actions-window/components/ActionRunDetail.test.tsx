@@ -33,6 +33,51 @@ describe('ActionRunDetail', () => {
     expect(html).not.toContain('Stop execution');
   });
 
+  it('shows where a remote execution ran, its frozen package and delivered copies', () => {
+    const remote: ActionRun = {
+      ...completed,
+      machine: 'box',
+      repo_path: '/srv/actions/demo-evidence',
+      output_dir: '/home/x/.local/state/hiveryn-actions/runs/demo-evidence/run-1',
+      delivery_dir: '/home/x/.local/state/hiveryn-actions/runs/demo-evidence/run-1',
+      package: {
+        machine: 'box',
+        path: '/home/x/.local/state/hiveryn-actions/artifacts/packages/run-1',
+        state: 'ready',
+        files: 2,
+        bytes: 40,
+        expires_at: '2026-10-24T08:05:00Z',
+      },
+      deliveries: [
+        {
+          path: '/Users/me/.hiveryn/action-artifacts/deliveries/run-1',
+          state: 'ready',
+          files: 2,
+          bytes: 40,
+        },
+        {
+          machine: 'other',
+          path: '/home/y/.local/state/hiveryn-actions/artifacts/deliveries/run-1',
+          state: 'failed',
+          error: 'ssh: connect to host other: Connection refused',
+          files: 0,
+          bytes: 0,
+        },
+      ],
+    };
+    const html = renderToStaticMarkup(<ActionRunDetail run={remote} />);
+    expect(html).toContain('machine box');
+    expect(html).toContain('/home/x/.local/state/hiveryn-actions/artifacts/packages/run-1');
+    expect(html).toContain('ready · expires');
+    expect(html).toContain('2 files, 40 bytes');
+    expect(html).toContain('Connection refused');
+    expect(html).toContain('copy failed');
+    // Only the local copy can be revealed; the remote package and working
+    // folder offer their paths only.
+    expect(html.match(/Reveal in Finder/g)).toHaveLength(1);
+    expect(html.match(/Copy path/g)).toHaveLength(3);
+  });
+
   it('attributes a worker request to its ticket and project', () => {
     const html = renderToStaticMarkup(
       <ActionRunDetail
@@ -112,11 +157,12 @@ describe('ActionRunDetail', () => {
 
 describe('ActionsHome', () => {
   const list: ActionList = {
-    root: '/home/.hiveryn/actions',
+    registry: '/home/.hiveryn/actions.yaml',
     actions: [
       {
         name: 'demo-evidence',
         path: '/home/.hiveryn/actions/demo-evidence',
+        variants: ['claude-sonnet'],
         description: 'Compare AMS and LDN. Say how many runs.',
         artifacts: 'summary.md, results.json',
         valid: true,
@@ -127,6 +173,7 @@ describe('ActionsHome', () => {
       {
         name: 'broken',
         path: '/home/.hiveryn/actions/broken',
+        variants: ['claude-sonnet'],
         description: '',
         artifacts: '',
         valid: false,
@@ -134,6 +181,16 @@ describe('ActionsHome', () => {
           { path: '/home/.hiveryn/actions/broken/KICKOFF.md', message: 'file is missing' },
         ],
         suggestions: ['never offered'],
+      },
+      {
+        name: 'remote-evidence',
+        path: '/srv/actions/remote-evidence',
+        machine: 'box',
+        variants: ['box-codex'],
+        description: 'Collects evidence on box.',
+        artifacts: 'summary.md',
+        valid: true,
+        problems: [],
       },
     ],
   };
@@ -143,7 +200,10 @@ describe('ActionsHome', () => {
       <ActionsHome
         list={list}
         runs={runs}
-        profiles={[{ name: 'claude-sonnet', agent: 'claude', args: [], env: {} }]}
+        profiles={[
+          { name: 'claude-sonnet', agent: 'claude', args: [], env: {} },
+          { name: 'box-codex', agent: 'codex', machine: 'box', args: [], env: {} },
+        ]}
         selectedAction={selected}
         onSelectAction={() => undefined}
         selectedRunId={null}
@@ -185,6 +245,13 @@ describe('ActionsHome', () => {
       />,
     );
     expect(html.match(/needs input/g)).toHaveLength(1);
+  });
+
+  it('says where each action runs', () => {
+    // Variant eligibility per machine is covered by launchProfiles.
+    expect(render('remote-evidence')).toContain('Runs on machine box');
+    expect(render('remote-evidence')).toContain('/srv/actions/remote-evidence');
+    expect(render('demo-evidence')).toContain('Runs on local');
   });
 
   it('reports an invalid definition with its problems', () => {

@@ -1,12 +1,15 @@
-import type { ActionRun } from '@hiveryn/shared/domain';
+import type { ActionArtifactCopy, ActionRun } from '@hiveryn/shared/domain';
 import Button from '../../../components/Button/Button';
 import {
+  artifactStateLabel,
   attentionNote,
   attentionSourceLabel,
   formatTimestamp,
+  locationLabel,
   needsInput,
   requesterLabel,
   requestNote,
+  revealable,
   statusLabel,
 } from '../actionsModel';
 import styles from './actions.module.css';
@@ -20,10 +23,56 @@ interface Props {
 }
 
 /**
- * One execution: its request, status, conclusion and delivered artifact
- * folder (revealed in Finder or its path copied — never listed). Used on the
- * Actions home for any execution (completed ones stay reachable here) and as
- * the `action` context tab of a running session.
+ * A path the user can take elsewhere: copied always, revealed in Finder only
+ * when it is on this Mac. Never listed.
+ */
+function PathActions({ path, local }: { path: string; local: boolean }) {
+  return (
+    <div className={styles.buttonRow}>
+      {local ? (
+        <Button theme="SECONDARY" onClick={() => void window.hiveryn.finder.reveal(path)}>
+          Reveal in Finder
+        </Button>
+      ) : null}
+      <Button theme="SECONDARY" onClick={() => void navigator.clipboard.writeText(path)}>
+        Copy path
+      </Button>
+    </div>
+  );
+}
+
+/** One managed artifact directory: where it is, its state and why. */
+function ArtifactCopy({ title, copy }: { title: string; copy: ActionArtifactCopy }) {
+  return (
+    <section className={styles.section} data-testid="action-artifact">
+      <h3 className={styles.sectionTitle}>
+        {title} · {locationLabel(copy.machine)}
+      </h3>
+      <p className={styles.mono}>{copy.path}</p>
+      <p className={styles.muted}>
+        {artifactStateLabel(copy)}
+        {/* A package that predates frozen packages has no recorded size. */}
+        {copy.files > 0
+          ? ` · ${copy.files} file${copy.files === 1 ? '' : 's'}, ${copy.bytes} bytes`
+          : ''}
+      </p>
+      {copy.error ? <p className={styles.errorText}>{copy.error}</p> : null}
+      {copy.cleanup_error ? (
+        <p className={styles.errorText}>
+          Removal failed (retried when the daemon next starts): {copy.cleanup_error}
+        </p>
+      ) : null}
+      {copy.state === 'ready' ? <PathActions path={copy.path} local={revealable(copy)} /> : null}
+    </section>
+  );
+}
+
+/**
+ * One execution: its request, where it runs, status, conclusion, its frozen
+ * package and the copies delivered to callers on other machines (each
+ * revealed in Finder when it is on this Mac, or its path copied — never
+ * listed). Used on the Actions home for any execution (completed ones stay
+ * reachable here) and as the `action` context tab of a running session.
  */
 export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props) {
   // The output folder exists only once the execution started; a request that
@@ -57,6 +106,8 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
             <dd>{formatTimestamp(run.created_at)}</dd>
           </>
         ) : null}
+        <dt>Runs on</dt>
+        <dd>{locationLabel(run.machine)}</dd>
         <dt>Variant</dt>
         <dd>{run.profile_name || '—'}</dd>
         <dt>Started</dt>
@@ -113,24 +164,21 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
         </section>
       )}
 
-      {started ? (
+      {run.package ? <ArtifactCopy title="Package" copy={run.package} /> : null}
+      {(run.deliveries ?? []).map((copy) => (
+        <ArtifactCopy key={copy.machine ?? ''} title="Delivered copy" copy={copy} />
+      ))}
+
+      {started && run.output_dir ? (
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Output folder</h3>
+          <h3 className={styles.sectionTitle}>Working folder · {locationLabel(run.machine)}</h3>
           <p className={styles.mono}>{run.output_dir}</p>
-          <div className={styles.buttonRow}>
-            <Button
-              theme="SECONDARY"
-              onClick={() => void window.hiveryn.finder.reveal(run.output_dir)}
-            >
-              Reveal in Finder
-            </Button>
-            <Button
-              theme="SECONDARY"
-              onClick={() => void navigator.clipboard.writeText(run.output_dir)}
-            >
-              Copy path
-            </Button>
-          </div>
+          {run.delivery_dir && run.delivery_dir !== run.output_dir ? (
+            <p className={styles.muted}>
+              Delivered from <span className={styles.mono}>{run.delivery_dir}</span>
+            </p>
+          ) : null}
+          <PathActions path={run.output_dir} local={!run.machine} />
         </section>
       ) : null}
 

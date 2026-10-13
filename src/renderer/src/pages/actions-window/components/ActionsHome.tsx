@@ -9,6 +9,8 @@ import {
   formatTimestamp,
   LISTED_RUNS_LIMIT,
   launchBlocker,
+  launchProfiles,
+  locationLabel,
   needsInput,
   runsFor,
   statusLabel,
@@ -72,6 +74,8 @@ export default function ActionsHome({
   const listed = history.slice(0, LISTED_RUNS_LIMIT);
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? history[0] ?? null;
   const suggestions = action?.valid ? (action.suggestions ?? []) : [];
+  // Only variants of the machine the action is registered on may run it.
+  const eligible = useMemo(() => launchProfiles(profiles, action), [profiles, action]);
 
   const [prompt, setPrompt] = useState('');
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -79,10 +83,14 @@ export default function ActionsHome({
   const [submitError, setSubmitError] = useState<unknown | null>(null);
 
   useEffect(() => {
-    if (profileName === null && profiles.length > 0) {
-      setProfileName(resolvePreferredProfile(readProfilePreference(), profiles));
+    if (eligible.length === 0) {
+      if (profileName !== null) setProfileName(null);
+      return;
     }
-  }, [profiles, profileName]);
+    if (profileName === null || !eligible.some((profile) => profile.name === profileName)) {
+      setProfileName(resolvePreferredProfile(readProfilePreference(), eligible));
+    }
+  }, [eligible, profileName]);
 
   // A new action starts with a clean form.
   // biome-ignore lint/correctness/useExhaustiveDependencies: selectedAction is the trigger
@@ -91,7 +99,7 @@ export default function ActionsHome({
     setSubmitError(null);
   }, [selectedAction]);
 
-  const blocker = launchBlocker(action, prompt, profileName, profiles.length > 0);
+  const blocker = launchBlocker(action, prompt, profileName, eligible.length > 0);
 
   async function launch(): Promise<void> {
     if (blocker || !action || !profileName) return;
@@ -119,8 +127,8 @@ export default function ActionsHome({
         {list === null ? <p className={styles.muted}>Loading…</p> : null}
         {list !== null && actions.length === 0 ? (
           <p className={styles.muted}>
-            No actions found. Add a Git repository with action.yaml and KICKOFF.md under{' '}
-            <span className={styles.mono}>{list.root}</span>.
+            No actions registered. Register a Git checkout with action.yaml and KICKOFF.md in{' '}
+            <span className={styles.mono}>{list.registry}</span>.
           </p>
         ) : null}
         <ul className={styles.actionList}>
@@ -135,7 +143,13 @@ export default function ActionsHome({
               >
                 <span className={styles.actionName}>{candidate.name}</span>
                 <span className={styles.actionMeta}>
-                  {!candidate.valid ? 'invalid' : candidate.running_execution_id ? 'running' : ''}
+                  {!candidate.valid
+                    ? 'invalid'
+                    : candidate.running_execution_id
+                      ? 'running'
+                      : candidate.machine
+                        ? candidate.machine
+                        : ''}
                 </span>
               </button>
             </li>
@@ -153,6 +167,10 @@ export default function ActionsHome({
             }}
           >
             <h2 className={styles.columnTitle}>{action.name}</h2>
+            <p className={styles.muted}>
+              Runs on {locationLabel(action.machine)}:{' '}
+              <span className={styles.mono}>{action.path}</span>
+            </p>
             {!action.valid ? (
               <ul className={styles.problems}>
                 {action.problems.map((problem) => (
@@ -197,7 +215,7 @@ export default function ActionsHome({
             <div className={styles.launchRow}>
               <div className={styles.agentSelect}>
                 <AgentSelect
-                  names={profiles.map((profile) => profile.name)}
+                  names={eligible.map((profile) => profile.name)}
                   selectedName={profileName}
                   onSelect={setProfileName}
                 />

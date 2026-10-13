@@ -15,9 +15,14 @@ interface ActionsIpcOptions {
   openActionsWindow: () => BrowserWindow;
 }
 
-// Launching starts an agent (setup, PTY, MCP config), which can take longer
-// than the default request timeout.
-const LAUNCH_TIMEOUT_MS = 30_000;
+// Launching starts an agent (setup, PTY, MCP config) — for an Action
+// registered on an SSH machine, over many SSH round trips like a remote
+// worker — so it outlasts the default request bound: the daemon bounds the
+// agent launch at 2 minutes, after inspecting the checkout (30 s at most).
+const LAUNCH_TIMEOUT_MS = 180_000;
+// Stopping a remote execution first confirms its remote agent stopped, which
+// the daemon bounds at 2 minutes.
+const CANCEL_TIMEOUT_MS = 150_000;
 
 export function registerActionsIpc({ openActionsWindow }: ActionsIpcOptions): void {
   // `sessionId` (the command palette's running-execution rows) asks the window
@@ -59,11 +64,11 @@ export function registerActionsIpc({ openActionsWindow }: ActionsIpcOptions): vo
       name: string,
       request: LaunchActionRequest,
     ): Promise<DaemonResult<LaunchActionResult>> =>
-      daemonFetch<LaunchActionResult>(`/api/actions/${encodeURIComponent(name)}/runs`, {
-        method: 'POST',
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(LAUNCH_TIMEOUT_MS),
-      }),
+      daemonFetch<LaunchActionResult>(
+        `/api/actions/${encodeURIComponent(name)}/runs`,
+        { method: 'POST', body: JSON.stringify(request) },
+        { timeoutMs: LAUNCH_TIMEOUT_MS },
+      ),
   );
 
   ipcMain.handle(
@@ -91,9 +96,11 @@ export function registerActionsIpc({ openActionsWindow }: ActionsIpcOptions): vo
   ipcMain.handle(
     'actions:cancel',
     (_event, id: string): Promise<DaemonResult<ActionRun>> =>
-      daemonFetch<ActionRun>(`/api/action-runs/${encodeURIComponent(id)}/cancel`, {
-        method: 'POST',
-      }),
+      daemonFetch<ActionRun>(
+        `/api/action-runs/${encodeURIComponent(id)}/cancel`,
+        { method: 'POST' },
+        { timeoutMs: CANCEL_TIMEOUT_MS },
+      ),
   );
 
   ipcMain.handle('actions:events:subscribe', (event): DaemonResult<null> => {

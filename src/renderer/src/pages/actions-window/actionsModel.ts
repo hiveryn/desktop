@@ -1,10 +1,11 @@
 import type {
   ActionAgentAttention,
+  ActionArtifactCopy,
   ActionDefinition,
   ActionRun,
   ActionRunStatus,
 } from '@hiveryn/shared/domain';
-import { noVariantMessage } from '../../lib/variantMachines';
+import { machineLabel, noVariantMessage, profilesForMachine } from '../../lib/variantMachines';
 
 // Pure view model for the Actions window: kept free of React and the bridge so
 // it can be unit-tested directly.
@@ -96,9 +97,49 @@ export function launchBlocker(
   if (!action.valid) return 'This action has an invalid definition';
   if (action.running_execution_id) return 'This action is already running';
   if (!prompt.trim()) return 'Enter a prompt';
-  if (!hasVariants) return noVariantMessage('');
+  if (!hasVariants) return noVariantMessage(action.machine ?? '');
   if (!profileName) return 'Select an agent variant';
   return null;
+}
+
+/**
+ * The variants that may launch an action: those of the machine it is
+ * registered on (an action without a machine runs locally).
+ */
+export function launchProfiles<P extends { machine?: string }>(
+  profiles: P[],
+  action: ActionDefinition | undefined,
+): P[] {
+  return profilesForMachine(profiles, action?.machine ?? '');
+}
+
+/** Where an action or execution runs, in words. */
+export function locationLabel(machine: string | undefined): string {
+  return machineLabel(machine ?? '');
+}
+
+/**
+ * A managed artifact directory in words: its state, with the expiry of a
+ * usable one ("expires …") or the reason it is not usable.
+ */
+export function artifactStateLabel(copy: ActionArtifactCopy): string {
+  switch (copy.state) {
+    case 'ready':
+      return copy.expires_at ? `ready · expires ${formatTimestamp(copy.expires_at)}` : 'ready';
+    case 'copying':
+      return 'copying…';
+    case 'failed':
+      return 'copy failed';
+    case 'expired':
+      return 'expired';
+    default:
+      return copy.state;
+  }
+}
+
+/** Whether a directory on machine can be revealed in this Mac's Finder. */
+export function revealable(copy: ActionArtifactCopy): boolean {
+  return !copy.machine && copy.state === 'ready';
 }
 
 /** Executions of one action (or all), newest first. */

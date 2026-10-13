@@ -1,12 +1,15 @@
 import type { ActionDefinition, ActionRun } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
+  artifactStateLabel,
   attentionNote,
   defaultActionName,
   launchBlocker,
+  launchProfiles,
   needsInput,
   requesterLabel,
   requestNote,
+  revealable,
   runsFor,
   sessionTabLabel,
 } from './actionsModel';
@@ -16,6 +19,7 @@ const action = (overrides: Partial<ActionDefinition> = {}): ActionDefinition => 
   path: '/home/.hiveryn/actions/demo-evidence',
   description: 'd',
   artifacts: 'a',
+  variants: ['codex'],
   valid: true,
   problems: [],
   ...overrides,
@@ -131,5 +135,32 @@ describe('needsInput / attentionNote', () => {
     expect(attentionNote(running())).toMatch(/unknown/);
     expect(attentionNote(running({ state: 'unavailable' }))).toMatch(/unknown/);
     expect(attentionNote(run('a', 'demo', 'x'))).toBeNull();
+  });
+});
+
+describe('remote actions', () => {
+  const profiles = [
+    { name: 'codex', machine: undefined },
+    { name: 'box-codex', machine: 'box' },
+  ];
+
+  it('launches only with variants of the action machine', () => {
+    expect(launchProfiles(profiles, action()).map((p) => p.name)).toEqual(['codex']);
+    expect(launchProfiles(profiles, action({ machine: 'box' })).map((p) => p.name)).toEqual([
+      'box-codex',
+    ]);
+    expect(launchBlocker(action({ machine: 'gpu' }), 'go', null, false)).toContain('machine: gpu');
+  });
+
+  it('describes artifact copies and reveals only local ready ones', () => {
+    const copy = { path: '/p', files: 1, bytes: 1 };
+    expect(artifactStateLabel({ ...copy, state: 'copying' })).toBe('copying…');
+    expect(artifactStateLabel({ ...copy, state: 'ready' })).toBe('ready');
+    expect(
+      artifactStateLabel({ ...copy, state: 'ready', expires_at: '2026-11-12T00:00:00Z' }),
+    ).toMatch(/^ready · expires /);
+    expect(revealable({ ...copy, state: 'ready' })).toBe(true);
+    expect(revealable({ ...copy, state: 'ready', machine: 'box' })).toBe(false);
+    expect(revealable({ ...copy, state: 'expired' })).toBe(false);
   });
 });
