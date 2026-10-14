@@ -44,7 +44,7 @@ src/
       terminals.ts        terminals:list/create/kill → daemon HTTP
       tickets.ts          tickets:* handlers → daemon HTTP via daemonFetch
       repos.ts            repos:diff/repos:commitDiff → GET /api/architects/:key/repos/:repoKey/diff[/commits/:sha/diff] (native git-diff tab, concluded-ticket Changes tab)
-      finder.ts           finder:reveal → Electron shell.showItemInFolder (local Action package/copy/working folders, ticket path references; no daemon)
+      finder.ts           finder:reveal → Electron shell.showItemInFolder (local Action package/copy/working folders; no daemon)
       launcher.ts         launcher:open-architect handler — opens/focuses the architect window; self-closes the sender only when it is the launcher window (not the palette / tray)
       daemon.ts           daemon:health:get handler
       palette.ts          palette:focus-architect — cross-window focus + session-switch for the palette
@@ -99,7 +99,7 @@ src/
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
       DiffView/            Reusable read-only diff viewer (react-diff-view) — parsed-diff props in, no fetching; wraps long lines unless `wrapLines={false}` (then scrolls horizontally); used by GitDiffPane and the concluded-ticket Changes tab. Tokenizes syntax highlighting on the main thread, or in a Web Worker (tokenize.worker.ts) above ~1500 changed lines — the renderer's only worker
-      TicketDetail/        Ticket detail modal — Ticket/Conclusion tabs plus a lazy, per-repository commit-diff Changes tab when a conclusion records commits; references render through `ReferenceItem`/`referenceModel.ts` from the daemon's explicit path `status` (present/missing/unverified + error) and `location` (local/remote + machine/unknown) — Copy path for every path, Reveal in Finder only for a path present on this Mac, ticket IDs open the ticket
+      TicketDetail/        Ticket detail modal — Ticket/Conclusion tabs plus a lazy, per-repository commit-diff Changes tab when a conclusion records commits; references render through `ReferenceItem`/`referenceModel.ts` from the daemon's explicit path `status` (present/missing/unverified + error) and `location` (local/remote + machine/unknown) — paths are display-only text (no Finder or copy actions), ticket IDs open the ticket
     terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps
       TerminalView.tsx    xterm React component; deps (theme, routeKey, gpuCrash) injected; per-pane Cmd+F find box (search addon)
       TerminalSession.tsx Transport lifecycle (connect/reconnect/ESC-c/size-handshake) over an injected TerminalTransport

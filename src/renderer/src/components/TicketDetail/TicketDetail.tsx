@@ -2,7 +2,6 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { PathReference } from '@hiveryn/shared/domain';
 import type { Ticket, TicketConclusion } from '../KanbanBoard/types';
 import { CommitChanges } from './CommitChanges';
 import { conclusionCommits } from './commitChangesModel';
@@ -16,8 +15,6 @@ interface TicketDetailProps {
   onSpawn?: () => void;
   /** Open a ticket-ID reference that resolves on this board. */
   onOpenTicket?: (id: string) => void;
-  /** Reveal a path reference in Finder; offered only for paths present on this Mac. */
-  onRevealPath?: (reference: PathReference) => void;
   architectKey: string;
 }
 
@@ -37,7 +34,7 @@ const Md: React.FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
-const TicketTab: React.FC<{ ticket: Ticket } & ReferenceHandlers> = ({ ticket, onOpenTicket, onRevealPath }) => (
+const TicketTab: React.FC<{ ticket: Ticket } & ReferenceHandlers> = ({ ticket, onOpenTicket }) => (
   <>
     <div className={styles.fieldGrid}>
       <span className={styles.fieldLabel}>id</span>
@@ -80,7 +77,7 @@ const TicketTab: React.FC<{ ticket: Ticket } & ReferenceHandlers> = ({ ticket, o
         <div className={styles.sectionLabel}>references</div>
         <ul className={styles.refList}>
           {ticket.resolved_references.map((ref) => (
-            <ReferenceItem key={ref.value} reference={ref} onOpenTicket={onOpenTicket} onRevealPath={onRevealPath} />
+            <ReferenceItem key={ref.value} reference={ref} onOpenTicket={onOpenTicket} />
           ))}
         </ul>
       </div>
@@ -129,7 +126,7 @@ const ConclusionTab: React.FC<{ conclusion: TicketConclusion }> = ({ conclusion 
   </>
 );
 
-const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn, onOpenTicket, onRevealPath, architectKey }) => {
+const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSpawn, onOpenTicket, architectKey }) => {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = React.useState<'ticket' | 'conclusion' | 'changes'>('ticket');
@@ -227,7 +224,7 @@ const TicketDetail: React.FC<TicketDetailProps> = ({ ticket, open, onClose, onSp
         )}
 
         <div className={styles.body}>
-          {(!hasTabs || activeTab === 'ticket') && <TicketTab ticket={ticket} onOpenTicket={onOpenTicket} onRevealPath={onRevealPath} />}
+          {(!hasTabs || activeTab === 'ticket') && <TicketTab ticket={ticket} onOpenTicket={onOpenTicket} />}
           {hasTabs && activeTab === 'conclusion' && ticket.conclusion && (
             <ConclusionTab conclusion={ticket.conclusion} />
           )}

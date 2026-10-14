@@ -372,10 +372,6 @@
 .refItem {
   font-size: var(--font-size-sm);
   color: var(--theme-text);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25em 0.6em;
 
   &::before {
     content: '— ';
@@ -399,13 +395,7 @@
   }
 }
 
-.refActions {
-  display: inline-flex;
-  gap: 0.4em;
-}
-
 .refError {
-  flex-basis: 100%;
   padding-left: 1.2em;
   color: var(--theme-text-muted);
   word-break: break-word;

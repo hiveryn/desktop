@@ -1,10 +1,8 @@
 import type { PathReference, TicketReference } from '@hiveryn/shared/domain';
 
 /**
- * How one resolved ticket reference is shown and what it offers. Path
- * references are read-only pointers inspected by the daemon on the ticket's
- * primary-repo machine: only a path confirmed present on this Mac can be
- * revealed in Finder; every path can be copied.
+ * How one resolved ticket reference is shown. Path references are display-only
+ * pointers inspected by the daemon on the ticket's primary-repo machine.
  */
 export interface ReferenceView {
   /** Short state shown after the value: kind, missing, unverified. */
@@ -15,9 +13,6 @@ export interface ReferenceView {
   error: string | null;
   /** A ticket-ID reference that resolves to a ticket on this board. */
   openable: boolean;
-  /** A path confirmed present on this Mac. */
-  revealable: boolean;
-  copyable: boolean;
 }
 
 /** Where a path reference was interpreted. Unknown is never this Mac. */
@@ -32,11 +27,6 @@ export function pathLocationLabel(ref: PathReference): string {
     default:
       return `unrecognized location "${String(ref.location)}"`;
   }
-}
-
-/** Reveal in Finder acts on this Mac's filesystem, so only a local, present path qualifies. */
-export function canRevealPath(ref: PathReference): boolean {
-  return ref.status === 'present' && ref.location === 'local';
 }
 
 function pathState(ref: PathReference): { state: string; error: string | null } {
@@ -63,16 +53,12 @@ export function referenceView(ref: TicketReference): ReferenceView {
       where: null,
       error: null,
       openable: ref.exists,
-      revealable: false,
-      copyable: false,
     };
   }
   return {
     ...pathState(ref),
     where: pathLocationLabel(ref),
     openable: false,
-    revealable: canRevealPath(ref),
-    copyable: true,
   };
 }
 
