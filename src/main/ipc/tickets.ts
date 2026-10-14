@@ -9,6 +9,12 @@ import type {
 } from '../../shared/types';
 import { daemonFetch } from '../daemon/client';
 
+// Ticket reads resolve path references, remote ones over SSH. The daemon waits
+// at most 2 s for a machine (unanswered paths come back unverified), so a read
+// is normally quick; this bound leaves room for that and for scanning a large
+// board on a busy machine, so a slow read is not reported as a dead daemon.
+const TICKET_READ_TIMEOUT_MS = 15_000;
+
 function ticketCollectionPath(key: string): string {
   return `/api/architects/${encodeURIComponent(key)}/tickets`;
 }
@@ -21,14 +27,18 @@ export function registerTicketsIpc(): void {
   ipcMain.handle(
     'tickets:list',
     async (_event, key: string): Promise<DaemonResult<TicketBoard>> => {
-      return daemonFetch<TicketBoard>(ticketCollectionPath(key));
+      return daemonFetch<TicketBoard>(
+        ticketCollectionPath(key),
+        {},
+        { timeoutMs: TICKET_READ_TIMEOUT_MS },
+      );
     },
   );
 
   ipcMain.handle(
     'tickets:get',
     async (_event, key: string, id: string): Promise<DaemonResult<Ticket>> => {
-      return daemonFetch<Ticket>(ticketPath(key, id));
+      return daemonFetch<Ticket>(ticketPath(key, id), {}, { timeoutMs: TICKET_READ_TIMEOUT_MS });
     },
   );
 

@@ -190,6 +190,21 @@ nav.appbar {
   overflow: hidden;
 }
 
+.boardStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--theme-status-warning);
+  background: color-mix(in srgb, var(--theme-status-warning) 8%, transparent);
+}
+
+.boardStatusText {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .kanbanBoard {
   flex: 1;
   min-width: 0;

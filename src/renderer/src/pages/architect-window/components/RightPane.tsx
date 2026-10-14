@@ -1,4 +1,5 @@
 import {
+  Button,
   ErrorBoundary,
   EventLog,
   type SessionEvent as EventLogSessionEvent,
@@ -6,6 +7,7 @@ import {
   KanbanBoard,
   TabBar,
   type TabBarTab,
+  Text,
 } from '@components';
 import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +21,7 @@ import { useEventsForActiveSession } from '../../../state/selectors';
 import { useSessionRepoScope } from '../../../state/sessionRepoScope';
 import { useSessionStore } from '../../../state/sessionStore';
 import { focusIdForTab, tabIdOf } from '../../../state/tabFocus';
+import { boardView } from '../hooks/boardStatus';
 import styles from '../index.module.css';
 import {
   type PendingTerminal,
@@ -64,6 +67,7 @@ interface Props {
   architectKey: string;
   architect: Architect | null;
   board: TicketBoard;
+  boardLoaded: boolean;
   boardLoading: boolean;
   boardError: unknown | null;
   shortcutConfig: ShortcutConfig | null;
@@ -81,6 +85,7 @@ export default function RightPane({
   architectKey: _architectKey,
   architect,
   board,
+  boardLoaded,
   boardLoading,
   boardError,
   shortcutConfig,
@@ -278,23 +283,44 @@ export default function RightPane({
     setFocusedPane(focusIdForTab(effectiveTab));
   }, [effectiveTab, setFocusedPane]);
 
+  const view = boardView({ loaded: boardLoaded, loading: boardLoading, error: boardError });
+
   const primaryContent = (
     <>
       <div className={styles.tabPanel} data-active={effectiveTab === 'kanban'}>
         <div className={styles.kanbanPane}>
-          {!boardError || boardLoading ? (
+          {view.kind === 'board' && view.stale && (
+            <div className={styles.boardStatus} role="alert">
+              <Text as="span" className={styles.boardStatusText}>
+                Could not refresh the board; showing the last loaded tickets. {view.error}
+              </Text>
+              <Button theme="SECONDARY" isDisabled={boardLoading} onClick={() => onRefreshBoard()}>
+                {boardLoading ? 'Retrying…' : 'Retry'}
+              </Button>
+            </div>
+          )}
+          {view.kind === 'error' ? (
+            <div className={styles.boardStatus} role="alert">
+              <Text as="span" className={styles.boardStatusText}>
+                Could not load the board. {view.error}
+              </Text>
+              <Button theme="SECONDARY" isDisabled={boardLoading} onClick={() => onRefreshBoard()}>
+                {boardLoading ? 'Retrying…' : 'Retry'}
+              </Button>
+            </div>
+          ) : (
             <ErrorBoundary paneLabel="Kanban">
               <KanbanBoard
                 className={styles.kanbanBoard}
                 board={board}
-                loading={boardLoading}
+                loading={view.kind === 'loading'}
                 emptyMessage="No tickets yet"
                 selectedTicketId={selectedTicketId}
                 focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
                 onTicketSelect={onTicketSelect}
               />
             </ErrorBoundary>
-          ) : null}
+          )}
         </div>
       </div>
 

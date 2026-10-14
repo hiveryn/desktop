@@ -216,6 +216,7 @@ export default function ActionsWindow() {
                   architectKey=""
                   architect={null}
                   board={EMPTY_BOARD}
+                  boardLoaded
                   boardLoading={false}
                   boardError={null}
                   shortcutConfig={shortcutConfig}

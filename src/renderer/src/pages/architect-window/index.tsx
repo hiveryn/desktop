@@ -60,6 +60,7 @@ export default function ArchitectWindow() {
     userHome,
     board,
     boardLoading,
+    boardLoaded,
     boardError,
     loadError,
     refreshBoard,
@@ -244,6 +245,7 @@ export default function ArchitectWindow() {
                     architectKey={architectKey}
                     architect={architect}
                     board={board}
+                    boardLoaded={boardLoaded}
                     boardLoading={boardLoading}
                     boardError={boardError}
                     shortcutConfig={shortcutConfig}

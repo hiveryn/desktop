@@ -9,8 +9,14 @@ export interface ArchitectData {
   architect: Architect | null;
   // The user's OS home dir — used for ~-shortening paths in the nav.
   userHome: string | null;
+  // The last board that loaded successfully; kept through failed refreshes.
   board: TicketBoard;
+  // A board has loaded for this architect; until then `board` is empty, not
+  // known to be empty.
+  boardLoaded: boolean;
+  // A listing request is in flight.
   boardLoading: boolean;
+  // Why the latest listing failed, or null when it succeeded.
   boardError: unknown | null;
   loadError: unknown | null;
   refreshArchitect(): Promise<void>;
@@ -22,6 +28,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
   const [architect, setArchitect] = useState<Architect | null>(null);
   const [userHome, setUserHome] = useState<string | null>(null);
   const [board, setBoard] = useState<TicketBoard>(EMPTY_TICKET_BOARD);
+  const [boardLoaded, setBoardLoaded] = useState(false);
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError, setBoardError] = useState<unknown | null>(null);
   const [loadError, setLoadError] = useState<unknown | null>(null);
@@ -32,16 +39,37 @@ export function useArchitectData(architectKey: string): ArchitectData {
     setArchitect(next);
   }, [architectKey]);
 
-  const refreshBoard = useCallback(async () => {
-    if (!architectKey) return;
+  // Every listing takes a token. A board is applied unless a newer one already
+  // was, and a failure only when it is the newest request, so a request
+  // finishing late can neither replace a newer board nor report a failure a
+  // newer request has already recovered from.
+  const boardTokenRef = useRef(0);
+  const appliedBoardTokenRef = useRef(0);
+  const boardKeyRef = useRef(architectKey);
+
+  const listBoard = useCallback(async (): Promise<void> => {
+    const token = ++boardTokenRef.current;
+    setBoardLoading(true);
     try {
       const next = await window.hiveryn.tickets.list(architectKey);
+      if (appliedBoardTokenRef.current > token) return;
+      appliedBoardTokenRef.current = token;
       setBoard(next);
-      setBoardError(null);
+      setBoardLoaded(true);
+      if (boardTokenRef.current === token) setBoardError(null);
     } catch (error: unknown) {
+      if (boardTokenRef.current !== token) return;
+      // Keep the last successful board; the error explains why it is stale.
       setBoardError(error);
+    } finally {
+      if (boardTokenRef.current === token) setBoardLoading(false);
     }
   }, [architectKey]);
+
+  const refreshBoard = useCallback(async () => {
+    if (!architectKey) return;
+    await listBoard();
+  }, [architectKey, listBoard]);
 
   // Tokened so a stale in-flight load (from a superseded architectKey, or an
   // earlier retryLoad() call) can't clobber state after a newer one starts.
@@ -50,6 +78,13 @@ export function useArchitectData(architectKey: string): ArchitectData {
   const load = useCallback(async (): Promise<void> => {
     const token = ++loadTokenRef.current;
 
+    if (boardKeyRef.current !== architectKey) {
+      boardKeyRef.current = architectKey;
+      appliedBoardTokenRef.current = boardTokenRef.current;
+      setBoard(EMPTY_TICKET_BOARD);
+      setBoardLoaded(false);
+    }
+
     if (!architectKey) {
       setLoadError('Missing architect key');
       setBoardLoading(false);
@@ -57,13 +92,11 @@ export function useArchitectData(architectKey: string): ArchitectData {
     }
 
     setLoadError(null);
-    setBoardError(null);
-    setBoardLoading(true);
 
-    const [architectResult, userHomeResult, boardResult] = await Promise.allSettled([
+    const [architectResult, userHomeResult] = await Promise.allSettled([
       window.hiveryn.architects.get(architectKey),
       window.hiveryn.system.getUserHome(),
-      window.hiveryn.tickets.list(architectKey),
+      listBoard(),
     ]);
 
     if (loadTokenRef.current !== token) return;
@@ -77,16 +110,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
     if (userHomeResult.status === 'fulfilled') {
       setUserHome(userHomeResult.value);
     }
-
-    if (boardResult.status === 'fulfilled') {
-      setBoard(boardResult.value);
-    } else {
-      setBoard(EMPTY_TICKET_BOARD);
-      setBoardError(boardResult.reason);
-    }
-
-    setBoardLoading(false);
-  }, [architectKey]);
+  }, [architectKey, listBoard]);
 
   useEffect(() => {
     void load();
@@ -109,6 +133,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
     architect,
     userHome,
     board,
+    boardLoaded,
     boardLoading,
     boardError,
     loadError,
