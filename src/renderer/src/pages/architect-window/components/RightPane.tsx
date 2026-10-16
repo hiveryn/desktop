@@ -10,11 +10,20 @@ import {
   Text,
 } from '@components';
 import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Architect } from '../../../../../shared/types';
 import type { ShortcutConfig } from '../../../hooks/useShortcutConfig';
 import { registerDynamicHandler } from '../../../keys/dispatcher';
 import { isTextInputFocused, matchesShortcut } from '../../../keys/matchers';
+import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { useElapsedSeconds } from '../../../lib/useElapsedSeconds';
 import { getTabPlugin } from '../../../plugins/registry';
 import { useEventsForActiveSession } from '../../../state/selectors';
@@ -40,6 +49,16 @@ const EVENT_STATUSES: EventStatus[] = [
   'error',
   'ended',
 ];
+
+// How long typing must pause before the board is searched. Short enough to
+// feel live, long enough that a burst of keystrokes is one daemon listing.
+const BOARD_SEARCH_DEBOUNCE_MS = 250;
+
+// Whether a key event came from inside an open modal, whose keys must not
+// reach the kanban search behind it.
+function eventInsideDialog(e: KeyboardEvent): boolean {
+  return e.target instanceof Element && e.target.closest('[role="dialog"]') !== null;
+}
 
 function isEventStatus(status: string): status is EventStatus {
   return EVENT_STATUSES.includes(status as EventStatus);
@@ -67,6 +86,8 @@ interface Props {
   architectKey: string;
   architect: Architect | null;
   board: TicketBoard;
+  // The search `board` answers ('' for the whole board).
+  boardQuery?: string;
   boardLoaded: boolean;
   boardLoading: boolean;
   boardError: unknown | null;
@@ -74,6 +95,11 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
+  /**
+   * Lists the board matching a settled search query ('' restores the whole
+   * board). Absent in windows without a kanban tab.
+   */
+  onSearchBoard?(query: string): void;
   /**
    * Context tabs owned by the embedding window, keyed by tab type (the Actions
    * window's `action` tab). Rendered like the built-in panels.
@@ -85,6 +111,7 @@ export default function RightPane({
   architectKey: _architectKey,
   architect,
   board,
+  boardQuery = '',
   boardLoaded,
   boardLoading,
   boardError,
@@ -92,6 +119,7 @@ export default function RightPane({
   onTicketSelect,
   onSpawnTicket,
   onRefreshBoard,
+  onSearchBoard,
   extraPanels,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
@@ -144,6 +172,54 @@ export default function RightPane({
 
   const selectedTicketId = cols[kanbanCursor.col]?.[kanbanCursor.ticketIdx]?.id ?? null;
 
+  // ── Kanban search ────────────────────────────────────────────────────────
+  // The field's text is local and immediate; the board is searched with the
+  // settled (debounced) query, and clearing applies at once. Closing clears.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const typedQuery = searchText.trim();
+  const settledQuery = useDebouncedValue(typedQuery, BOARD_SEARCH_DEBOUNCE_MS, '');
+
+  const onSearchBoardRef = useRef(onSearchBoard);
+  onSearchBoardRef.current = onSearchBoard;
+  useEffect(() => {
+    onSearchBoardRef.current?.(settledQuery);
+  }, [settledQuery]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchText('');
+  }, []);
+
+  const handleSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSearch();
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      // Hand off to board navigation: once the input is blurred, j/k/o act
+      // on the matches while the query stays applied.
+      e.preventDefault();
+      e.stopPropagation();
+      searchInputRef.current?.blur();
+    }
+  };
+
+  const matchCount = board.backlog.length + board.progress.length + board.done.length;
+  let searchStatus = '';
+  if (typedQuery !== boardQuery) {
+    // The shown board answers another query; the error banner explains a
+    // listing that failed, so nothing is claimed here then.
+    if (boardLoading || settledQuery !== typedQuery) searchStatus = 'Searching…';
+  } else if (boardQuery !== '') {
+    searchStatus = `${matchCount} ${matchCount === 1 ? 'match' : 'matches'}`;
+  }
+
   // ── Event log cursor ─────────────────────────────────────────────────────
   // cursorDisplayIdx is a position in the reversed display list (0 = newest)
   const [cursorDisplayIdx, setCursorDisplayIdx] = useState(0);
@@ -183,6 +259,9 @@ export default function RightPane({
 
   const onRefreshBoardRef = useRef(onRefreshBoard);
   onRefreshBoardRef.current = onRefreshBoard;
+
+  const searchOpenRef = useRef(searchOpen);
+  searchOpenRef.current = searchOpen;
 
   const isKanbanFocused = focusedPane === 'right-kanban';
   const isEventLogFocused = focusedPane === 'right-event-log';
@@ -235,6 +314,25 @@ export default function RightPane({
           onRefreshBoardRef.current();
           return 'consumed';
         }
+        // A modal above the board keeps its own keys (the ticket detail's
+        // Escape, typing in the launch dialog) — the search never opens or
+        // closes behind it.
+        if (!eventInsideDialog(e)) {
+          if (matchesShortcut(e, kanban.search ?? '')) {
+            // Already open: re-focus the input (e.g. after Enter handed the
+            // keys to the board).
+            setSearchOpen(true);
+            searchInputRef.current?.focus();
+            return 'consumed';
+          }
+          // Escape closes an open search even when focus has left the input
+          // (its own onKeyDown covers the focused case via the text-input
+          // guard above). Only consumed while the search is open.
+          if (searchOpenRef.current && e.key === 'Escape') {
+            closeSearch();
+            return 'consumed';
+          }
+        }
       }
 
       if (isEventLogFocused) {
@@ -268,7 +366,7 @@ export default function RightPane({
 
       return 'passthrough';
     });
-  }, [isKanbanFocused, isEventLogFocused]);
+  }, [isKanbanFocused, isEventLogFocused, closeSearch]);
 
   // ── Terminal close (called from floating overlay on the pane) ────────────
   async function handleCloseTerminal(sessionId: string, terminalId: string): Promise<void> {
@@ -314,12 +412,38 @@ export default function RightPane({
                 className={styles.kanbanBoard}
                 board={board}
                 loading={view.kind === 'loading'}
-                emptyMessage="No tickets yet"
+                emptyMessage={
+                  boardQuery === '' ? 'No tickets yet' : `No tickets match “${boardQuery}”`
+                }
                 selectedTicketId={selectedTicketId}
                 focusedColumn={isKanbanFocused ? kanbanCursor.col : null}
                 onTicketSelect={onTicketSelect}
               />
             </ErrorBoundary>
+          )}
+          {searchOpen && (
+            <div className={styles.kanbanSearch}>
+              <input
+                ref={searchInputRef}
+                className={styles.kanbanSearchInput}
+                type="text"
+                aria-label="Search tickets"
+                placeholder="Search titles, bodies and conclusions…"
+                spellCheck={false}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onBlur={() => {
+                  // Nothing typed: leaving the field is the same as closing it.
+                  if (searchText.trim() === '') setSearchOpen(false);
+                }}
+              />
+              {searchStatus !== '' && (
+                <span className={styles.kanbanSearchStatus} role="status">
+                  {searchStatus}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

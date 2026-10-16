@@ -69,6 +69,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   },
   'system:getRuntime': { method: 'GET', path: '/api/system/runtime' },
   'tickets:list': { method: 'GET', path: '/api/architects/:key/tickets' },
+  'tickets:search': { method: 'GET', path: '/api/architects/:key/tickets?q=:query' },
   'tickets:get': { method: 'GET', path: '/api/architects/:key/tickets/:id' },
   'tickets:edit': { method: 'PATCH', path: '/api/architects/:key/tickets/:id' },
   'tickets:updateMetadata': { method: 'PATCH', path: '/api/architects/:key/tickets/:id/metadata' },
@@ -345,6 +346,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
   },
   tickets: {
     list: (architectKey: string): Promise<TicketBoard> => invoke('tickets:list', architectKey),
+    search: (architectKey: string, query: string): Promise<TicketBoard> =>
+      invoke('tickets:search', architectKey, query),
     get: (architectKey: string, id: string): Promise<Ticket> =>
       invoke('tickets:get', architectKey, id),
     edit: (architectKey: string, id: string, input: TicketEditInput): Promise<Ticket> =>

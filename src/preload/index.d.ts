@@ -395,6 +395,9 @@ interface HiverynAPI {
   };
   tickets: {
     list: (architectKey: string) => Promise<TicketBoard>;
+    // The board filtered to tickets whose title, body or conclusion contains
+    // query, case-insensitively, in list order. A blank query is the board.
+    search: (architectKey: string, query: string) => Promise<TicketBoard>;
     get: (architectKey: string, id: string) => Promise<Ticket>;
     edit: (architectKey: string, id: string, input: TicketEditInput) => Promise<Ticket>;
     updateMetadata: (

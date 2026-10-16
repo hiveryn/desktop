@@ -2,6 +2,7 @@ import type { TicketBoard } from '@hiveryn/shared/domain';
 import { ARCHITECT_EVENT_TYPE } from '@hiveryn/shared/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Architect, STREAM_CONNECTED_EVENT_TYPE } from '../../../../../shared/types';
+import { BoardListingSequence } from './boardListing';
 
 const EMPTY_TICKET_BOARD: TicketBoard = { backlog: [], progress: [], done: [] };
 
@@ -11,6 +12,10 @@ export interface ArchitectData {
   userHome: string | null;
   // The last board that loaded successfully; kept through failed refreshes.
   board: TicketBoard;
+  // The search `board` answers: '' for the whole board, otherwise the query
+  // its tickets matched. Set together with `board`, so it never describes a
+  // board from another query.
+  boardQuery: string;
   // A board has loaded for this architect; until then `board` is empty, not
   // known to be empty.
   boardLoaded: boolean;
@@ -22,12 +27,16 @@ export interface ArchitectData {
   refreshArchitect(): Promise<void>;
   refreshBoard(): Promise<void>;
   retryLoad(): Promise<void>;
+  // Lists the tickets matching query (blank: the whole board). Every later
+  // listing — refresh, retry, daemon events — keeps the query until it changes.
+  searchBoard(query: string): void;
 }
 
 export function useArchitectData(architectKey: string): ArchitectData {
   const [architect, setArchitect] = useState<Architect | null>(null);
   const [userHome, setUserHome] = useState<string | null>(null);
   const [board, setBoard] = useState<TicketBoard>(EMPTY_TICKET_BOARD);
+  const [boardQuery, setBoardQuery] = useState('');
   const [boardLoaded, setBoardLoaded] = useState(false);
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError, setBoardError] = useState<unknown | null>(null);
@@ -39,30 +48,36 @@ export function useArchitectData(architectKey: string): ArchitectData {
     setArchitect(next);
   }, [architectKey]);
 
-  // Every listing takes a token. A board is applied unless a newer one already
-  // was, and a failure only when it is the newest request, so a request
-  // finishing late can neither replace a newer board nor report a failure a
-  // newer request has already recovered from.
-  const boardTokenRef = useRef(0);
-  const appliedBoardTokenRef = useRef(0);
+  // Every listing — load, refresh, search — goes through listBoard with the
+  // current query, under the latest-wins rules of BoardListingSequence: a
+  // request finishing late can neither replace a newer board (a stale search
+  // result over a newer query) nor report a failure a newer request has
+  // already recovered from.
+  const listingRef = useRef(new BoardListingSequence());
+  const queryRef = useRef('');
   const boardKeyRef = useRef(architectKey);
 
   const listBoard = useCallback(async (): Promise<void> => {
-    const token = ++boardTokenRef.current;
+    const listing = listingRef.current;
+    const token = listing.begin();
+    const query = queryRef.current;
     setBoardLoading(true);
     try {
-      const next = await window.hiveryn.tickets.list(architectKey);
-      if (appliedBoardTokenRef.current > token) return;
-      appliedBoardTokenRef.current = token;
+      const next =
+        query === ''
+          ? await window.hiveryn.tickets.list(architectKey)
+          : await window.hiveryn.tickets.search(architectKey, query);
+      if (!listing.apply(token)) return;
       setBoard(next);
+      setBoardQuery(query);
       setBoardLoaded(true);
-      if (boardTokenRef.current === token) setBoardError(null);
+      if (listing.isNewest(token)) setBoardError(null);
     } catch (error: unknown) {
-      if (boardTokenRef.current !== token) return;
+      if (!listing.isNewest(token)) return;
       // Keep the last successful board; the error explains why it is stale.
       setBoardError(error);
     } finally {
-      if (boardTokenRef.current === token) setBoardLoading(false);
+      if (listing.isNewest(token)) setBoardLoading(false);
     }
   }, [architectKey]);
 
@@ -70,6 +85,17 @@ export function useArchitectData(architectKey: string): ArchitectData {
     if (!architectKey) return;
     await listBoard();
   }, [architectKey, listBoard]);
+
+  const searchBoard = useCallback(
+    (query: string) => {
+      if (!architectKey) return;
+      const trimmed = query.trim();
+      if (trimmed === queryRef.current) return;
+      queryRef.current = trimmed;
+      void listBoard();
+    },
+    [architectKey, listBoard],
+  );
 
   // Tokened so a stale in-flight load (from a superseded architectKey, or an
   // earlier retryLoad() call) can't clobber state after a newer one starts.
@@ -80,8 +106,9 @@ export function useArchitectData(architectKey: string): ArchitectData {
 
     if (boardKeyRef.current !== architectKey) {
       boardKeyRef.current = architectKey;
-      appliedBoardTokenRef.current = boardTokenRef.current;
+      listingRef.current.discardPending();
       setBoard(EMPTY_TICKET_BOARD);
+      setBoardQuery('');
       setBoardLoaded(false);
     }
 
@@ -133,6 +160,7 @@ export function useArchitectData(architectKey: string): ArchitectData {
     architect,
     userHome,
     board,
+    boardQuery,
     boardLoaded,
     boardLoading,
     boardError,
@@ -140,5 +168,6 @@ export function useArchitectData(architectKey: string): ArchitectData {
     refreshArchitect,
     refreshBoard,
     retryLoad: load,
+    searchBoard,
   };
 }

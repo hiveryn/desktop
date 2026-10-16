@@ -59,12 +59,14 @@ export default function ArchitectWindow() {
     architect,
     userHome,
     board,
+    boardQuery,
     boardLoading,
     boardLoaded,
     boardError,
     loadError,
     refreshBoard,
     retryLoad,
+    searchBoard,
   } = useArchitectData(architectKey);
   useSessionEvents();
   useDaemonRecovery(architectKey);
@@ -245,6 +247,7 @@ export default function ArchitectWindow() {
                     architectKey={architectKey}
                     architect={architect}
                     board={board}
+                    boardQuery={boardQuery}
                     boardLoaded={boardLoaded}
                     boardLoading={boardLoading}
                     boardError={boardError}
@@ -252,6 +255,7 @@ export default function ArchitectWindow() {
                     onTicketSelect={handleTicketSelect}
                     onSpawnTicket={handleSpawnTicket}
                     onRefreshBoard={() => void refreshBoard()}
+                    onSearchBoard={searchBoard}
                   />
                 </ErrorBoundary>
               </div>

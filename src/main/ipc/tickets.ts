@@ -35,6 +35,20 @@ export function registerTicketsIpc(): void {
     },
   );
 
+  // The board filtered to the tickets whose title, body or conclusion
+  // contains query (case-insensitive); the daemon does the matching so the
+  // search covers full bodies and conclusions, not the summaries on hand.
+  ipcMain.handle(
+    'tickets:search',
+    async (_event, key: string, query: string): Promise<DaemonResult<TicketBoard>> => {
+      return daemonFetch<TicketBoard>(
+        `${ticketCollectionPath(key)}?q=${encodeURIComponent(query)}`,
+        {},
+        { timeoutMs: TICKET_READ_TIMEOUT_MS },
+      );
+    },
+  );
+
   ipcMain.handle(
     'tickets:get',
     async (_event, key: string, id: string): Promise<DaemonResult<Ticket>> => {
