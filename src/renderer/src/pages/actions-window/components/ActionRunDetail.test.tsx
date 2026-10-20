@@ -29,7 +29,7 @@ describe('ActionRunDetail', () => {
     expect(html).toContain('Copy path');
     // The folder is never listed or reread — no artifact browser.
     expect(html).not.toContain('Refresh');
-    expect(html).not.toContain('artifacts');
+    expect(html).toContain('Completed without artifacts.');
     expect(html).not.toContain('Stop execution');
   });
 
@@ -300,5 +300,36 @@ describe('ActionsHome', () => {
       new Set(Array.from({ length: 10 }, (_, i) => `summary ${String(11 - i).padStart(2, '0')}`)),
     );
     expect(html).toContain('latest 10 of 12');
+  });
+});
+
+describe('optional and partial artifacts', () => {
+  it('distinguishes artifact-free completion from a missing promised package', () => {
+    const noFiles = renderToStaticMarkup(
+      <ActionRunDetail run={{ ...completed, output_dir: '' }} />,
+    );
+    expect(noFiles).toContain('Completed without artifacts.');
+    expect(noFiles).not.toContain('Working folder');
+    const missing = renderToStaticMarkup(
+      <ActionRunDetail run={{ ...completed, artifact_contract: 'report.txt' }} />,
+    );
+    expect(missing).toContain('Expected artifact package is missing.');
+  });
+  it('keeps failed outcomes visible alongside their approved partial artifacts', () => {
+    const html = renderToStaticMarkup(
+      <ActionRunDetail
+        run={{
+          ...completed,
+          status: 'failed',
+          summary: 'Second export failed',
+          package: { path: '/partial', state: 'ready', files: 1, bytes: 42 },
+        }}
+      />,
+    );
+    expect(html).toContain('failed');
+    expect(html).toContain('Second export failed');
+    expect(html).toContain('Partial artifacts');
+    expect(html).toContain('/partial');
+    expect(html).toContain('Reveal in Finder');
   });
 });

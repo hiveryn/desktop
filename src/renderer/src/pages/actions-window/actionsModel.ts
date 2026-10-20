@@ -126,6 +126,8 @@ export function artifactStateLabel(copy: ActionArtifactCopy): string {
   switch (copy.state) {
     case 'ready':
       return copy.expires_at ? `ready · expires ${formatTimestamp(copy.expires_at)}` : 'ready';
+    case 'prepared':
+      return 'prepared · awaiting conclusion approval';
     case 'copying':
       return 'copying…';
     case 'failed':

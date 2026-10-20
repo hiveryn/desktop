@@ -158,13 +158,26 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
           {run.error ? <p className={styles.errorText}>{run.error}</p> : null}
           {running && !run.summary ? (
             <p className={styles.muted}>
-              Running — the agent concludes when the package is delivered.
+              Running — the agent concludes when the requested work is finished.
             </p>
           ) : null}
         </section>
       )}
 
-      {run.package ? <ArtifactCopy title="Package" copy={run.package} /> : null}
+      {run.package ? (
+        <ArtifactCopy
+          title={run.status === 'failed' ? 'Partial artifacts' : 'Package'}
+          copy={run.package}
+        />
+      ) : run.status === 'completed' ? (
+        <p className={styles.muted}>
+          {run.artifact_contract
+            ? 'Expected artifact package is missing.'
+            : 'Completed without artifacts.'}
+        </p>
+      ) : run.status === 'failed' ? (
+        <p className={styles.muted}>No artifacts delivered.</p>
+      ) : null}
       {(run.deliveries ?? []).map((copy) => (
         <ArtifactCopy key={copy.machine ?? ''} title="Delivered copy" copy={copy} />
       ))}

@@ -288,7 +288,9 @@ export default function ActionsHome({
           <div className={styles.definition}>
             <p className={styles.prose}>{action.description || '—'}</p>
             <h3 className={styles.sectionTitle}>Delivers</h3>
-            <p className={styles.prose}>{action.artifacts || '—'}</p>
+            <p className={styles.prose}>
+              {action.artifacts || 'No files — results are reported in the conclusion.'}
+            </p>
           </div>
         ) : null}
       </section>
