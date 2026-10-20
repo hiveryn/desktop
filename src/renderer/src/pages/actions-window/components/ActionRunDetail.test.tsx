@@ -310,6 +310,13 @@ describe('optional and partial artifacts', () => {
     );
     expect(noFiles).toContain('Completed without artifacts.');
     expect(noFiles).not.toContain('Working folder');
+    const optional = renderToStaticMarkup(
+      <ActionRunDetail
+        run={{ ...completed, artifact_mode: 'optional', artifact_contract: 'requested files' }}
+      />,
+    );
+    expect(optional).toContain('Completed without artifacts.');
+    expect(optional).not.toContain('Expected artifact package is missing.');
     const missing = renderToStaticMarkup(
       <ActionRunDetail run={{ ...completed, artifact_contract: 'report.txt' }} />,
     );

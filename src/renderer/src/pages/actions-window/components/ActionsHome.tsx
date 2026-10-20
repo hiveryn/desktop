@@ -289,6 +289,7 @@ export default function ActionsHome({
             <p className={styles.prose}>{action.description || '—'}</p>
             <h3 className={styles.sectionTitle}>Delivers</h3>
             <p className={styles.prose}>
+              {action.artifact_mode === 'optional' ? 'Optional files: ' : null}
               {action.artifacts || 'No files — results are reported in the conclusion.'}
             </p>
           </div>

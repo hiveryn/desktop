@@ -171,7 +171,7 @@ export default function ActionRunDetail({ run, onOpenSession, onCancel }: Props)
         />
       ) : run.status === 'completed' ? (
         <p className={styles.muted}>
-          {run.artifact_contract
+          {(run.artifact_mode ?? (run.artifact_contract ? 'required' : 'none')) === 'required'
             ? 'Expected artifact package is missing.'
             : 'Completed without artifacts.'}
         </p>
