@@ -36,6 +36,29 @@ describe('agentMessageViews', () => {
     ]);
   });
 
+  it('labels an action-ended notice by action, outcome and recipient', () => {
+    const [view] = agentMessageViews(
+      [
+        message({
+          id: 'a',
+          kind: 'action_ended',
+          recipient: 'session:w-1',
+          payload: {
+            execution_id: 'e-1',
+            action: 'nova-export',
+            outcome: 'failed',
+            error: 'cancelled by user',
+          },
+          condition:
+            'recipient session runs on machine bk; message delivery to remote sessions is not available, the message is retained',
+        }),
+      ],
+      now,
+    );
+    expect(view.label).toBe('Action nova-export failed notice for session:w-1');
+    expect(view.tone).toBe('waiting');
+  });
+
   it('marks a message with failed attempts as retrying and carries the last error', () => {
     const [view] = agentMessageViews(
       [message({ attempts: 2, condition: 'retrying after 1m', last_error: 'boom' })],
