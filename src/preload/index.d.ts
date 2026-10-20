@@ -108,6 +108,7 @@ type SessionEvent = import('@hiveryn/shared/domain').SessionEvent;
 // ── Intents ────────────────────────────────────────────────────────────────
 
 type AgentQuestion = import('@hiveryn/shared/domain').AgentQuestion;
+type AgentMessage = import('@hiveryn/shared/domain').AgentMessage;
 type IntentType = import('@hiveryn/shared/domain').IntentType;
 type IntentPolicy = import('@hiveryn/shared/domain').IntentPolicy;
 type IntentOrigin = import('@hiveryn/shared/domain').IntentOrigin;
@@ -315,6 +316,8 @@ interface HiverynAPI {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
     status: () => Promise<ArchitectStatus[]>;
+    /** The project's agent messages with their delivery state and condition. */
+    messages: (key: string) => Promise<AgentMessage[]>;
     subscribeEvents: (key: string, callback: (event: ArchitectStreamEvent) => void) => () => void;
   };
   session: {

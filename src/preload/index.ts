@@ -2,6 +2,7 @@ import type {
   ActionDefinition,
   ActionList,
   ActionRun,
+  AgentMessage,
   AgentQuestion,
   ConcludeSessionParams,
   CreateTerminalParams,
@@ -81,6 +82,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:status': { method: 'GET', path: '/api/architects/status' },
+  'architects:messages': { method: 'GET', path: '/api/architects/:key/messages' },
   'workflows:list': { method: 'GET', path: '/api/architects/:key/workflows?repos=:repos' },
   'workflows:preflight': {
     method: 'GET',
@@ -189,6 +191,7 @@ contextBridge.exposeInMainWorld('hiveryn', {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
     status: (): Promise<ArchitectStatus[]> => invoke('architects:status'),
+    messages: (key: string): Promise<AgentMessage[]> => invoke('architects:messages', key),
     subscribeEvents: (
       key: string,
       callback: (event: ArchitectStreamEvent) => void,

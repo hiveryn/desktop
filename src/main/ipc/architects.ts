@@ -1,3 +1,4 @@
+import type { AgentMessage, AgentMessageList } from '@hiveryn/shared/domain';
 import { ipcMain } from 'electron';
 import type { Architect, ArchitectStatus, DaemonResult } from '../../shared/types';
 import * as architectEvents from '../daemon/architect-events';
@@ -39,6 +40,24 @@ export function registerArchitectsIpc(): void {
     'architects:get',
     async (_event, key: string): Promise<DaemonResult<Architect>> => {
       return daemonFetch<Architect>(`/api/architects/${encodeURIComponent(key)}`);
+    },
+  );
+
+  // The project's agent messages (ticket-conclusion notices and later kinds)
+  // with their delivery state and condition.
+  ipcMain.handle(
+    'architects:messages',
+    async (_event, key: string): Promise<DaemonResult<AgentMessage[]>> => {
+      const result = await daemonFetch<AgentMessageList>(
+        `/api/architects/${encodeURIComponent(key)}/messages`,
+      );
+      if (result.envelope.error) {
+        return withNullData(result);
+      }
+      if (!Array.isArray(result.envelope.data?.messages)) {
+        return invalidDaemonResponse('architects:messages returned missing messages array');
+      }
+      return withData(result, result.envelope.data.messages);
     },
   );
 

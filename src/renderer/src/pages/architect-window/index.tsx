@@ -22,6 +22,7 @@ import { useErrorCenterCapture } from '../../hooks/useErrorCenterCapture';
 import { useShortcutConfig } from '../../hooks/useShortcutConfig';
 import { useKeyDispatcher } from '../../keys/useKeyDispatcher';
 import { type SessionRecord, useSessionStore } from '../../state/sessionStore';
+import AgentMessagesStrip from './components/AgentMessages/AgentMessagesStrip';
 import BottomTabs from './components/BottomTabs';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import MainTerminalStack from './components/MainTerminalStack';
@@ -235,6 +236,7 @@ export default function ArchitectWindow() {
                 onClick={() => setFocusedPane('main-terminal')}
               >
                 <MainTerminalStack className={styles.terminal} />
+                <AgentMessagesStrip architectKey={architectKey} />
                 <QuestionPanel sessionId={activeSessionId} />
               </div>
               <div

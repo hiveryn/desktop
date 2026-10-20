@@ -35,7 +35,7 @@ src/
       logs.ts             logs:renderer handler — writes forwarded renderer console logs
       preferences.ts      user:* handlers (local, no daemon call)
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
-      architects.ts       architects:* handlers → daemon HTTP via daemonFetch
+      architects.ts       architects:* handlers → daemon HTTP via daemonFetch (incl. architects:messages → GET /api/architects/:key/messages, the project's agent-message delivery states)
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
       sessions.ts         sessions:list/create/conclude/discard/approve-intent/deny-intent/answer-question → daemon HTTP (sessions:create carries the ticket session's explicit `workflows` selection)
       actions.ts          actions:open-window (optional session id → `actions:open-session` to the window)/list/get/launch/runs/run/cancel → /api/actions*, /api/action-runs*; actions:events:subscribe/unsubscribe → the global actions SSE stream (daemon/action-events.ts)
@@ -81,7 +81,8 @@ src/
         index.tsx                Thin shell — composes hooks + view components
         SessionTerminal.tsx      Electron wiring for the terminal/ module — builds the transport + theme/keyboard/GPU adapters
         terminal-adapters/       Electron impls of the terminal module interfaces (electronTransport, cssThemeSource, dispatcherRouteKey, gpuCrashSource)
-        hooks/                   useArchitectData, useArchitectSessionDiscovery, useSessionEvents,
+        hooks/                   useArchitectData, useArchitectSessionDiscovery, useSessionEvents, useAgentMessages (lists the
+                                 project's agent messages; re-lists on `agent_message_changed` and reconnect),
                                  useDaemonRecovery, usePaletteSessionSwitch, sessionSnapshot
         components/              RightPane, BottomTabs, MainTerminalStack,
                                  ExtraTerminalStack, TicketPane, TicketWorkflow,
@@ -404,7 +405,7 @@ The architect window subscribes to the daemon's `GET /api/architects/{key}/event
 - **`architects.subscribeEvents(key, callback)`** (renderer API) — opens SSE, `callback` fires on each `ArchitectStreamEvent`. Returns unsubscribe function.
 - **Main process** — `architect-events.ts` manages SSE connections per `(webContents, architectKey)`. Parses `data:` lines, forwards the `ArchitectEvent` to the renderer via `sender.send('architect:workspace-event', ...)`.
 - **Subscription lifecycle** — `subscribeEvents` invokes `architects:events:subscribe` IPC (opens SSE), `unsubscribe` invokes `architects:events:unsubscribe` IPC (aborts SSE). Window `destroyed` auto-cleans up.
-- **Independent consumers** — `useArchitectData` re-fetches `architects.get(architectKey)` (metadata/repos) and the board (`tickets.list`, or `tickets.search` while a kanban search is applied) on any daemon event; `useArchitectSessionDiscovery` re-syncs the session store on the session reasons. None of them know about each other.
+- **Independent consumers** — `useAgentMessages` re-lists the project's agent messages on `agent_message_changed`, rendered by `components/AgentMessages/AgentMessagesStrip` above the question panel in the left pane: only messages that are held (open with a daemon `condition`), being redelivered or recently failed are shown, with the daemon's reason — delivered messages are already in the architect's terminal. `useArchitectData` re-fetches `architects.get(architectKey)` (metadata/repos) and the board (`tickets.list`, or `tickets.search` while a kanban search is applied) on any daemon event; `useArchitectSessionDiscovery` re-syncs the session store on the session reasons. None of them know about each other.
 - **Event shape** — `ArchitectEvent` from `@hiveryn/shared/domain` (not mirrored locally): `{ type: 'workspace_changed', architect_key, reason, ticket_id, session_id, at }`. Reasons are `ticket_created`/`ticket_updated`/`ticket_moved`/`ticket_deleted`/`ticket_concluded` and `session_started`/`session_ended`; the session reasons carry `session_id`, the others carry empty `ticket_id`/`session_id`. The desktop-local `StreamConnectedEvent` (`src/shared/types.ts`) is unioned with it as `ArchitectStreamEvent`.
 - **Reconnect** — the stream has **no backlog**, so live delivery alone is not enough. `architect-events.ts` synthesizes a `stream_connected` event on every (re)connect and both consumers resync from it. Session discovery deliberately does **not** auto-activate on that path: a dropped stream must never move the user off the session they are working in.
 - **Auto-activation** — a `session_started` whose id was genuinely absent before the sync becomes the active session (mirroring the local Spawn flow). A redelivered event for an already-known session does not, so duplicate delivery cannot produce duplicate tabs or yank focus back. `reconcileSessions` is keyed by session id, which makes the sync safe to call repeatedly; `syncSessionsForArchitect` also chains its calls per architect so two overlapping syncs cannot land out of order.

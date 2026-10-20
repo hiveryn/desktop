@@ -1,0 +1,56 @@
+/* Sits above the bottom bar in the left pane: a compact list of agent messages
+   that are not reaching the architect, with the daemon's reason. */
+.strip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-h-2);
+  border-top: 1px solid var(--theme-border);
+  background: var(--theme-background);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--theme-text-muted);
+  max-height: 25%;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  gap: var(--space-h-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.tone {
+  flex: 0 0 auto;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  font-size: var(--font-size-xs);
+}
+
+.row[data-tone="waiting"] .tone {
+  color: var(--theme-text-muted);
+}
+
+.row[data-tone="retrying"] .tone {
+  color: var(--theme-status-warning);
+}
+
+.row[data-tone="failed"] .tone {
+  color: var(--theme-status-error);
+}
+
+.label {
+  flex: 0 0 auto;
+  color: var(--theme-text);
+}
+
+.detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
