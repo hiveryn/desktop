@@ -18,19 +18,6 @@ export function filterAgentNames(names: string[], query: string): string[] {
 }
 
 /**
- * Why a workflow was suggested: the repos it declares that overlap the
- * session's writable scope, e.g. "Matches: core, agent-a". Empty for a
- * workflow that was not suggested.
- */
-export function suggestionReason(workflow: Workflow, scopeRepos: string[]): string {
-  if (!workflow.suggested) return '';
-  const scope = new Set(scopeRepos);
-  const matched = workflow.repos.filter((repo) => scope.has(repo));
-  if (matched.length === 0) return '';
-  return `Matches: ${matched.join(', ')}`;
-}
-
-/**
  * A workflow can only be selected when the daemon calls it valid — an invalid
  * one would fail the launch with its own diagnostics, so the dialog keeps it
  * visible and unselectable rather than hiding the problem.
@@ -40,8 +27,6 @@ export function isSelectable(workflow: Workflow): boolean {
 }
 
 export interface WorkflowGroups {
-  /** Valid, repo-matched, preselected. */
-  suggested: Workflow[];
   /** Valid and selectable, but not suggested for this scope — manual ones included. */
   available: Workflow[];
   /** Listed with diagnostics, never selectable. */
@@ -54,10 +39,9 @@ export interface WorkflowGroups {
  * about what the user has to decide first.
  */
 export function groupWorkflows(list: WorkflowList): WorkflowGroups {
-  const groups: WorkflowGroups = { suggested: [], available: [], invalid: [] };
+  const groups: WorkflowGroups = { available: [], invalid: [] };
   for (const workflow of list.workflows) {
     if (!isSelectable(workflow)) groups.invalid.push(workflow);
-    else if (workflow.suggested) groups.suggested.push(workflow);
     else groups.available.push(workflow);
   }
   return groups;
@@ -71,10 +55,8 @@ export function groupWorkflows(list: WorkflowList): WorkflowGroups {
  * Recomputed from a fresh listing on every open, so one ticket's selection can
  * never carry into another's launch.
  */
-export function initialSelection(list: WorkflowList): string[] {
-  return list.workflows
-    .filter((workflow) => workflow.suggested && isSelectable(workflow))
-    .map((workflow) => workflow.path);
+export function initialSelection(_list: WorkflowList): string[] {
+  return [];
 }
 
 /**

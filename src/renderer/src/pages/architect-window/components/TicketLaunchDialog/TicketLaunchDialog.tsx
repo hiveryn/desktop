@@ -23,7 +23,6 @@ import {
   launchProblems,
   reconcileSelection,
   resolvePreferredProfile,
-  suggestionReason,
   toggleSelection,
 } from './launchSelection';
 import styles from './TicketLaunchDialog.module.css';
@@ -129,7 +128,7 @@ export default function TicketLaunchDialog({
     setLoadError(null);
     try {
       const [workflows, ready, architect] = await Promise.all([
-        window.hiveryn.workflows.list(architectKey, scopeKey === '' ? [] : scopeKey.split(',')),
+        window.hiveryn.workflows.list(architectKey),
         window.hiveryn.workflows.preflight(architectKey),
         window.hiveryn.architects.get(architectKey),
       ]);
@@ -200,17 +199,14 @@ export default function TicketLaunchDialog({
   const blockers = [...placementProblems, ...launchBlockers(gate)];
   const problems = [...placementProblems, ...launchProblems(gate)];
   const groups = list === null ? null : groupWorkflows(list);
-  // Suggested first, then the rest, then the ones only a file repair can make
-  // selectable: the order the user has to decide in.
-  const chips =
-    groups === null ? [] : [...groups.suggested, ...groups.available, ...groups.invalid];
+  // Available workflows first, followed by files that need repair.
+  const chips = groups === null ? [] : [...groups.available, ...groups.invalid];
   const broken = chips.filter((workflow) => workflow.diagnostics.length > 0);
 
   const renderChip = (workflow: Workflow) => {
     const path = workflow.path;
     const selected = selection.includes(path);
     const selectable = isSelectable(workflow);
-    const reason = suggestionReason(workflow, list?.scope_repos ?? []);
     return (
       <button
         key={path}
@@ -224,7 +220,7 @@ export default function TicketLaunchDialog({
           .join(' ')}
         aria-pressed={selected}
         disabled={!selectable || locked}
-        title={reason === '' ? workflow.rel_path : `${workflow.rel_path} · ${reason}`}
+        title={workflow.rel_path}
         onClick={() => setSelection((prev) => toggleSelection(prev, path))}
       >
         <span className={styles.chipMark} aria-hidden="true">

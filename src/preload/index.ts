@@ -83,7 +83,7 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:status': { method: 'GET', path: '/api/architects/status' },
   'architects:messages': { method: 'GET', path: '/api/architects/:key/messages' },
-  'workflows:list': { method: 'GET', path: '/api/architects/:key/workflows?repos=:repos' },
+  'workflows:list': { method: 'GET', path: '/api/architects/:key/workflows' },
   'workflows:preflight': {
     method: 'GET',
     path: '/api/architects/:key/workspace/worker-preflight',
@@ -307,9 +307,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
     },
   },
   workflows: {
-    // Discovery for a ticket's writable repo scope (primary + additional).
-    list: (architectKey: string, repos: string[]): Promise<WorkflowList> =>
-      invoke('workflows:list', architectKey, repos),
+    // Plain workflows available for explicit selection.
+    list: (architectKey: string): Promise<WorkflowList> => invoke('workflows:list', architectKey),
     // Whether the workspace's required project context can host a worker now.
     preflight: (architectKey: string): Promise<WorkerPreflight> =>
       invoke('workflows:preflight', architectKey),

@@ -5,12 +5,10 @@ import {
   findRelaunchableSession,
   groupWorkflows,
   initialSelection,
-  isSelectable,
   launchBlockers,
   launchProblems,
   reconcileSelection,
   resolvePreferredProfile,
-  suggestionReason,
   toggleSelection,
 } from './launchSelection';
 
@@ -20,20 +18,16 @@ function workflow(overrides: Partial<Workflow> & { name: string }): Workflow {
   return {
     path: `${WS}/${overrides.name}.md`,
     rel_path: `workflows/${overrides.name}.md`,
-    attach: 'manual',
-    repos: [],
     valid: true,
-    suggested: false,
     modified_at: null,
     diagnostics: [],
     ...overrides,
   };
 }
 
-function list(workflows: Workflow[], scopeRepos: string[] = []): WorkflowList {
+function list(workflows: Workflow[], _scopeRepos: string[] = []): WorkflowList {
   return {
     architect_key: 'hiveryn',
-    scope_repos: scopeRepos,
     workflows,
     diagnostics: [],
   };
@@ -63,101 +57,21 @@ describe('filterAgentNames', () => {
   });
 });
 
-describe('suggestionReason', () => {
-  it('names only the repos that overlap the session scope', () => {
-    const matched = workflow({
-      name: 'DELIVER',
-      attach: 'suggested',
-      repos: ['core', 'agent-a', 'unrelated'],
-      suggested: true,
-    });
-    expect(suggestionReason(matched, ['core', 'agent-a'])).toBe('Matches: core, agent-a');
+describe('explicit workflow selection', () => {
+  it('starts empty even with valid workflows', () => {
+    expect(initialSelection(list([workflow({ name: 'A' })]))).toEqual([]);
   });
-
-  // The daemon suggests on an overlap with ANY repo in scope, so a single
-  // additional repo is enough on its own.
-  it('matches on an additional repo alone', () => {
-    const matched = workflow({
-      name: 'DELIVER',
-      attach: 'suggested',
-      repos: ['agent-a'],
-      suggested: true,
-    });
-    expect(suggestionReason(matched, ['core', 'agent-a'])).toBe('Matches: agent-a');
-  });
-
-  it('is empty for a workflow the daemon did not suggest', () => {
-    const manual = workflow({ name: 'MANUAL' });
-    expect(suggestionReason(manual, ['core'])).toBe('');
-  });
-});
-
-describe('groupWorkflows', () => {
-  it('splits suggested, available and invalid, keeping daemon order', () => {
-    const suggested = workflow({
-      name: 'A',
-      attach: 'suggested',
-      repos: ['core'],
-      suggested: true,
-    });
-    const manual = workflow({ name: 'B' });
-    const unmatched = workflow({ name: 'C', attach: 'suggested', repos: ['other'] });
-    const broken = workflow({
-      name: 'D',
-      valid: false,
-      diagnostics: [
-        {
-          code: 'MISSING_FRONTMATTER',
-          severity: 'error',
-          path: 'workflows/D.md',
-          line: 0,
-          message: 'no frontmatter',
-        },
-      ],
-    });
-
-    const groups = groupWorkflows(list([suggested, manual, unmatched, broken], ['core']));
-    expect(groups.suggested.map((w) => w.name)).toEqual(['A']);
-    expect(groups.available.map((w) => w.name)).toEqual(['B', 'C']);
-    expect(groups.invalid.map((w) => w.name)).toEqual(['D']);
-  });
-
-  // An invalid workflow the daemon still flagged as suggested must never be
-  // preselected, and must never become selectable.
-  it('keeps an invalid workflow out of the selectable groups', () => {
-    const broken = workflow({ name: 'D', valid: false, suggested: true });
-    const groups = groupWorkflows(list([broken], ['core']));
-    expect(groups.suggested).toHaveLength(0);
-    expect(groups.invalid).toHaveLength(1);
-    expect(isSelectable(broken)).toBe(false);
-  });
-});
-
-describe('initialSelection', () => {
-  it('preselects every valid suggestion and nothing else', () => {
-    const a = workflow({ name: 'A', attach: 'suggested', repos: ['core'], suggested: true });
-    const b = workflow({ name: 'B', attach: 'suggested', repos: ['agent-a'], suggested: true });
-    const manual = workflow({ name: 'M' });
-    expect(initialSelection(list([a, manual, b], ['core', 'agent-a']))).toEqual([a.path, b.path]);
-  });
-
-  it('is empty when nothing matches, which is a valid launch', () => {
-    const unmatched = workflow({ name: 'A', attach: 'suggested', repos: ['other'] });
-    expect(initialSelection(list([unmatched, workflow({ name: 'M' })], ['core']))).toEqual([]);
-  });
-
-  it('is empty for an empty workflow list', () => {
-    expect(initialSelection(list([]))).toEqual([]);
-  });
-
-  it('never preselects an invalid suggestion', () => {
-    const broken = workflow({ name: 'A', suggested: true, valid: false });
-    expect(initialSelection(list([broken], ['core']))).toEqual([]);
+  it('keeps invalid workflows visible and unselectable', () => {
+    const groups = groupWorkflows(
+      list([workflow({ name: 'A' }), workflow({ name: 'B', valid: false })]),
+    );
+    expect(groups.available.map((w) => w.name)).toEqual(['A']);
+    expect(groups.invalid.map((w) => w.name)).toEqual(['B']);
   });
 });
 
 describe('reconcileSelection', () => {
-  const a = workflow({ name: 'A', attach: 'suggested', repos: ['core'], suggested: true });
+  const a = workflow({ name: 'A' });
   const manual = workflow({ name: 'M' });
 
   it('keeps the user choices a refresh did not invalidate', () => {
@@ -171,7 +85,7 @@ describe('reconcileSelection', () => {
   });
 
   it('does not drop a selection that merely stopped being suggested', () => {
-    const noLongerSuggested = { ...a, suggested: false, attach: 'suggested' as const };
+    const noLongerSuggested = { ...a };
     expect(reconcileSelection([a.path], list([noLongerSuggested], []))).toEqual([a.path]);
   });
 

@@ -143,6 +143,26 @@ export default function ArchitectWindow() {
     }
   }
 
+  // Filesystem reconciliation also refreshes an already-open detail dialog.
+  const selectedTicketId = selectedTicket?.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: board changes include body-only filesystem edits.
+  useEffect(() => {
+    if (!architectKey || !selectedTicketId) return;
+    let current = true;
+    const requestId = ++ticketRequestId.current;
+    void window.hiveryn.tickets.get(architectKey, selectedTicketId).then(
+      (ticket) => {
+        if (current && requestId === ticketRequestId.current) setSelectedTicket(ticket);
+      },
+      () => {
+        if (current && requestId === ticketRequestId.current) setSelectedTicket(null);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [architectKey, selectedTicketId, board]);
+
   function handleTicketClose(): void {
     ticketRequestId.current += 1;
     setSelectedTicket(null);

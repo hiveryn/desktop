@@ -60,29 +60,37 @@ const ConclusionSection: React.FC<{ conclusion: TicketConclusion }> = ({ conclus
 
 interface Props {
   sessionId: string;
+  revision: unknown;
 }
 
-export default function TicketPane({ sessionId }: Props) {
+export default function TicketPane({ sessionId, revision }: Props) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh after workspace reconciliation.
   useEffect(() => {
     setTicket(null);
     setError(null);
     setLoading(true);
 
+    let current = true;
     window.hiveryn.sessions.getTicket(sessionId).then(
       (t) => {
+        if (!current) return;
         setTicket(t);
         setLoading(false);
       },
       (err) => {
+        if (!current) return;
         setError(err);
         setLoading(false);
       },
     );
-  }, [sessionId]);
+    return () => {
+      current = false;
+    };
+  }, [sessionId, revision]);
 
   if (loading) {
     return (

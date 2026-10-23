@@ -462,7 +462,7 @@ export default function RightPane({
       <div className={styles.tabPanel} data-active={effectiveTab === 'ticket'}>
         {activeSession && (
           <ErrorBoundary paneLabel="Ticket" resetKeys={[activeSession.id]}>
-            <TicketPane sessionId={activeSession.id} />
+            <TicketPane sessionId={activeSession.id} revision={board} />
           </ErrorBoundary>
         )}
       </div>

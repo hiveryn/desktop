@@ -25,6 +25,9 @@ const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
     return (
       <div ref={ref} className={classes} {...rest}>
         <div className={styles.title}>{ticket.title}</div>
+        {ticket.warnings.some(w => w.code.startsWith('INVALID_TICKET') || w.code === 'PROTECTED_RECORD_CONFLICT') && (
+          <div role="status" title={ticket.warnings.map(w => w.message).join('\n')}>Workspace error — open for details</div>
+        )}
         <div className={styles.meta}>
           <span className={styles.repo}>
             {ticket.repo ?? ''}

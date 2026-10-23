@@ -361,7 +361,7 @@ interface HiverynAPI {
     onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;
   };
   workflows: {
-    list: (architectKey: string, repos: string[]) => Promise<WorkflowList>;
+    list: (architectKey: string) => Promise<WorkflowList>;
     preflight: (architectKey: string) => Promise<WorkerPreflight>;
   };
   sessions: {
