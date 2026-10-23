@@ -33,6 +33,19 @@ describe('QuestionCard', () => {
     expect(html).not.toContain('Dismiss');
   });
 
+  it('names the architect as the answerer, never the user', () => {
+    const html = renderToStaticMarkup(
+      <QuestionCard
+        question={{ ...question, status: 'answered', answer: 'Yes, staging first', answered_by: 'architect' }}
+        now={0}
+      />,
+    );
+    expect(html).toContain('Answered by the project architect, not by you: Yes, staging first');
+    expect(html).toContain('data-answered-by="architect"');
+    expect(html).not.toContain('Send answer');
+    expect(html).toContain('Dismiss');
+  });
+
   it('turns into a no-longer-answerable notice without a form', () => {
     const html = renderToStaticMarkup(
       <QuestionCard question={{ ...question, status: 'interrupted', reason: 'the daemon stopped while the question was pending' }} now={0} />,

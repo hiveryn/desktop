@@ -1,9 +1,16 @@
-import type { AgentQuestion, QuestionOrigin, QuestionStatus } from '@hiveryn/shared/domain';
+import type {
+  AgentQuestion,
+  QuestionAnswerSource,
+  QuestionOrigin,
+  QuestionStatus,
+} from '@hiveryn/shared/domain';
 import type { QuestionResolution } from '../../state/sessionStore';
 
 // Pure model for agent questions: parsing the daemon's session events and the
 // answer form's rules. The daemon authors these events (sessionruntime
-// questions.go), so a malformed one is a bug and throws.
+// questions.go), so a malformed one is a bug and throws. An answer carries
+// its source: the user in the desktop, or the project architect that
+// answered an escalated ticket-worker question — never shown as the user's.
 
 interface QuestionEvent {
   raw?: Record<string, unknown>;
@@ -17,6 +24,8 @@ const STATUSES: readonly QuestionStatus[] = [
   'cancelled',
   'interrupted',
 ];
+
+const ANSWER_SOURCES: readonly QuestionAnswerSource[] = ['user', 'architect'];
 
 function requireString(raw: Record<string, unknown>, field: string, event: QuestionEvent): string {
   const value = raw[field];
@@ -85,17 +94,26 @@ export function parseQuestionResolved(event: QuestionEvent): QuestionResolution 
   if (typeof status !== 'string' || !STATUSES.includes(status as QuestionStatus)) {
     throw new Error(`question/resolved event has unknown raw.status: ${JSON.stringify(event)}`);
   }
+  const answeredBy = raw.answered_by;
+  if (
+    answeredBy !== undefined &&
+    (typeof answeredBy !== 'string' || !ANSWER_SOURCES.includes(answeredBy as QuestionAnswerSource))
+  ) {
+    throw new Error(`question/resolved event has unknown raw.answered_by: ${JSON.stringify(event)}`);
+  }
   return {
     question_id: requireString(raw, 'question_id', event),
     status: status as QuestionStatus,
     answer: typeof raw.answer === 'string' ? raw.answer : undefined,
+    answered_by: answeredBy as QuestionAnswerSource | undefined,
     reason: typeof raw.reason === 'string' ? raw.reason : undefined,
   };
 }
 
 // A resolution only stays on screen as a notice when the user may have been
-// looking at the question: not when it was answered (the answerer knows), and
-// not when the event is old backlog replayed on reconnect.
+// looking at the question: not when the user answered it (the answerer
+// knows), and not when the event is old backlog replayed on reconnect. An
+// architect's answer is a resolution the user did not give, so it stays.
 const NOTICE_FRESH_MS = 2 * 60 * 1000;
 
 export function keepResolutionNotice(
@@ -103,7 +121,7 @@ export function keepResolutionNotice(
   eventAt: string,
   now: number,
 ): boolean {
-  if (resolution.status === 'answered') return false;
+  if (resolution.status === 'answered' && resolution.answered_by !== 'architect') return false;
   const at = Date.parse(eventAt);
   return Number.isFinite(at) && now - at <= NOTICE_FRESH_MS;
 }
@@ -143,6 +161,9 @@ export function remainingLabel(expiresAt: string, now: number): string {
 export function resolutionMessage(question: AgentQuestion): string {
   switch (question.status) {
     case 'answered':
+      if (question.answered_by === 'architect') {
+        return `Answered by the project architect, not by you: ${question.answer ?? ''}`;
+      }
       return `Answered: ${question.answer ?? ''}`;
     case 'expired':
       return 'No longer answerable: nobody answered within 1 hour. The agent was told to stop and wait for you — continue in its conversation.';

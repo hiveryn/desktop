@@ -55,6 +55,32 @@ describe('question events', () => {
     expect(
       keepResolutionNotice({ question_id: 'q-1', status: 'answered', answer: 'x' }, '2026-10-06T11:00:00Z', now),
     ).toBe(false);
+    expect(
+      keepResolutionNotice(
+        { question_id: 'q-1', status: 'answered', answer: 'x', answered_by: 'user' },
+        '2026-10-06T11:00:00Z',
+        now,
+      ),
+    ).toBe(false);
+    // The architect's answer is one the user did not give: it stays visible.
+    expect(
+      keepResolutionNotice(
+        { question_id: 'q-1', status: 'answered', answer: 'x', answered_by: 'architect' },
+        '2026-10-06T11:00:00Z',
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it('carries and validates the answer source', () => {
+    const byArchitect = parseQuestionResolved({
+      at: required.at,
+      raw: { question_id: 'q-1', status: 'answered', answer: 'Yes', answered_by: 'architect' },
+    });
+    expect(byArchitect).toEqual({ question_id: 'q-1', status: 'answered', answer: 'Yes', answered_by: 'architect', reason: undefined });
+    expect(() =>
+      parseQuestionResolved({ at: required.at, raw: { question_id: 'q-1', status: 'answered', answer: 'Yes', answered_by: 'robot' } }),
+    ).toThrow(/answered_by/);
   });
 });
 
@@ -78,6 +104,10 @@ describe('answer form', () => {
     expect(resolutionMessage({ ...q, status: 'cancelled', reason: 'the session ended' })).toBe(
       'No longer answerable: the session ended.',
     );
+    expect(resolutionMessage({ ...q, status: 'answered', answer: 'Yes', answered_by: 'user' })).toBe('Answered: Yes');
+    expect(resolutionMessage({ ...q, status: 'answered', answer: 'Yes', answered_by: 'architect' })).toBe(
+      'Answered by the project architect, not by you: Yes',
+    );
   });
 });
 
@@ -97,6 +127,10 @@ describe('question store', () => {
     expect(useSessionStore.getState().questions['q-1']?.status).toBe('expired');
     store.dismissQuestion('q-1');
     expect(useSessionStore.getState().questions).toEqual({});
+
+    store.setQuestion(question);
+    store.resolveQuestion({ question_id: 'q-1', status: 'answered', answer: 'Yes', answered_by: 'architect' }, true);
+    expect(useSessionStore.getState().questions['q-1']).toMatchObject({ status: 'answered', answered_by: 'architect' });
   });
 
   it('never dismisses a pending question; hiding only minimizes it', () => {

@@ -65,7 +65,12 @@ export const QuestionCard: React.FC<CardProps> = ({ question, now }) => {
       // The resolved event removes the card too; this avoids a lingering
       // form if it is briefly delayed.
       useSessionStore.getState().resolveQuestion(
-        { question_id: question.question_id, status: 'answered', answer: checked.answer },
+        {
+          question_id: question.question_id,
+          status: 'answered',
+          answer: checked.answer,
+          answered_by: 'user',
+        },
         false,
       );
     } catch (err) {
@@ -89,7 +94,11 @@ export const QuestionCard: React.FC<CardProps> = ({ question, now }) => {
   }
 
   return (
-    <li className={styles.card} data-status={question.status}>
+    <li
+      className={styles.card}
+      data-status={question.status}
+      data-answered-by={question.answered_by}
+    >
       <div className={styles.header}>
         <span className={styles.badge}>Question</span>
         <span className={styles.origin}>{originLabel(question.origin)}</span>

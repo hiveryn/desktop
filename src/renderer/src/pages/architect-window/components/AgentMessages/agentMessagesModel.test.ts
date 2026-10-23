@@ -36,6 +36,24 @@ describe('agentMessageViews', () => {
     ]);
   });
 
+  it('labels an escalated worker question by its ticket', () => {
+    const views = agentMessageViews(
+      [
+        message({
+          id: 'm-q',
+          kind: 'question_escalated',
+          payload: { ticket_id: '2026-10-23-0412-escalate', question_id: 'q-1' },
+          condition: 'no running architect session for hiveryn; delivered to its next session',
+        }),
+      ],
+      now,
+    );
+    expect(views).toHaveLength(1);
+    expect(views[0]?.label).toBe(
+      'Unanswered worker question on 2026-10-23-0412-escalate for the architect',
+    );
+  });
+
   it('labels an action-ended notice by action, outcome and recipient', () => {
     const [view] = agentMessageViews(
       [

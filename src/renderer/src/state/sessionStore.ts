@@ -1,6 +1,7 @@
 import type {
   AgentQuestion,
   Intent,
+  QuestionAnswerSource,
   QuestionStatus,
   SessionEvent,
   SessionTab,
@@ -74,6 +75,9 @@ export interface QuestionResolution {
   question_id: string;
   status: QuestionStatus;
   answer?: string;
+  // Who gave the answer (status answered): the user, or the project architect
+  // for an escalated worker question.
+  answered_by?: QuestionAnswerSource;
   reason?: string;
 }
 
@@ -441,6 +445,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
             ...current,
             status: resolution.status,
             answer: resolution.answer,
+            answered_by: resolution.answered_by,
             reason: resolution.reason,
             minimized: false,
           },

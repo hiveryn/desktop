@@ -35,6 +35,9 @@ function label(message: AgentMessage): string {
   ) {
     return `Action ${action} ${outcome} notice for ${message.recipient}`;
   }
+  if (message.kind === 'question_escalated' && typeof ticket === 'string') {
+    return `Unanswered worker question on ${ticket} for the architect`;
+  }
   return `${message.kind} to ${message.recipient}`;
 }
 
