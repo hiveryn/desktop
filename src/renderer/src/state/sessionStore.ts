@@ -11,6 +11,7 @@ import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface SessionRecord {
+  interactionMode?: 'terminal' | 'chat';
   machine?: string;
   connection?: string;
   connectionMessage?: string;

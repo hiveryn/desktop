@@ -188,6 +188,10 @@ The `sessionManager` (`src/main/daemon/session.ts`) supports **multiple concurre
 - **`session:event` IPC events** include `session_id` in the payload — session-level lifecycle events from the daemon's SSE stream.
 - **`session.send(sessionId, terminalId, data)`** and **`session.resize(sessionId, terminalId, cols, rows)`** take explicit identifiers — there is no global "active terminal" concept in the main process. Each `SessionTerminal` knows its own `(sessionId, terminalId)` and routes accordingly.
 
+### Chat compatibility
+
+Sessions with `interaction_mode: chat` have no main terminal. Discovery retains their session/event subscriptions and right-pane tabs; `MainTerminalStack` renders a labelled status placeholder instead of connecting a fabricated terminal. Questions, intents and ticket/conclusion workflows remain available. This is compatibility only, not a desktop chat UI; terminal sessions still require a real main terminal ID.
+
 ### Terminal lifecycle
 
 Terminal WebSockets survive component mount/unmount cycles. `SessionTerminal` connects on mount, opening the terminal WebSocket; the SSE event stream is session-level and shared across all terminals for that session. The WebSocket stays alive in the main process across renders.

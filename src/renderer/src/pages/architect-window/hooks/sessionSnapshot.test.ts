@@ -74,3 +74,21 @@ describe('remote activity freshness', () => {
     expect(useSessionStore.getState().sessions.remote.status).toBe('idle');
   });
 });
+
+it('discovers chat without inventing a terminal and keeps event subscriptions', async () => {
+  useSessionStore.getState().reset();
+  const chat = running('chat', 'ticket');
+  chat.interaction_mode = 'chat';
+  if (chat.current_run) chat.current_run.main_terminal_id = undefined;
+  stubDaemon([chat, running('terminal', 'ticket')], {
+    chat: [{ type: 'ticket' } as SessionTab],
+    terminal: [{ type: 'ticket' } as SessionTab],
+  });
+  await syncSessionsForArchitect('iso');
+  const record = useSessionStore.getState().sessions.chat;
+  expect(record.interactionMode).toBe('chat');
+  expect(record.mainTerminalId).toBe('');
+  expect(record.label).toContain('Chat');
+  expect(window.hiveryn.session.subscribe).toHaveBeenCalledWith('chat');
+  expect(useSessionStore.getState().sessions.terminal.mainTerminalId).toBe('term-terminal');
+});

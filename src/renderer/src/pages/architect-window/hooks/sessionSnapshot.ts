@@ -17,7 +17,7 @@ export function buildSessionRecord(intent: Session, tabs: SessionTab[]): Session
   if (intent.current_run?.status !== 'running') {
     throw new Error(`Cannot build session record for non-running session ${intent.id}`);
   }
-  if (!intent.current_run.main_terminal_id) {
+  if (intent.interaction_mode !== 'chat' && !intent.current_run.main_terminal_id) {
     throw new Error(`Running session ${intent.id} is missing main_terminal_id`);
   }
   // The store cannot select a session without a right-pane tab, and rejecting
@@ -30,13 +30,14 @@ export function buildSessionRecord(intent: Session, tabs: SessionTab[]): Session
   }
 
   return {
+    interactionMode: intent.interaction_mode ?? 'terminal',
     machine: intent.machine,
     connection: intent.connection,
     id: intent.id,
     type: intent.session_type,
-    label: sessionLabel(intent),
+    label: sessionLabel(intent) + (intent.interaction_mode === 'chat' ? ' · Chat' : ''),
     contextId: intent.context_id,
-    mainTerminalId: intent.current_run.main_terminal_id,
+    mainTerminalId: intent.current_run.main_terminal_id ?? '',
     tabs,
     status: intent.current_run.agent_status,
   };

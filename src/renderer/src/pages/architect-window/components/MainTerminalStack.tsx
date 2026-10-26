@@ -56,18 +56,25 @@ export default function MainTerminalStack({ className }: Props) {
                 {session.connectionMessage && ` ${session.connectionMessage}`}
               </Caption>
             )}
-            <ErrorBoundary paneLabel="Terminal" resetKeys={[session.id, terminalId]}>
-              <SessionTerminal
-                sessionId={session.id}
-                terminalId={terminalId}
-                paneId="main-terminal"
-                visible={isVisible}
-                focused={isFocused}
-                onDisconnected={() => {
-                  void refreshSessionFromDaemon(session.id);
-                }}
-              />
-            </ErrorBoundary>
+            {session.interactionMode === 'chat' ? (
+              <Caption role="status">
+                Chat session · {session.status || 'Starting'}. Use the conversation API. Questions
+                and approvals appear here.
+              </Caption>
+            ) : (
+              <ErrorBoundary paneLabel="Terminal" resetKeys={[session.id, terminalId]}>
+                <SessionTerminal
+                  sessionId={session.id}
+                  terminalId={terminalId}
+                  paneId="main-terminal"
+                  visible={isVisible}
+                  focused={isFocused}
+                  onDisconnected={() => {
+                    void refreshSessionFromDaemon(session.id);
+                  }}
+                />
+              </ErrorBoundary>
+            )}
           </div>
         );
       })}
