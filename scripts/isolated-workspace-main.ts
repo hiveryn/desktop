@@ -47,7 +47,6 @@ void app.whenReady().then(() => {
     openLauncherWindow: () => {
       open('/launcher');
     },
-    openActionsWindow: () => open('/actions'),
     isLauncherWindow: () => false,
   });
   health.start();

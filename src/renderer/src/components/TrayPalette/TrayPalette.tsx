@@ -3,21 +3,11 @@ import type { AgentProfile, ArchitectStatus } from '../../../../shared/types';
 import { formatElapsed } from '../../lib/formatElapsed';
 import { noVariantMessage, profilesForMachine } from '../../lib/variantMachines';
 import paletteStyles from '../palette/palette.module.css';
-import {
-  ACTIONS_ROW_LABEL,
-  buildRows,
-  type PaletteRow,
-  type RunningActionRun,
-  rowKey,
-  runningActionRuns,
-} from '../palette/rows';
+import { buildRows, type PaletteRow, rowKey } from '../palette/rows';
 import ProfileSelector from '../ProfileSelector/ProfileSelector';
 import styles from './TrayPalette.module.css';
 
 const REFRESH_INTERVAL_MS = 5000;
-// Executions are listed newest first and at most one runs per action, so the
-// running ones are always within the most recent handful.
-const ACTION_RUNS_LIMIT = 50;
 
 function errorText(err: unknown): string {
   if (err instanceof Error) return err.stack ?? err.message;
@@ -28,7 +18,6 @@ const TrayPalette: React.FC = () => {
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [statuses, setStatuses] = React.useState<ArchitectStatus[]>([]);
-  const [actionRuns, setActionRuns] = React.useState<RunningActionRun[]>([]);
   const [profiles, setProfiles] = React.useState<AgentProfile[]>([]);
   const [now, setNow] = React.useState(0);
   const [pendingKey, setPendingKey] = React.useState<string | null>(null);
@@ -43,20 +32,7 @@ const TrayPalette: React.FC = () => {
   const errorRef = React.useRef<HTMLDivElement>(null);
   const visibleRef = React.useRef(true);
 
-  const rows = React.useMemo(
-    () => buildRows(statuses, query, actionRuns),
-    [statuses, query, actionRuns],
-  );
-
-  const loadActionRuns = React.useCallback((): void => {
-    window.hiveryn.actions
-      .runs(undefined, ACTION_RUNS_LIMIT)
-      .then((runs) => {
-        setActionRuns(runningActionRuns(runs));
-        setNow(Date.now());
-      })
-      .catch(setError);
-  }, []);
+  const rows = React.useMemo(() => buildRows(statuses, query), [statuses, query]);
 
   const loadStatuses = React.useCallback((): void => {
     window.hiveryn.architects
@@ -66,8 +42,7 @@ const TrayPalette: React.FC = () => {
         setNow(Date.now());
       })
       .catch(setError);
-    loadActionRuns();
-  }, [loadActionRuns]);
+  }, []);
 
   // Initial data + profile list.
   React.useEffect(() => {
@@ -110,16 +85,6 @@ const TrayPalette: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadStatuses]);
 
-  // An execution starting or ending updates the list without waiting for the
-  // poll. Hidden, the next show refetches anyway.
-  React.useEffect(
-    () =>
-      window.hiveryn.actions.subscribeEvents(() => {
-        if (visibleRef.current) loadActionRuns();
-      }),
-    [loadActionRuns],
-  );
-
   React.useEffect(() => {
     setActiveIndex((prev) => Math.min(prev, Math.max(0, rows.length - 1)));
   }, [rows.length]);
@@ -142,13 +107,6 @@ const TrayPalette: React.FC = () => {
   const confirm = (index: number): void => {
     const row: PaletteRow | undefined = rows[index];
     if (!row) return;
-    if (row.kind === 'actions' || row.kind === 'action-run') {
-      window.hiveryn.actions
-        .openWindow(row.kind === 'action-run' ? row.run.session_id : undefined)
-        .then(() => window.hiveryn.tray.hide())
-        .catch(setError);
-      return;
-    }
     if (row.kind === 'session') {
       window.hiveryn.palette
         .focusArchitect(row.architect.key, row.session.id)
@@ -221,7 +179,7 @@ const TrayPalette: React.FC = () => {
             setActiveIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="search architects, sessions and actions..."
+          placeholder="search architects and sessions..."
           spellCheck={false}
           autoComplete="off"
           autoFocus
@@ -232,59 +190,6 @@ const TrayPalette: React.FC = () => {
           <ul className={styles.list} role="listbox">
             {rows.map((row, i) => {
               const isActive = i === activeIndex;
-              if (row.kind === 'actions') {
-                return (
-                  <li
-                    key={rowKey(row)}
-                    ref={isActive ? activeItemRef : undefined}
-                    role="option"
-                    aria-selected={isActive}
-                    className={[
-                      paletteStyles.item,
-                      paletteStyles.architectRow,
-                      isActive ? paletteStyles.itemActive : undefined,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => confirm(i)}
-                    onMouseEnter={() => setActiveIndex(i)}
-                  >
-                    <span className={paletteStyles.itemName}>{ACTIONS_ROW_LABEL}</span>
-                    <span className={paletteStyles.itemMeta}>
-                      <span className={paletteStyles.itemStatus}>open window</span>
-                    </span>
-                  </li>
-                );
-              }
-              if (row.kind === 'action-run') {
-                return (
-                  <li
-                    key={rowKey(row)}
-                    ref={isActive ? activeItemRef : undefined}
-                    role="option"
-                    aria-selected={isActive}
-                    className={[
-                      paletteStyles.item,
-                      paletteStyles.sessionRow,
-                      isActive ? paletteStyles.itemActive : undefined,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => confirm(i)}
-                    onMouseEnter={() => setActiveIndex(i)}
-                  >
-                    <span className={paletteStyles.itemName}>→ {row.run.action}</span>
-                    <span className={paletteStyles.itemMeta}>
-                      <span className={paletteStyles.itemElapsed}>
-                        {formatElapsed(row.run.started_at ?? row.run.created_at, now)}
-                      </span>
-                      <span className={paletteStyles.itemStatus}>
-                        {row.run.attention?.state === 'input_required' ? 'needs input' : 'running'}
-                      </span>
-                    </span>
-                  </li>
-                );
-              }
               if (row.kind === 'architect') {
                 const itemClass = [
                   paletteStyles.item,
@@ -346,7 +251,7 @@ const TrayPalette: React.FC = () => {
           </ul>
         ) : (
           <div className={styles.empty}>
-            {spawning ? 'spawning session…' : 'no architects, sessions or actions match'}
+            {spawning ? 'spawning session…' : 'no architects or sessions match'}
           </div>
         )}
       </div>

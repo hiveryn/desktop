@@ -44,7 +44,6 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
   if (
     intentType !== 'concludeSession' &&
     intentType !== 'createWorkTicket' &&
-    intentType !== 'executeAction' &&
     intentType !== 'spawnTicketWorker'
   ) {
     throw new Error(`intent/required event has unknown raw.intent_type: ${JSON.stringify(event)}`);
@@ -104,12 +103,11 @@ function mainTerminalResumeEvent(event: {
   return { mainTerminalId: mainTerminalID, previousTerminalId: previousTerminalID };
 }
 
-// A session end that should tear down the tab: concluded (normal), discarded
-// (ticket session moved back to backlog as if never spawned) or cancelled (an
-// action execution stopped by the user).
+// A session end that should tear down the tab: concluded (normal) or discarded
+// (ticket session moved back to backlog as if never spawned).
 function isFinalSessionEnd(event: { raw?: Record<string, unknown> }): boolean {
   const lifecycle = event.raw?.lifecycle;
-  return lifecycle === 'concluded' || lifecycle === 'discarded' || lifecycle === 'cancelled';
+  return lifecycle === 'concluded' || lifecycle === 'discarded';
 }
 
 async function cleanupEndedSession(sessionId: string, sessionType: SessionType): Promise<void> {

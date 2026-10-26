@@ -8,7 +8,7 @@ const question: AgentQuestion = {
   question: 'Deploy to staging first?',
   answers: ['Yes, staging first', 'No, straight to prod'],
   recommended_index: 1,
-  origin: { architect_key: '', session_id: 's-1', session_type: 'action', action: 'demo-evidence', execution_id: 'e-1' },
+  origin: { architect_key: 'hiveryn', session_id: 's-1', session_type: 'ticket', ticket_id: 'T-7' },
   status: 'pending',
   created_at: '2026-10-06T10:00:00Z',
   expires_at: '2026-10-06T11:00:00Z',
@@ -19,7 +19,7 @@ describe('QuestionCard', () => {
     const html = renderToStaticMarkup(
       <QuestionCard question={question} now={Date.parse('2026-10-06T10:15:00Z')} />,
     );
-    expect(html).toContain('action · demo-evidence');
+    expect(html).toContain('hiveryn · T-7');
     expect(html).toContain('expires in 45 min');
     expect(html).toContain('Yes, staging first');
     expect(html).not.toContain('aria-checked="true"');

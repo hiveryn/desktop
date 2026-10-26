@@ -3,7 +3,7 @@ import { getTabPlugin } from './registry';
 
 describe('getTabPlugin', () => {
   it('knows the native right-pane tabs', () => {
-    for (const type of ['kanban', 'event-log', 'ticket', 'terminal', 'git-diff', 'action']) {
+    for (const type of ['kanban', 'event-log', 'ticket', 'terminal', 'git-diff']) {
       expect(getTabPlugin(type)).toBeDefined();
     }
   });

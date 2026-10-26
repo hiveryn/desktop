@@ -10,7 +10,6 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { machineLabel } from '../../lib/variantMachines';
 import { type PendingIntent, useSessionStore } from '../../state/sessionStore';
 import ApiEnvelopeError from '../ApiEnvelopeError/ApiEnvelopeError';
 import Button from '../Button/Button';
@@ -36,11 +35,6 @@ function originLabel(intent: Intent): string {
   switch (origin.session_type) {
     case 'ticket':
       return origin.ticket_id ? `${key} · ${origin.ticket_id}` : `${key} · ticket`;
-    case 'action': {
-      // Action sessions belong to no architect; the payload names the action.
-      const action = intent.payload?.action;
-      return `action · ${typeof action === 'string' && action ? action : 'execution'}`;
-    }
     default:
       return `${key} · architect`;
   }
@@ -241,9 +235,7 @@ const TicketIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
 
 // concludeSession: the summary is the TL;DR; the payload carries the outcome,
 // commits, optional rejection reason, and the full rendered conclusion body
-// (shown expanded). Architect conclusions only carry the body; Action
-// conclusions carry their summary as the body, the output directory and, when
-// completed, the folder to freeze as the package — on the execution machine.
+// (shown expanded). Architect conclusions only carry the body.
 const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
   intent,
   expanded,
@@ -253,9 +245,6 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
   const outcome = optionalString(payload, 'outcome', intent.intent_id);
   const rejectionReason = optionalString(payload, 'rejection_reason', intent.intent_id);
   const commits = optionalCommitArray(payload, 'commits', intent.intent_id);
-  const outputDir = optionalString(payload, 'output_dir', intent.intent_id);
-  const deliveryDir = optionalString(payload, 'delivery_dir', intent.intent_id);
-  const machine = optionalString(payload, 'machine', intent.intent_id);
 
   return (
     <div className={styles.details}>
@@ -287,60 +276,7 @@ const ConclusionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> =
           </span>
         </div>
       )}
-      {deliveryDir && (
-        <div className={styles.fieldBlock}>
-          <span className={styles.fieldName}>
-            package folder{machine ? ` on ${machineLabel(machine)}` : ''}
-          </span>
-          <span className={styles.fieldValue}>{deliveryDir}</span>
-        </div>
-      )}
-      {expanded && outputDir && outputDir !== deliveryDir && (
-        <div className={styles.fieldBlock}>
-          <span className={styles.fieldName}>output directory</span>
-          <span className={styles.fieldValue}>{outputDir}</span>
-        </div>
-      )}
       {expanded && <MarkdownBlock label="conclusion">{body}</MarkdownBlock>}
-    </div>
-  );
-};
-
-// executeAction: an architect's or worker's request to run an Action. The
-// summary names it; the payload carries the action, the agent variant the
-// requester chose, where the Action runs and the requester's prompt (shown in
-// full when expanded).
-// There is nothing to fill in: like a ticket, it launches on approval or when
-// the countdown ends.
-const ActionIntentDetails: React.FC<{ intent: Intent; expanded: boolean }> = ({
-  intent,
-  expanded,
-}) => {
-  const payload = requirePayload(intent);
-  const action = requireString(payload, 'action', intent.intent_id);
-  const variant = requireString(payload, 'variant', intent.intent_id);
-  const prompt = requireString(payload, 'prompt', intent.intent_id);
-  const machine = optionalString(payload, 'machine', intent.intent_id);
-
-  return (
-    <div className={styles.details}>
-      <div className={styles.metaRow}>
-        <span className={styles.chip}>{action}</span>
-        <span className={styles.chip} title="Agent variant">
-          {variant}
-        </span>
-        <span className={styles.chip} title="Where the Action runs">
-          {machineLabel(machine)}
-        </span>
-      </div>
-      {expanded ? (
-        <MarkdownBlock label="prompt">{prompt}</MarkdownBlock>
-      ) : (
-        <div className={styles.field}>
-          <span className={styles.fieldName}>prompt</span>
-          <span className={styles.fieldValue}>{truncate(prompt)}</span>
-        </div>
-      )}
     </div>
   );
 };
@@ -515,12 +451,11 @@ const IntentInputsForm: React.FC<{
   </fieldset>
 );
 
-type IntentKind = 'ticket' | 'conclude' | 'action' | 'worker' | null;
+type IntentKind = 'ticket' | 'conclude' | 'worker' | null;
 
 function kindOf(type: Intent['intent_type']): IntentKind {
   if (type === 'createWorkTicket') return 'ticket';
   if (type === 'concludeSession') return 'conclude';
-  if (type === 'executeAction') return 'action';
   if (type === 'spawnTicketWorker') return 'worker';
   return null;
 }
@@ -528,7 +463,6 @@ function kindOf(type: Intent['intent_type']): IntentKind {
 const KIND_LABEL: Record<Exclude<IntentKind, null>, string> = {
   ticket: 'new ticket',
   conclude: 'conclude session',
-  action: 'run action',
   worker: 'spawn worker',
 };
 
@@ -663,8 +597,6 @@ export const IntentCard: React.FC<{ intent: PendingIntent }> = ({ intent }) => {
         <TicketIntentDetails intent={intent} expanded={expanded} />
       ) : kind === 'conclude' ? (
         <ConclusionIntentDetails intent={intent} expanded={expanded} />
-      ) : kind === 'action' ? (
-        <ActionIntentDetails intent={intent} expanded={expanded} />
       ) : kind === 'worker' ? (
         <WorkerIntentDetails intent={intent} expanded={expanded} />
       ) : (

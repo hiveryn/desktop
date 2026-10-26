@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import TrayPalette from './components/TrayPalette/TrayPalette';
-import ActionsWindow from './pages/actions-window';
 import ArchitectWindow from './pages/architect-window';
 import Launcher from './pages/launcher';
 
@@ -19,10 +18,6 @@ export default function App() {
 
   if (route.startsWith('#/tray')) {
     return <TrayPalette />;
-  }
-
-  if (route.startsWith('#/actions')) {
-    return <ActionsWindow />;
   }
 
   if (route.startsWith('#/architect/')) {

@@ -17,7 +17,6 @@ if (IS_DESKTOP_DEVELOPMENT) {
 const rendererEntry = join(__dirname, '../renderer/index.html');
 let launcherWindow: BrowserWindow | null = null;
 const architectWindows = new Map<string, BrowserWindow>();
-let actionsWindow: BrowserWindow | null = null;
 
 initializeDesktopLogging();
 
@@ -159,43 +158,6 @@ function createArchitectWindow(architectKey: string): BrowserWindow {
   return architectWindow;
 }
 
-// The single, architect-independent Actions window.
-function createActionsWindow(): BrowserWindow {
-  if (actionsWindow && !actionsWindow.isDestroyed()) {
-    raiseWindow(actionsWindow);
-    return actionsWindow;
-  }
-
-  const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 600,
-    resizable: true,
-    show: false,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: true,
-    // Same appbar geometry as the architect window.
-    trafficLightPosition: { x: 12, y: 14 },
-    backgroundColor: '#000000',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  actionsWindow = window;
-  window.on('closed', () => {
-    if (actionsWindow === window) actionsWindow = null;
-  });
-
-  configureWindow(window);
-  loadRoute(window, '/actions');
-  return window;
-}
-
 // Focus (or open) an architect window and activate the given session's tab.
 // Shared by the command palette and by intent-notification clicks.
 function focusArchitectSession(architectKey: string, sessionId: string): void {
@@ -211,7 +173,6 @@ function focusArchitectSession(architectKey: string, sessionId: string): void {
 registerIpc({
   openArchitectWindow: createArchitectWindow,
   openLauncherWindow: createLauncherWindow,
-  openActionsWindow: createActionsWindow,
   isLauncherWindow: (window) => window === launcherWindow,
 });
 

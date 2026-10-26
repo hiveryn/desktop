@@ -12,7 +12,6 @@ import {
 import type { SessionEvent, SessionTab, TicketBoard, TicketSummary } from '@hiveryn/shared/domain';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -95,16 +94,8 @@ interface Props {
   onTicketSelect(ticket: TicketSummary): void;
   onSpawnTicket(ticket: TicketSummary): void;
   onRefreshBoard(): void;
-  /**
-   * Lists the board matching a settled search query ('' restores the whole
-   * board). Absent in windows without a kanban tab.
-   */
-  onSearchBoard?(query: string): void;
-  /**
-   * Context tabs owned by the embedding window, keyed by tab type (the Actions
-   * window's `action` tab). Rendered like the built-in panels.
-   */
-  extraPanels?: Record<string, ReactNode>;
+  /** Lists the board matching a settled search query ('' restores the whole board). */
+  onSearchBoard(query: string): void;
 }
 
 export default function RightPane({
@@ -120,7 +111,6 @@ export default function RightPane({
   onSpawnTicket,
   onRefreshBoard,
   onSearchBoard,
-  extraPanels,
 }: Props) {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -184,7 +174,7 @@ export default function RightPane({
   const onSearchBoardRef = useRef(onSearchBoard);
   onSearchBoardRef.current = onSearchBoard;
   useEffect(() => {
-    onSearchBoardRef.current?.(settledQuery);
+    onSearchBoardRef.current(settledQuery);
   }, [settledQuery]);
 
   useEffect(() => {
@@ -480,14 +470,6 @@ export default function RightPane({
           </ErrorBoundary>
         )}
       </div>
-
-      {Object.entries(extraPanels ?? {}).map(([type, panel]) => (
-        <div key={type} className={styles.tabPanel} data-active={effectiveTab === type}>
-          <ErrorBoundary paneLabel={type} resetKeys={[activeSession?.id]}>
-            {panel}
-          </ErrorBoundary>
-        </div>
-      ))}
 
       <ExtraTerminalStack
         onCloseTerminal={(sessionId, terminalId) => void handleCloseTerminal(sessionId, terminalId)}

@@ -52,8 +52,6 @@ function parseOrigin(value: unknown, event: QuestionEvent): QuestionOrigin {
     session_id: o.session_id,
     session_type: o.session_type as QuestionOrigin['session_type'],
     ticket_id: typeof o.ticket_id === 'string' ? o.ticket_id : undefined,
-    action: typeof o.action === 'string' ? o.action : undefined,
-    execution_id: typeof o.execution_id === 'string' ? o.execution_id : undefined,
   };
 }
 
@@ -144,8 +142,6 @@ export function originLabel(origin: QuestionOrigin): string {
   switch (origin.session_type) {
     case 'ticket':
       return `${origin.architect_key} · ${origin.ticket_id ?? 'ticket'}`;
-    case 'action':
-      return `action · ${origin.action ?? 'execution'}`;
     default:
       return `${origin.architect_key} · architect`;
   }

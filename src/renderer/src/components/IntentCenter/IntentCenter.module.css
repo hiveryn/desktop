@@ -48,10 +48,6 @@
   border-left: 2px solid var(--theme-status-success);
 }
 
-.card[data-kind='action'] {
-  border-left: 2px solid var(--theme-status-warning);
-}
-
 .card[data-kind='worker'] {
   border-left: 2px solid var(--theme-focused-foreground);
 }
@@ -164,10 +160,6 @@
 
 .kindBadge[data-kind='conclude'] {
   color: var(--theme-status-success);
-}
-
-.kindBadge[data-kind='action'] {
-  color: var(--theme-status-warning);
 }
 
 .kindBadge[data-kind='worker'] {

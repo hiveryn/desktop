@@ -26,15 +26,6 @@ function label(message: AgentMessage): string {
   if (message.kind === 'ticket_concluded' && typeof ticket === 'string') {
     return `Conclusion notice for ${ticket}`;
   }
-  const action = message.payload?.action;
-  const outcome = message.payload?.outcome;
-  if (
-    message.kind === 'action_ended' &&
-    typeof action === 'string' &&
-    typeof outcome === 'string'
-  ) {
-    return `Action ${action} ${outcome} notice for ${message.recipient}`;
-  }
   if (message.kind === 'question_escalated' && typeof ticket === 'string') {
     return `Unanswered worker question on ${ticket} for the architect`;
   }

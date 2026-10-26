@@ -127,11 +127,6 @@ type Ticket = import('@hiveryn/shared/domain').Ticket;
 type TicketBoard = import('@hiveryn/shared/domain').TicketBoard;
 
 type WorkflowList = import('@hiveryn/shared/domain').WorkflowList;
-type ActionDefinition = import('@hiveryn/shared/domain').ActionDefinition;
-type ActionList = import('@hiveryn/shared/domain').ActionList;
-type ActionRun = import('@hiveryn/shared/domain').ActionRun;
-type LaunchActionRequest = import('@hiveryn/shared/domain').LaunchActionRequest;
-type LaunchActionResult = import('@hiveryn/shared/domain').LaunchActionResult;
 type WorkerPreflight = import('@hiveryn/shared/domain').WorkerPreflight;
 
 // The renderer omits `outcome` for architect conclusions (the daemon ignores
@@ -240,7 +235,6 @@ interface Architect {
 }
 
 type ArchitectStreamEvent = import('../shared/types').ArchitectStreamEvent;
-type ActionStreamEvent = import('../shared/types').ActionStreamEvent;
 
 // ── Git diff (repo-scoped, native git-diff tab) ─────────────────────────────
 
@@ -339,18 +333,6 @@ interface HiverynAPI {
   launcher: {
     openArchitect: (key: string) => Promise<void>;
   };
-  actions: {
-    /** Open/focus the Actions window; with `sessionId`, land on that execution's session tab. */
-    openWindow: (sessionId?: string) => Promise<void>;
-    onOpenSession: (callback: (sessionId: string) => void) => () => void;
-    list: () => Promise<ActionList>;
-    get: (name: string) => Promise<ActionDefinition>;
-    launch: (name: string, request: LaunchActionRequest) => Promise<LaunchActionResult>;
-    runs: (action?: string, limit?: number) => Promise<ActionRun[]>;
-    run: (id: string) => Promise<ActionRun>;
-    cancel: (id: string) => Promise<ActionRun>;
-    subscribeEvents: (callback: (event: ActionStreamEvent) => void) => () => void;
-  };
   tray: {
     hide: () => Promise<void>;
     setHeight: (height: number) => Promise<void>;
@@ -424,9 +406,6 @@ interface HiverynAPI {
   };
   tabs: {
     list: (sessionId: string) => Promise<SessionTab[]>;
-  };
-  finder: {
-    reveal: (path: string) => Promise<null>;
   };
   repos: {
     diff: (architectKey: string, repoKey: string) => Promise<RepoDiffResponse>;

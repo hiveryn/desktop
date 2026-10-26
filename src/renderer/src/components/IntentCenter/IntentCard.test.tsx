@@ -40,30 +40,6 @@ describe('IntentCard', () => {
     expect(html).toContain('Deny');
   });
 
-  it('renders an executeAction request with its action, variant, prompt and countdown and no form', () => {
-    const request: Intent = {
-      ...deferred,
-      intent_id: 'exec-1',
-      intent_type: 'executeAction',
-      summary: 'Run demo-evidence',
-      payload: { action: 'demo-evidence', variant: 'claude-opus', prompt: 'Compare AMS and LDN three times' },
-      inputs: undefined,
-      policy: 'wait-then-allow',
-      wait_seconds: 20,
-    };
-    const html = renderToStaticMarkup(<IntentCard intent={request} />);
-    expect(html).toContain('run action');
-    expect(html).toContain('demo-evidence');
-    expect(html).toContain('claude-opus');
-    expect(html).toContain('Compare AMS and LDN three times');
-    expect(html).toContain('auto-approve 20s');
-    // The variant is reviewable information, not an approval input.
-    expect(html).not.toContain('<select');
-    expect(html).not.toContain('Agent variant</label>');
-    expect(html).toContain('Approve');
-    expect(html).toContain('Deny');
-  });
-
   it('renders a spawnTicketWorker request with its ticket, variant, workflows and countdown', () => {
     const request: Intent = {
       ...deferred,
@@ -101,7 +77,7 @@ describe('IntentCard', () => {
     expect(renderToStaticMarkup(<IntentCard intent={blocking} />)).toContain('auto-approve 20s');
   });
 
-  it('renders an Action conclusion with its action, outcome and auto-approve countdown', () => {
+  it('renders a ticket conclusion with its origin, outcome and auto-approve countdown', () => {
     const conclusion: Intent = {
       intent_id: 'conc-1',
       intent_type: 'concludeSession',
@@ -109,18 +85,15 @@ describe('IntentCard', () => {
       payload: {
         body: 'Collector missing',
         outcome: 'failed',
-        action: 'demo-evidence',
-        execution_id: 'run-1',
-        output_dir: '/out/run-1',
       },
-      origin: { architect_key: '', session_id: 's-2', session_type: 'action' },
+      origin: { architect_key: 'hiveryn', session_id: 's-2', session_type: 'ticket', ticket_id: 'T-9' },
       wait_seconds: 20,
       policy: 'wait-then-allow',
       created_at: '2026-09-25T00:00:00Z',
     };
     const html = renderToStaticMarkup(<IntentCard intent={conclusion} />);
     expect(html).toContain('conclude session');
-    expect(html).toContain('action · demo-evidence');
+    expect(html).toContain('hiveryn · T-9');
     expect(html).not.toContain('architect');
     expect(html).toMatch(/data-outcome="failed"/);
     expect(html).toContain('auto-approve 20s');

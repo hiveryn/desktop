@@ -1,6 +1,5 @@
 import { BrowserWindow } from 'electron';
 import type { DaemonHealthState, DaemonHealthStatus, DesktopConfig } from '../../shared/types';
-import * as actionEvents from './action-events';
 import * as architectEvents from './architect-events';
 import { DAEMON_URL, daemonFetch } from './client';
 import * as sessionManager from './session';
@@ -52,10 +51,8 @@ async function poll(): Promise<void> {
     if (nextStatus === 'unreachable') {
       sessionManager.handleDaemonUnavailable();
       architectEvents.handleDaemonUnavailable();
-      actionEvents.handleDaemonUnavailable();
     } else if (previousStatus === 'unreachable') {
       architectEvents.handleDaemonAvailable();
-      actionEvents.handleDaemonAvailable();
     }
     broadcastState();
   }

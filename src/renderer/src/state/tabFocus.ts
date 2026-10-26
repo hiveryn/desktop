@@ -2,7 +2,7 @@ import type { SessionTab } from '@hiveryn/shared/domain';
 
 // Terminals are the only multi-instance tab type and are keyed by their unique
 // daemon-assigned id. Every other tab type — builtin
-// (kanban/event-log/ticket) or plugin (git-diff/action) — is single-instance
+// (kanban/event-log/ticket) or plugin (git-diff) — is single-instance
 // and keyed by its type.
 export function tabIdOf(tab: SessionTab): string {
   if (tab.type === 'terminal') {
@@ -28,8 +28,6 @@ export function focusIdForTab(tabId: string): string {
       return 'right-ticket';
     case 'git-diff':
       return 'right-git-diff';
-    case 'action':
-      return 'right-action';
   }
   return `right-terminal:${tabId}`;
 }
