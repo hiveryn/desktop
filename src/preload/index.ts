@@ -4,7 +4,6 @@ import type {
   ConcludeSessionParams,
   CreateTerminalParams,
   Intent,
-  IntentInputValues,
   Session,
   SessionEvent,
   SessionTab,
@@ -289,11 +288,8 @@ contextBridge.exposeInMainWorld('hiveryn', {
     conclude: (sessionId: string, params: ConcludeSessionParams): Promise<void> =>
       invoke('sessions:conclude', sessionId, params),
     discard: (sessionId: string): Promise<void> => invoke('sessions:discard', sessionId),
-    approveIntent: (
-      sessionId: string,
-      intentId: string,
-      inputs?: IntentInputValues,
-    ): Promise<Intent> => invoke('sessions:approve-intent', sessionId, intentId, inputs),
+    approveIntent: (sessionId: string, intentId: string): Promise<Intent> =>
+      invoke('sessions:approve-intent', sessionId, intentId),
     denyIntent: (sessionId: string, intentId: string, reason?: string): Promise<void> =>
       invoke('sessions:deny-intent', sessionId, intentId, reason),
     answerQuestion: (

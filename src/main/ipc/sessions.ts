@@ -1,10 +1,8 @@
 import type {
   AgentQuestion,
   AnswerQuestionRequest,
-  ApproveIntentRequest,
   ConcludeSessionParams,
   Intent,
-  IntentInputValues,
   Session,
   SessionType,
   Ticket,
@@ -156,20 +154,12 @@ export function registerSessionsIpc(): void {
   // Generic intent approve/deny, addressed by intent id. The desktop uses one
   // pair of routes for every tool; the daemon runs the tool's side effect on
   // approve and nothing on deny. A 404 means the intent already resolved.
-  // Approval carries the intent's input values, if it has inputs; the daemon
-  // validates them and a 400 leaves the intent pending for correction.
   ipcMain.handle(
     'sessions:approve-intent',
-    async (
-      _event,
-      sessionId: string,
-      intentId: string,
-      inputs?: IntentInputValues,
-    ): Promise<DaemonResult<Intent>> => {
-      const body: ApproveIntentRequest = inputs ? { inputs } : {};
+    async (_event, sessionId: string, intentId: string): Promise<DaemonResult<Intent>> => {
       const result = await daemonFetch<Intent>(
         `/api/sessions/${encodeURIComponent(sessionId)}/intents/${encodeURIComponent(intentId)}/approve`,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST' },
         { timeoutMs: INTENT_APPROVE_TIMEOUT_MS },
       );
       return explainStoppedWaiting(

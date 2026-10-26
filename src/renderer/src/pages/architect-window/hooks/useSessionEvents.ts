@@ -1,9 +1,6 @@
 import type { Intent, IntentOrigin, SessionType } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
-import {
-  keepIntentFailure,
-  parseIntentInputs,
-} from '../../../components/IntentCenter/intentInputsModel';
+import { keepIntentFailure } from '../../../components/IntentCenter/intentCardModel';
 import {
   keepResolutionNotice,
   parseQuestionRequired,
@@ -55,12 +52,7 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
     );
   }
   const policy = raw.policy;
-  if (
-    policy !== 'auto-allow' &&
-    policy !== 'wait-then-allow' &&
-    policy !== 'wait-then-deny' &&
-    policy !== 'manual'
-  ) {
+  if (policy !== 'auto-allow' && policy !== 'wait-then-allow' && policy !== 'wait-then-deny') {
     throw new Error(`intent/required event has unknown raw.policy: ${JSON.stringify(event)}`);
   }
   const payload =
@@ -72,7 +64,6 @@ function parseIntentRequired(event: { raw?: Record<string, unknown>; at: string 
     intent_type: intentType,
     summary: typeof raw.summary === 'string' ? raw.summary : '',
     payload,
-    inputs: parseIntentInputs(raw.inputs),
     origin: parseIntentOrigin(raw.origin),
     wait_seconds: waitSeconds,
     policy,

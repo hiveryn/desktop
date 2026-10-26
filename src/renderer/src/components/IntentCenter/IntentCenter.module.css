@@ -127,11 +127,6 @@
   font-size: var(--font-size-xs);
 }
 
-/* Deferred: nothing is counting down, so no warning colour. */
-.countdown[data-deferred] {
-  color: var(--theme-text-muted);
-}
-
 .summaryToggle {
   background: none;
   border: none;
@@ -329,62 +324,6 @@
   width: auto;
   padding: 0 var(--space-h-2);
 }
-
-.inputs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) 0 0;
-  border: 0;
-  border-top: 1px solid var(--theme-border);
-  min-width: 0;
-}
-
-.inputField {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.inputControl {
-  width: 100%;
-  min-width: 0;
-  background: var(--theme-background-input);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  padding: var(--space-1) var(--space-h-2);
-  resize: vertical;
-}
-
-.inputControl:focus {
-  outline: none;
-  border-color: var(--theme-border-strong);
-}
-
-.inputControl[aria-invalid='true'] {
-  border-color: var(--theme-status-error);
-}
-
-.inputCheck {
-  display: flex;
-  align-items: center;
-  gap: var(--space-h-2);
-  color: var(--theme-text);
-}
-
-.inputRequired,
-.inputError {
-  color: var(--theme-status-error);
-}
-
-.inputHint {
-  color: var(--theme-text-subtle);
-}
-
 
 /* An approved operation the daemon is still carrying out. */
 .resolvingNote {
