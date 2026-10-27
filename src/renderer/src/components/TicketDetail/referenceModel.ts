@@ -1,22 +1,27 @@
-import type { PathReference, TicketReference } from '@hiveryn/shared/domain';
+import type { TicketReference } from '@hiveryn/shared/domain';
 
 /**
- * How one resolved ticket reference is shown. Path references are display-only
- * pointers inspected by the daemon on the ticket's primary-repo machine.
+ * How one resolved ticket reference is shown. Architect and repo references
+ * are display-only pointers the daemon inspected where they live: the
+ * architect workspace on the daemon host, a repo on its configured machine.
  */
 export interface ReferenceView {
-  /** Short state shown after the value: kind, missing, unverified. */
+  /** What the reference addresses: ticket, architect workspace, repo <key>, or invalid. */
+  owner: string;
+  /** Short state shown after the value: kind, missing, unverified, invalid. */
   state: string;
-  /** Where a path reference lives; null for ticket-ID references. */
+  /** Where the target lives; null for ticket and invalid references. */
   where: string | null;
-  /** Why a path could not be inspected, verbatim from the daemon. */
+  /** The worker MCP tool that reads it; null when there is none. */
+  access: string | null;
+  /** Why it is invalid or could not be inspected, verbatim from the daemon. */
   error: string | null;
   /** A ticket-ID reference that resolves to a ticket on this board. */
   openable: boolean;
 }
 
-/** Where a path reference was interpreted. Unknown is never this Mac. */
-export function pathLocationLabel(ref: PathReference): string {
+/** Where a reference's target lives. Unknown is never this Mac. */
+export function referenceLocationLabel(ref: TicketReference): string {
   switch (ref.location) {
     case 'local':
       return 'this Mac';
@@ -29,43 +34,61 @@ export function pathLocationLabel(ref: PathReference): string {
   }
 }
 
-function pathState(ref: PathReference): { state: string; error: string | null } {
+function ownerLabel(ref: TicketReference): string {
+  switch (ref.kind) {
+    case 'ticket':
+      return 'ticket';
+    case 'architect':
+      return 'architect workspace';
+    case 'repo':
+      return `repo ${ref.owner ?? '(unnamed)'}`;
+    default:
+      return 'invalid';
+  }
+}
+
+function stateOf(ref: TicketReference): { state: string; error: string | null } {
   switch (ref.status) {
     case 'present':
-      return { state: ref.kind ?? 'present', error: null };
+      return { state: ref.kind === 'ticket' ? '' : (ref.path_kind ?? 'present'), error: null };
     case 'missing':
       return { state: 'missing', error: null };
     case 'unverified':
       return { state: 'unverified', error: ref.error ?? 'the daemon gave no reason' };
+    case 'invalid':
+      return { state: 'invalid', error: ref.error ?? 'the daemon gave no reason' };
     default:
-      // A daemon that predates inspection status: say so rather than guess.
+      // A daemon that predates reference status: say so rather than guess.
       return {
         state: 'unverified',
-        error: `the daemon reported no inspection status (status: ${String(ref.status)})`,
+        error: `the daemon reported no reference status (status: ${String(ref.status)})`,
       };
   }
 }
 
 export function referenceView(ref: TicketReference): ReferenceView {
-  if (ref.type === 'ticket') {
-    return {
-      state: ref.exists ? '' : 'missing',
-      where: null,
-      error: null,
-      openable: ref.exists,
-    };
-  }
+  const { state, error } = stateOf(ref);
+  const located = (ref.kind === 'architect' || ref.kind === 'repo') && ref.status !== 'invalid';
   return {
-    ...pathState(ref),
-    where: pathLocationLabel(ref),
-    openable: false,
+    owner: ownerLabel(ref),
+    state,
+    where: located ? referenceLocationLabel(ref) : null,
+    access: ref.status === 'invalid' ? null : (ref.access ?? null),
+    error,
+    openable: ref.kind === 'ticket' && ref.status === 'present',
   };
 }
 
-/** One-line text for a reference: `type · value · state · on where`. */
+/** One-line text for a reference: `owner · value · state · on where · via access`. */
 export function referenceLabel(ref: TicketReference): string {
   const view = referenceView(ref);
-  return [ref.type, ref.value, view.state, view.where ? `on ${view.where}` : '']
+  return [
+    view.owner,
+    ref.value,
+    view.state,
+    view.where ? `on ${view.where}` : '',
+    view.access && ref.kind !== 'ticket' ? `via ${view.access}` : '',
+  ]
     .filter(Boolean)
     .join(' · ');
 }
