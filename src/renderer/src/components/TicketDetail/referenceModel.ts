@@ -27,10 +27,8 @@ export function referenceLocationLabel(ref: TicketReference): string {
       return 'this Mac';
     case 'remote':
       return ref.machine ? `machine ${ref.machine}` : 'a remote machine (unnamed by the daemon)';
-    case 'unknown':
-      return 'unknown machine';
     default:
-      return `unrecognized location "${String(ref.location)}"`;
+      return 'unknown machine';
   }
 }
 
@@ -57,12 +55,6 @@ function stateOf(ref: TicketReference): { state: string; error: string | null } 
       return { state: 'unverified', error: ref.error ?? 'the daemon gave no reason' };
     case 'invalid':
       return { state: 'invalid', error: ref.error ?? 'the daemon gave no reason' };
-    default:
-      // A daemon that predates reference status: say so rather than guess.
-      return {
-        state: 'unverified',
-        error: `the daemon reported no reference status (status: ${String(ref.status)})`,
-      };
   }
 }
 

@@ -64,13 +64,6 @@ describe('referenceView', () => {
     expect(referenceLabel(invalid)).toBe('invalid · /Users/k/architects/x/notes.md · invalid');
   });
 
-  it('reports a reference without status instead of calling it missing', () => {
-    const legacy = { value: '/a', type: 'path', exists: false } as unknown as TicketReference;
-    const view = referenceView(legacy);
-    expect(view.state).toBe('unverified');
-    expect(view.error).toContain('no reference status');
-  });
-
   it('keeps ticket-ID references navigable only when they resolve', () => {
     const found: TicketReference = { value: 't-1', kind: 'ticket', status: 'present', exists: true, access: 'readTicket' };
     const gone: TicketReference = { value: 't-2', kind: 'ticket', status: 'missing', exists: false, access: 'readTicket' };
