@@ -90,7 +90,7 @@ function ArchitectGrid({ className, onOpened }: { className?: string; onOpened?(
             repos: repos[architect.key],
           }}
           onOpen={() => {
-            open(architect);
+            void open(architect);
             onOpened?.();
           }}
           isLoading={launchingKey === architect.key}

@@ -127,10 +127,21 @@ function request(payload: WorkbenchRequest): void {
   }
 }
 
-// The global shortcut and the tray icon: bring the window forward with the
-// sidebar expanded and its search focused.
+// The tray icon (and the global shortcut while the window is in the
+// background): bring the window forward with the sidebar expanded and its search
+// focused.
 export function revealSidebarSearch(): void {
   request({ type: 'reveal-sidebar-search' });
+}
+
+// The global shortcut: on the frontmost window it toggles the sidebar (collapse
+// an expanded one; expand a collapsed one with its search focused). A window
+// that is hidden, minimized or behind another app is revealed instead —
+// collapsing a sidebar the user cannot see would be useless.
+export function toggleSidebarSearch(): void {
+  const window = getWorkbenchWindow();
+  const frontmost = window?.isVisible() && !window.isMinimized() && window.isFocused();
+  request({ type: frontmost ? 'toggle-sidebar-search' : 'reveal-sidebar-search' });
 }
 
 // A notification click: select the session that raised it.

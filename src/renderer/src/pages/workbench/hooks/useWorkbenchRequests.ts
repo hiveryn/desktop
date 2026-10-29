@@ -2,17 +2,24 @@ import { useEffect } from 'react';
 import { useSidebarStore } from '../../../state/sidebarStore';
 import { selectSession } from '../navigation';
 
-// Requests from the main process: the OS-global shortcut and the tray icon
-// reveal the sidebar search; a notification click selects its session.
+// Requests from the main process: the tray icon reveals the sidebar search, the
+// OS-global shortcut toggles the sidebar (or reveals it on a background window);
+// a notification click selects its session.
 export function useWorkbenchRequests(): void {
   useEffect(
     () =>
       window.hiveryn.workbench.onRequest((request) => {
-        if (request.type === 'reveal-sidebar-search') {
-          useSidebarStore.getState().revealSearch();
-          return;
+        switch (request.type) {
+          case 'reveal-sidebar-search':
+            useSidebarStore.getState().revealSearch();
+            return;
+          case 'toggle-sidebar-search':
+            useSidebarStore.getState().toggleSearch();
+            return;
+          case 'select-session':
+            void selectSession(request.architectKey, request.sessionId);
+            return;
         }
-        void selectSession(request.architectKey, request.sessionId);
       }),
     [],
   );

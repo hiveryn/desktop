@@ -1,7 +1,9 @@
 import { Close, Glyph, IconButton, SidebarToggle } from '@components';
 import type { SessionType } from '@hiveryn/shared/domain';
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useMemo,
   useRef,
@@ -11,11 +13,18 @@ import type { ArchitectStatus } from '../../../../../shared/types';
 import { formatElapsed } from '../../../lib/formatElapsed';
 import { useArchitectStatusStore } from '../../../state/architectStatusStore';
 import { useSessionStore } from '../../../state/sessionStore';
-import { useSidebarStore } from '../../../state/sidebarStore';
+import {
+  clampSidebarWidth,
+  SIDEBAR_DEFAULT_WIDTH_PX,
+  SIDEBAR_MAX_WIDTH_PX,
+  SIDEBAR_MIN_WIDTH_PX,
+  SIDEBAR_WORKSPACE_MIN_PX,
+  useSidebarStore,
+} from '../../../state/sidebarStore';
 import { focusActivePane } from '../focusActivePane';
 import { selectSession } from '../navigation';
 import { useArchitectLaunch } from './launchArchitect';
-import { buildRows, rowKey, type SidebarRow } from './rows';
+import { architectInitial, buildRows, rowKey, type SidebarRow } from './rows';
 import styles from './SessionSidebar.module.css';
 import {
   architectIndicator,
@@ -60,6 +69,8 @@ function architectName(architect: ArchitectStatus): string {
 export default function SessionSidebar({ onConclude }: Props) {
   const collapsed = useSidebarStore((s) => s.collapsed);
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const width = useSidebarStore((s) => s.width);
   const searchFocusRequest = useSidebarStore((s) => s.searchFocusRequest);
 
   const statuses = useArchitectStatusStore((s) => s.statuses);
@@ -81,6 +92,19 @@ export default function SessionSidebar({ onConclude }: Props) {
   const cursorRowRef = useRef<HTMLLIElement>(null);
 
   const rows = useMemo(() => buildRows(statuses, query), [statuses, query]);
+  // The rail lists every architect in the unfiltered sidebar order.
+  const railArchitects = useMemo(
+    () => buildRows(statuses, '').flatMap((row) => (row.kind === 'architect' ? [row] : [])),
+    [statuses],
+  );
+
+  // Collapsing unmounts the search field; a keyboard user who had it focused
+  // gets the workspace back instead of a focus-less document.
+  useEffect(() => {
+    if (!collapsed) return;
+    const active = document.activeElement;
+    if (!active || active === document.body) focusActivePane();
+  }, [collapsed]);
 
   // Expand + focus requests (in-app binding, OS-global shortcut, tray icon).
   useEffect(() => {
@@ -103,22 +127,33 @@ export default function SessionSidebar({ onConclude }: Props) {
   const attentionFor = (sessionId: string | null): boolean =>
     sessionId !== null && needsAttention(sessionId, activeSessionId, pendingIntents, questions);
 
+  // Pointer selection: switches the workspace; the sidebar stays as it is.
   const select = (row: SidebarRow): void => {
     if (row.kind === 'session') {
       void selectSession(row.architect.key, row.session.id);
     } else {
-      openArchitect(row.architect);
+      void openArchitect(row.architect);
     }
   };
 
-  // Selecting by keyboard hands the keys back to the workspace.
-  const confirm = (index: number): void => {
+  // Keyboard confirmation (Enter): select, then collapse the sidebar and hand
+  // the keys to the shown workspace — only once the selection actually took
+  // effect. An inactive architect opens the variant pick; the launch collapses
+  // on success. A failed selection (reported to the error center) leaves the
+  // sidebar and its search as they are; Enter never reaches a terminal.
+  const confirm = async (index: number): Promise<void> => {
     const row = rows[index];
     if (!row) return;
-    select(row);
-    inputRef.current?.blur();
+    const shown =
+      row.kind === 'session'
+        ? selectSession(row.architect.key, row.session.id)
+        : openArchitect(row.architect, { collapse: true });
+    const target = row.kind === 'session' ? row.session.id : row.architect.session_id;
+    // A newer selection meanwhile (rapid navigation) owns the workspace now.
+    if (!(await shown) || useSessionStore.getState().activeSessionId !== target) return;
     setQuery('');
     setCursor(-1);
+    setCollapsed(true);
     focusActivePane();
   };
 
@@ -134,7 +169,7 @@ export default function SessionSidebar({ onConclude }: Props) {
         break;
       case 'Enter':
         e.preventDefault();
-        confirm(cursor < 0 ? 0 : cursor);
+        void confirm(cursor < 0 ? 0 : cursor);
         break;
       case 'Escape':
         e.preventDefault();
@@ -176,12 +211,66 @@ export default function SessionSidebar({ onConclude }: Props) {
             title="A session needs attention"
           />
         )}
+        <nav className={styles.railBody} aria-label="Architects">
+          <ul className={styles.railList}>
+            {railArchitects.map(({ architect, active }) => {
+              const sessionId = architect.session_id;
+              const record = sessionId ? sessions[sessionId] : undefined;
+              const indicator = architectIndicator(
+                sessionId !== null,
+                record?.status ?? architect.status,
+              );
+              const attention = [sessionId, ...architect.sessions.map((s) => s.id)].some((id) =>
+                attentionFor(id),
+              );
+              const workers = architect.sessions.length;
+              const isSelectedProject = architect.key === selectedArchitectKey;
+              const label = [
+                architectName(architect),
+                indicator.label,
+                workers > 0 ? `${workers} worker${workers === 1 ? '' : 's'} running` : null,
+                launchingKey === architect.key ? 'launching…' : null,
+                attention ? 'needs attention' : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <li key={architect.key}>
+                  <button
+                    type="button"
+                    className={styles.railItem}
+                    data-project={isSelectedProject || undefined}
+                    data-inactive={!active || undefined}
+                    aria-current={isSelectedProject ? 'true' : undefined}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => void openArchitect(architect)}
+                  >
+                    <span className={styles.railInitial} aria-hidden="true">
+                      {architectInitial(architectName(architect))}
+                    </span>
+                    <span
+                      className={styles.railStatus}
+                      data-status={indicator.kind}
+                      aria-hidden="true"
+                    />
+                    {attention && <span className={styles.railAttention} aria-hidden="true" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
       </aside>
     );
   }
 
   return (
-    <aside className={styles.sidebar} aria-label="Sessions">
+    <aside
+      className={styles.sidebar}
+      aria-label="Sessions"
+      style={{ '--sidebar-width': `${width}px` } as CSSProperties}
+    >
       <div className={styles.searchRow}>
         <IconButton
           className={styles.toggle}
@@ -249,7 +338,9 @@ export default function SessionSidebar({ onConclude }: Props) {
                       onClick={() => select(row)}
                     >
                       <StatusIcon indicator={indicator} />
-                      <span className={styles.name}>{architectName(architect)}</span>
+                      <span className={styles.name} title={architectName(architect)}>
+                        {architectName(architect)}
+                      </span>
                       {launching && <span className={styles.meta}>launching…</span>}
                       {attentionFor(sessionId) && (
                         <span
@@ -304,7 +395,11 @@ export default function SessionSidebar({ onConclude }: Props) {
                   >
                     <StatusIcon indicator={indicator} />
                     <span className={styles.name}>{session.title}</span>
-                    {machine && <span className={styles.machine}>{machine}</span>}
+                    {machine && (
+                      <span className={styles.machine} title={machine}>
+                        {machine}
+                      </span>
+                    )}
                     <span className={styles.meta}>
                       {formatElapsed(session.started_at, listedAt)}
                     </span>
@@ -337,7 +432,71 @@ export default function SessionSidebar({ onConclude }: Props) {
           </div>
         )}
       </nav>
+      <ResizeHandle width={width} />
     </aside>
+  );
+}
+
+// Drag (or arrow keys) on the sidebar's right edge sets its width within the
+// bounds; a double click restores the default.
+function ResizeHandle({ width }: { width: number }) {
+  const setWidth = useSidebarStore((s) => s.setWidth);
+  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+  // The window width bounds the applied width; follow it so the reported value
+  // and every drag start from what is on screen.
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = (): void => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const applied = clampSidebarWidth(width, windowWidth);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { startX: e.clientX, startWidth: applied };
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>): void => {
+    if (!drag.current) return;
+    setWidth(
+      clampSidebarWidth(
+        drag.current.startWidth + e.clientX - drag.current.startX,
+        window.innerWidth,
+      ),
+    );
+  };
+  const endDrag = (): void => {
+    drag.current = null;
+  };
+
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a focusable window splitter has no native element
+    <div
+      className={styles.resizeHandle}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuenow={applied}
+      aria-valuemin={SIDEBAR_MIN_WIDTH_PX}
+      aria-valuemax={Math.min(SIDEBAR_MAX_WIDTH_PX, windowWidth - SIDEBAR_WORKSPACE_MIN_PX)}
+      title="Drag to resize · double-click to reset"
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onDoubleClick={() => setWidth(SIDEBAR_DEFAULT_WIDTH_PX)}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 40 : 10;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          const delta = e.key === 'ArrowLeft' ? -step : step;
+          setWidth(clampSidebarWidth(applied + delta, window.innerWidth));
+        }
+      }}
+    />
   );
 }
 

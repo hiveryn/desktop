@@ -60,6 +60,13 @@
   white-space: nowrap;
 }
 
+.actionHint {
+  display: block;
+  white-space: normal;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
 .keys {
   margin: 0;
   flex-shrink: 0;

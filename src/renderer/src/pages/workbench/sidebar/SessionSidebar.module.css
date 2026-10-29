@@ -3,7 +3,17 @@
    workspace. Dense mono styling from the shared theme tokens. */
 
 .sidebar {
-  flex: 0 0 34ch;
+  /* A fixed, user-resizable width — never the width of the longest name.
+     --sidebar-width comes from the sidebar store (default 280px); the clamp
+     re-applies the store's bounds against the live window width so the
+     workspace keeps 560px when the window shrinks. Keep these numbers in sync
+     with state/sidebarStore.ts. min-width: 0 stops a flex item's automatic
+     minimum (its min-content: an unbroken nowrap title) from overriding it. */
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(200px, var(--sidebar-width, 280px), min(520px, 100vw - 560px));
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -14,17 +24,133 @@
   color: var(--theme-text);
 }
 
-/* Collapsed: a narrow rail that keeps the toggle (and an attention dot)
-   reachable; the appbar title keeps the current project/session named. */
+/* Drag target on the sidebar's right edge (over its border). */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--theme-focused-foreground);
+    opacity: 0.5;
+    outline: none;
+  }
+}
+
+/* Collapsed: a narrow rail — the toggle, an overall attention dot, then one
+   initial per architect (all of them, in sidebar order). The list scrolls when
+   it outgrows the window; the toggle stays put. */
 .rail {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  min-height: 0;
   padding: var(--space-1) 0;
   border-right: 1px solid var(--theme-border);
   background: var(--theme-background);
+  font-family: var(--font-family-mono);
+}
+
+.railBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border-top: 1px solid var(--theme-border);
+  padding-top: var(--space-1);
+}
+
+.railList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.railItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--theme-text);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--theme-surface-raised);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+
+  &[data-inactive] {
+    color: var(--theme-text-muted);
+  }
+
+  /* The selected project: accent bar, accent initial, selection background. */
+  &[data-project] {
+    background: var(--theme-selection);
+    border-left-color: var(--theme-focused-foreground);
+    color: var(--theme-focused-foreground);
+  }
+}
+
+.railInitial {
+  line-height: 1;
+}
+
+/* Compact status: a corner dot coloured like the expanded status icons;
+   hollow when no architect session runs. */
+.railStatus {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: var(--theme-text-muted);
+
+  &[data-status="active"] {
+    background: var(--theme-status-success);
+  }
+
+  &[data-status="waiting"] {
+    background: var(--theme-status-warning);
+  }
+
+  &[data-status="inactive"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--theme-text-subtle);
+  }
+}
+
+.railAttention {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--theme-status-warning);
 }
 
 .toggle {
@@ -75,9 +201,10 @@
 
 /* ── Row parts ─────────────────────────────────────────────────────────── */
 
+/* The name keeps a readable minimum; a machine tag shrinks before it does. */
 .name {
   flex: 1;
-  min-width: 0;
+  min-width: 10ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -103,7 +230,11 @@
 }
 
 .machine {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 3ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 0 0.5ch;
   border: 1px solid var(--theme-border);
   color: var(--theme-text-muted);

@@ -13,9 +13,10 @@
 // path continue: type into input / send to PTY).
 
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
+import { cycleSession } from '../pages/workbench/navigation';
 import { requestTerminalCreation } from '../pages/workbench/terminalWorkdirPicker';
 import { getTabPlugin } from '../plugins/registry';
-import { type SessionRecord, useSessionStore } from '../state/sessionStore';
+import { useSessionStore } from '../state/sessionStore';
 import { useSidebarStore } from '../state/sidebarStore';
 import { focusIdForTab } from '../state/tabFocus';
 import { matchesShortcut } from './matchers';
@@ -105,11 +106,11 @@ function dispatchGlobal(event: KeyboardEvent): DispatchResult {
     return 'consumed';
   }
   if (matchesShortcut(event, global['prev-session'] ?? '')) {
-    cycleSession(-1);
+    void cycleSession(-1);
     return 'consumed';
   }
   if (matchesShortcut(event, global['next-session'] ?? '')) {
-    cycleSession(1);
+    void cycleSession(1);
     return 'consumed';
   }
   if (matchesShortcut(event, global['close-tab'] ?? '')) {
@@ -226,35 +227,17 @@ function jumpRightTab(idx: number): boolean {
 
 // ── Session actions ──────────────────────────────────────────────────────────
 
-// The selected project's sessions, architect first: session cycling never
-// leaves the project (the sidebar switches projects).
-function getOrderedSessions(): { id: string; type: SessionRecord['type'] }[] {
-  const { sessions, selectedArchitectKey } = useSessionStore.getState();
-  const arr = Object.values(sessions).filter(
-    (session) => session.architectKey === selectedArchitectKey,
-  );
-  const architect = arr.find((s) => s.type === 'architect');
-  const workers = arr.filter((s) => s.type !== 'architect');
-  return [...(architect ? [architect] : []), ...workers].map((s) => ({ id: s.id, type: s.type }));
-}
-
+// first-session stays within the selected project: its architect session, else
+// its first worker. prev/next-session cycle every running session across
+// projects (navigation.cycleSession).
 function firstSession(): void {
   const state = useSessionStore.getState();
-  const ordered = getOrderedSessions();
-  const first = ordered[0];
+  const own = Object.values(state.sessions).filter(
+    (session) => session.architectKey === state.selectedArchitectKey,
+  );
+  const first = own.find((s) => s.type === 'architect') ?? own[0];
   if (!first || first.id === state.activeSessionId) return;
   state.setActiveSession(first.id);
-  state.setFocusedPane('main-terminal');
-}
-
-function cycleSession(delta: number): void {
-  const state = useSessionStore.getState();
-  const ordered = getOrderedSessions();
-  if (ordered.length < 2) return;
-  const idx = ordered.findIndex((s) => s.id === state.activeSessionId);
-  const next = ordered[(idx + delta + ordered.length) % ordered.length];
-  if (!next || next.id === state.activeSessionId) return;
-  state.setActiveSession(next.id);
   state.setFocusedPane('main-terminal');
 }
 

@@ -52,3 +52,49 @@ export function buildRows(statuses: ArchitectStatus[], query: string): SidebarRo
   }
   return rows;
 }
+
+// A running session reachable by global session cycling.
+export interface CycleEntry {
+  architectKey: string;
+  sessionId: string;
+}
+
+// Every running architect and worker session across projects, in the unfiltered
+// sidebar order (a search never changes it). Inactive architects have no entry:
+// cycling only ever selects, never launches.
+export function cycleOrder(statuses: ArchitectStatus[]): CycleEntry[] {
+  const order: CycleEntry[] = [];
+  for (const row of buildRows(statuses, '')) {
+    if (row.kind === 'architect') {
+      if (row.architect.session_id) {
+        order.push({ architectKey: row.architect.key, sessionId: row.architect.session_id });
+      }
+    } else if (row.session.status === 'running') {
+      order.push({ architectKey: row.architect.key, sessionId: row.session.id });
+    }
+  }
+  return order;
+}
+
+// The session `delta` steps from `currentId`, wrapping at both ends. With no
+// current session in the order, forward starts at the first and backward at the
+// last. Null when there is nowhere else to go.
+export function cycleTarget(
+  order: CycleEntry[],
+  currentId: string | null,
+  delta: 1 | -1,
+): CycleEntry | null {
+  if (order.length === 0) return null;
+  const idx = currentId === null ? -1 : order.findIndex((e) => e.sessionId === currentId);
+  const next =
+    idx === -1
+      ? order[delta > 0 ? 0 : order.length - 1]
+      : order[(idx + delta + order.length) % order.length];
+  return next.sessionId === currentId ? null : next;
+}
+
+// The rail's label for an architect: its first letter or digit.
+export function architectInitial(name: string): string {
+  const match = name.match(/[\p{L}\p{N}]/u);
+  return match ? match[0].toUpperCase() : '?';
+}

@@ -1,9 +1,10 @@
 import { globalShortcut, Notification } from 'electron';
 import { daemonFetch } from './daemon/client';
-import { revealSidebarSearch } from './workbench';
+import { toggleSidebarSearch } from './workbench';
 
-// Default OS-global binding that brings the workbench forward with the sidebar
-// search focused. Chosen over Cmd+Space to avoid colliding with Spotlight; the
+// Default OS-global binding that toggles the sidebar of the frontmost workbench
+// (expanding focuses its search) and brings a background workbench forward with
+// the sidebar search focused. Chosen over Cmd+Space to avoid colliding with Spotlight; the
 // daemon ships the same default. Override via the `os-global.sidebar-search` key
 // in ~/.hiveryn/shortcuts.yaml.
 const DEFAULT_SIDEBAR_SEARCH_BINDING = 'Option+Space';
@@ -54,7 +55,7 @@ async function readSidebarSearchBinding(): Promise<string> {
 
 function notifyRegistrationFailed(binding: string): void {
   const body =
-    `Couldn't bind "${binding}" for the sidebar search — it's already taken by macOS ` +
+    `Couldn't bind "${binding}" for the sidebar toggle — it's already taken by macOS ` +
     'or another app. Set os-global.sidebar-search in ~/.hiveryn/shortcuts.yaml to a free combination.';
   console.error(`[global-shortcut] ${body}`);
   if (Notification.isSupported()) {
@@ -88,7 +89,7 @@ export async function loadAndRegisterGlobalShortcut(): Promise<void> {
   globalShortcut.unregisterAll();
   currentAccelerator = null;
 
-  globalShortcut.register(accelerator, () => revealSidebarSearch());
+  globalShortcut.register(accelerator, () => toggleSidebarSearch());
 
   if (globalShortcut.isRegistered(accelerator)) {
     currentAccelerator = accelerator;

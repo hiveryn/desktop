@@ -15,6 +15,18 @@ const SECTION_HINTS: Record<string, string> = {
   'os-global': 'system-wide',
 };
 
+// What a binding does when its name alone does not say it, keyed by
+// `section.action`.
+const ACTION_HINTS: Record<string, string> = {
+  'global.first-session': "selected project's architect",
+  'global.prev-session': 'running sessions, all projects, wraps',
+  'global.next-session': 'running sessions, all projects, wraps',
+  'global.toggle-sidebar': 'collapse / expand',
+  'global.sidebar-search': 'expand and focus search',
+  'os-global.sidebar-search':
+    'toggle the sidebar (expanding focuses search); raises a background window with search focused',
+};
+
 interface Props {
   config: ShortcutConfig;
   onClose(): void;
@@ -54,7 +66,14 @@ export default function ShortcutsDialog({ config, onClose }: Props) {
               <dl className={styles.bindingGrid}>
                 {actions.map((action) => (
                   <div key={action} className={styles.binding}>
-                    <dt className={styles.action}>{action.replaceAll('-', ' ')}</dt>
+                    <dt className={styles.action}>
+                      {action.replaceAll('-', ' ')}
+                      {ACTION_HINTS[`${name}.${action}`] && (
+                        <span className={styles.actionHint}>
+                          {ACTION_HINTS[`${name}.${action}`]}
+                        </span>
+                      )}
+                    </dt>
                     <dd className={styles.keys}>
                       <kbd className={styles.kbd}>{bindings[action]}</kbd>
                     </dd>

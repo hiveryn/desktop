@@ -221,11 +221,13 @@ export interface ArchitectStatus {
   sessions: ArchitectStatusSession[];
 }
 
-// A request from the main process to the workbench renderer: the global
-// shortcut / tray icon reveal the sidebar search, a notification click selects
-// the session that raised it.
+// A request from the main process to the workbench renderer: the tray icon
+// (and the global shortcut on a background window) reveals the sidebar search,
+// the global shortcut on the frontmost window toggles the sidebar, a
+// notification click selects the session that raised it.
 export type WorkbenchRequest =
   | { type: 'reveal-sidebar-search' }
+  | { type: 'toggle-sidebar-search' }
   | { type: 'select-session'; architectKey: string; sessionId: string };
 
 // ── Git diff (repo-scoped, native git-diff tab) ─────────────────────────────

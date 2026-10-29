@@ -341,7 +341,7 @@ export default function Workbench() {
                           <Caption>No session running for {projectName}</Caption>
                           {architectStatus && (
                             <div className={styles.projectEmptyAction}>
-                              <Button onClick={() => openArchitect(architectStatus)}>
+                              <Button onClick={() => void openArchitect(architectStatus)}>
                                 Launch architect session
                               </Button>
                             </div>
