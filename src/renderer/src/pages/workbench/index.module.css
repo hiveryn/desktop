@@ -1,0 +1,338 @@
+.window {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--theme-background);
+  color: var(--theme-text);
+  /* Inner panes manage their own scrolling — the window itself never scrolls. */
+  overflow: hidden;
+}
+
+/* Left-align the title past the macOS traffic lights: black background to blend
+   with the app, a hairline bottom border to separate it from the content, and a
+   small right inset so the launcher button doesn't sit flush to the window edge.
+   Element+class outranks Navigation's single-class .root regardless of
+   stylesheet load order, so these always win (avoids the equal-specificity
+   footgun). */
+nav.appbar {
+  padding-left: var(--titlebar-inset);
+  padding-right: var(--space-h-2);
+  background: var(--theme-background);
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.navTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  max-width: 60vw;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.architectTitle {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.navSep {
+  flex: 0 0 auto;
+  color: var(--theme-text-subtle);
+}
+
+.navPath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Everything below the appbar: the session sidebar beside the workspace. */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The workspace (selected project) beside the sidebar. */
+.content {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.appbarActions {
+  display: flex;
+  align-items: center;
+}
+
+.navSession {
+  flex: 0 0 auto;
+  max-width: 40ch;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--theme-focused-foreground);
+}
+
+.loadErrorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  padding: var(--space-1) var(--space-h-2);
+  border-bottom: 1px solid var(--theme-status-warning);
+  color: var(--theme-text-muted);
+}
+
+.projectEmptyAction {
+  width: 32ch;
+}
+
+.projectEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--theme-text-muted);
+}
+
+.error {
+  color: var(--theme-status-error);
+}
+
+.contentStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Split pane ────────────────────────────────────────────────────────────── */
+
+.splitPane {
+  position: relative;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+}
+
+.leftPane {
+  position: relative;
+  flex: 1 1 40%;
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Focus indicator — a crisp 2px strip inside the empty seam gap (the right
+   content card's left margin), hugging the focused pane's boundary: flush
+   against the left pane's edge when the agent is focused, flush against the
+   content card when the right pane is. It lives entirely in empty gap space,
+   so it never overlaps text on either side, and there's no glow or opacity
+   dimming — pure crisp line, matching the app's hairline language. Both
+   pseudo-elements render inside .rightPane (which owns the gap); only one can
+   appear at a time since focus is exclusive. Maximized panes are exempt: the
+   backdrop already separates them. */
+.leftPane[data-focused]:not([data-maximized]) + .rightPane::before,
+.rightPane[data-focused]:not([data-maximized])::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--theme-focused-foreground);
+  z-index: var(--z-index-pane-focus);
+  pointer-events: none;
+}
+
+.leftPane[data-focused]:not([data-maximized]) + .rightPane::before {
+  left: 0;
+}
+
+.rightPane[data-focused]:not([data-maximized])::before {
+  left: calc(var(--space-3) - 2px);
+}
+
+.rightPane {
+  position: relative;
+  flex: 1 1 60%;
+  width: 60%;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* No overflow:hidden — content clipping is handled downstream
+   (.rightPaneContent, .extraSlot, .root all clip with min-width/height: 0),
+   so a clip here was redundant. */
+.rightPaneInner {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rightPaneTabs {
+  flex-shrink: 0;
+}
+
+.tabColumn {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* The content panel fills the right pane, offset by a small left margin and a
+   hairline left border so there's a crisp seam between it and the agent on the
+   left. Focus is conveyed by the seam-edge glow strip above. */
+.rightPaneContent {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  margin-left: var(--space-3);
+  border-left: 1px solid var(--theme-border);
+}
+
+/* Right-pane tab panels stay mounted (terminal scrollback, kanban cursor);
+   only the active one is displayed. */
+.tabPanel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.tabPanel[data-active="true"] {
+  display: flex;
+}
+
+.kanbanPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.boardStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-h-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--theme-status-warning);
+  background: color-mix(in srgb, var(--theme-status-warning) 8%, transparent);
+}
+
+.boardStatusText {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kanbanBoard {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Compact search field at the bottom of the kanban pane (opened with /). */
+.kanbanSearch {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-h-2);
+  padding: var(--space-1) var(--space-h-2);
+  border-top: 1px solid var(--theme-border);
+}
+
+.kanbanSearchInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-h-2);
+  font: inherit;
+  color: inherit;
+  background: var(--theme-background-input);
+}
+
+.kanbanSearchInput:focus {
+  outline: 1px solid var(--theme-focus-ring);
+  outline-offset: -1px;
+}
+
+.kanbanSearchStatus {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--theme-text-muted);
+  white-space: nowrap;
+}
+
+.eventLog {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+}
+
+.terminal {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Pane maximize ─────────────────────────────────────────────────────────── */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--theme-overlay-heavy);
+  z-index: var(--z-index-maximize-backdrop);
+}
+
+.leftPane[data-maximized],
+.rightPane[data-maximized] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95vw;
+  height: 85vh;
+  z-index: var(--z-index-maximize-pane);
+  background: var(--theme-background);
+  box-shadow: var(--shadow-modal);
+  border-right: none;
+}
+
+/* A terminal being opened (possibly over SSH): an operation-local status line
+   pinned to the right pane's bottom edge, above the tab content but below
+   overlays, so the pane stays usable while it waits. */
+.pendingTerminal {
+  position: absolute;
+  right: var(--space-h-2);
+  bottom: var(--space-2);
+  z-index: 2;
+  max-width: calc(100% - 2 * var(--space-h-2));
+  padding: var(--space-1) var(--space-h-2);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface-raised);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}

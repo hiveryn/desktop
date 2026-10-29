@@ -1,0 +1,230 @@
+/* Session sidebar — the former palette's list structure (search on top,
+   architect rows, indented worker rows, elapsed), docked left of the
+   workspace. Dense mono styling from the shared theme tokens. */
+
+.sidebar {
+  flex: 0 0 34ch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--theme-border);
+  background: var(--theme-background);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  color: var(--theme-text);
+}
+
+/* Collapsed: a narrow rail that keeps the toggle (and an attention dot)
+   reachable; the appbar title keeps the current project/session named. */
+.rail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-right: 1px solid var(--theme-border);
+  background: var(--theme-background);
+}
+
+.toggle {
+  flex-shrink: 0;
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.25em 1ch 0.25em 0;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.prompt {
+  color: var(--theme-focused-foreground);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.searchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--theme-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size);
+  flex: 1;
+  min-width: 0;
+
+  &::placeholder {
+    color: var(--theme-text-muted);
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* ── Row parts ─────────────────────────────────────────────────────────── */
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+
+  &[data-status="active"] {
+    color: var(--theme-status-success);
+  }
+
+  &[data-status="waiting"] {
+    color: var(--theme-status-warning);
+  }
+
+  &[data-status="disconnected"],
+  &[data-status="missing"] {
+    color: var(--theme-status-error);
+  }
+}
+
+.machine {
+  flex-shrink: 0;
+  padding: 0 0.5ch;
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.meta {
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.notifyDot {
+  width: 0.5em;
+  height: 0.5em;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--theme-status-warning);
+}
+
+.rowButton {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 0.3em 1ch;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+}
+
+/* Conclude action: present for keyboard users, revealed for the pointer on
+   hover/selection so the list stays quiet. */
+.conclude {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1ch;
+  background: transparent;
+  border: none;
+  color: var(--theme-text-subtle);
+  cursor: pointer;
+  opacity: 0;
+
+  &:hover {
+    color: var(--theme-status-error);
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: 1px solid var(--theme-focused-foreground);
+    outline-offset: -1px;
+  }
+}
+
+/* ── Row variants ──────────────────────────────────────────────────────── */
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+
+  &:hover,
+  &[data-cursor] {
+    background: var(--theme-surface-raised);
+  }
+
+  &:hover .conclude,
+  &[data-cursor] .conclude {
+    opacity: 1;
+  }
+}
+
+.row[data-kind="architect"] .rowButton {
+  font-weight: var(--font-weight-semibold);
+}
+
+.row[data-kind="session"] .rowButton {
+  padding-left: 3ch;
+}
+
+.row[data-inactive] .name {
+  color: var(--theme-text-muted);
+}
+
+/* The selected project's header reads at full strength even when its
+   architect session is not running. */
+.row[data-project] .name {
+  color: var(--theme-text);
+}
+
+/* The shown session — unambiguous: accent bar, accent name, selection
+   background. */
+.row[data-current] {
+  background: var(--theme-selection);
+
+  & .rowButton {
+    border-left-color: var(--theme-focused-foreground);
+  }
+
+  & .name {
+    color: var(--theme-focused-foreground);
+  }
+
+  & .conclude {
+    opacity: 1;
+  }
+}
+
+.empty {
+  padding: 0.75em 1ch;
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-sm);
+}

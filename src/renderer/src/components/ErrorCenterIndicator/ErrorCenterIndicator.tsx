@@ -14,6 +14,7 @@ const ErrorCenterIndicator: React.FC = () => {
       className={styles.root}
       onClick={openSheet}
       aria-label={unreadCount > 0 ? `Errors (${unreadCount} unread)` : 'Errors'}
+      title={unreadCount > 0 ? `Errors — ${unreadCount} unread` : 'Errors'}
     >
       <Glyph>
         <AlertTriangle />

@@ -26,7 +26,6 @@ const CHANNEL_TITLES: Record<string, string> = {
   'terminals:create': 'Terminal',
   'terminals:kill': 'Terminal',
   'session:connect': 'Terminal',
-  'launcher:open-architect': 'Launcher',
 };
 
 interface PushableEntry {
@@ -43,7 +42,7 @@ function push(entry: PushableEntry): void {
   useErrorCenterStore.getState().pushError(entry);
 }
 
-// Mounted once per architect window. Bridges the two currently-silent error
+// Mounted once in the workbench window. Bridges the two currently-silent error
 // sources (daemon/API envelope errors via the existing onRequest plumbing,
 // and main-process SSE/WS failures via errors:infra-event) into the error
 // center. Daemon-unreachable is handled in useDaemonRecovery, which already

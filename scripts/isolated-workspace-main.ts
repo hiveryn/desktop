@@ -24,7 +24,7 @@ app.setName('Hiveryn Workspace Verification');
 app.setPath('userData', join(root, 'electron-user-data'));
 if (process.platform === 'darwin') app.setActivationPolicy('prohibited');
 
-function open(route: string): BrowserWindow {
+function open(): BrowserWindow {
   const window = new BrowserWindow({
     show: false,
     width: 1280,
@@ -37,20 +37,14 @@ function open(route: string): BrowserWindow {
       backgroundThrottling: false,
     },
   });
-  void window.loadFile(join(__dirname, '../renderer/index.html'), { hash: route });
+  void window.loadFile(join(__dirname, '../renderer/index.html'));
   return window;
 }
 
 void app.whenReady().then(() => {
-  registerIpc({
-    openArchitectWindow: (key) => open(`/architect/${encodeURIComponent(key)}`),
-    openLauncherWindow: () => {
-      open('/launcher');
-    },
-    isLauncherWindow: () => false,
-  });
+  registerIpc();
   health.start();
-  open('/architect/example');
+  open();
 });
 app.on('will-quit', () => health.stop());
 app.on('window-all-closed', () => app.quit());

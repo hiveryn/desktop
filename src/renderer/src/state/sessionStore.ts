@@ -11,6 +11,8 @@ import { create } from 'zustand';
 import { focusIdForTab, tabIdOf } from './tabFocus';
 
 export interface SessionRecord {
+  // The project (architect key) the session belongs to.
+  architectKey: string;
   interactionMode?: 'terminal' | 'chat';
   machine?: string;
   connection?: string;
@@ -29,10 +31,24 @@ export interface SessionRecord {
 const EVENTS_PER_SESSION_CAP = 500;
 
 interface SessionState {
+  // Running sessions of every project opened in this window, keyed by id.
   sessions: Record<string, SessionRecord>;
   events: Record<string, SessionEvent[]>;
-  // Which session is selected in the bottom tab bar.
+  // The project shown in the workspace, or null for none (the launcher view).
+  selectedArchitectKey: string | null;
+  // Projects whose sessions this window discovers and keeps connected: every
+  // project selected since the window opened. Sessions of other projects stay
+  // registered (terminals keep their scrollback) while another one is shown.
+  openArchitects: string[];
+  // Which session the workspace shows. Always one of the selected project's
+  // sessions, or null when that project has none running.
   activeSessionId: string | null;
+  // Last shown session per project — restored when the project is selected again.
+  projectSessions: Record<string, string>;
+  // Bumped by every explicit selection (selectArchitect / setActiveSession). An
+  // async selection request compares it to know whether the user has selected
+  // something newer meanwhile; reconciles and fallbacks never bump it.
+  selectionEpoch: number;
   // Which right-pane tab is shown.
   activeRightTab: string;
   // Last active right tab per session ID — restored on session switch.
@@ -40,6 +56,8 @@ interface SessionState {
   // Which pane has keyboard focus. Values:
   // 'main-terminal' | 'right-kanban' | 'right-event-log' | 'right-terminal:{uuid}' | 'right-ticket'
   focusedPane: string;
+  // Last focused pane per session ID — restored on session switch.
+  sessionFocusedPanes: Record<string, string>;
   // Pane currently maximized (same value space as focusedPane), or null for the normal layout.
   // Derived from maximizedPanes for the active session — kept as a flat field so
   // components can select it directly without recomputing per render.
@@ -48,13 +66,13 @@ interface SessionState {
   // switching sessions never carries one session's maximize state into another.
   maximizedPanes: Record<string, string | null>;
   // Pending agent intents awaiting the user's approval, keyed by intent id. A
-  // session can have several open at once; the window-level intent center
-  // renders every session's intents, so this is not scoped to the active one.
+  // session can have several open at once; the intent center renders every
+  // intent of the selected project, so this is not scoped to the active session.
   pendingIntents: Record<string, PendingIntent>;
   // Agent questions keyed by question id, across all sessions. A question is
   // pending until the daemon resolves it; a resolution the user should see
   // (expired, cancelled, interrupted) is kept as a notice until dismissed.
-  // Each window renders only the questions of the session it shows.
+  // The workspace renders only the questions of the session it shows.
   questions: Record<string, QuestionEntry>;
 }
 
@@ -84,12 +102,17 @@ export interface QuestionResolution {
 
 interface SessionActions {
   registerSession(record: SessionRecord): void;
-  reconcileSessions(records: SessionRecord[]): void;
+  // Replaces one project's sessions with a fresh daemon snapshot; other
+  // projects' sessions are untouched.
+  reconcileArchitectSessions(architectKey: string, records: SessionRecord[]): void;
   unregisterSession(id: string): void;
   updateSessionMainTerminal(id: string, mainTerminalId: string): void;
   setSessionStatus(id: string, status: string): void;
   setSessionConnection(id: string, connection: string, message?: string): void;
-  setActiveSession(sessionId: string | null): void;
+  // Shows a project (opening it), on its last shown session.
+  selectArchitect(architectKey: string): void;
+  // Shows a session, selecting its project.
+  setActiveSession(sessionId: string): void;
   setActiveRightTab(tab: string): void;
   setFocusedPane(pane: string): void;
   setMaximizedPane(pane: string | null): void;
@@ -114,32 +137,48 @@ export type SessionStore = SessionState & SessionActions;
 const initialState: SessionState = {
   sessions: {},
   events: {},
+  selectedArchitectKey: null,
+  openArchitects: [],
   activeSessionId: null,
+  projectSessions: {},
+  selectionEpoch: 0,
   activeRightTab: 'kanban',
   sessionRightTabs: {},
   focusedPane: 'main-terminal',
+  sessionFocusedPanes: {},
   maximizedPane: null,
   maximizedPanes: {},
   pendingIntents: {},
   questions: {},
 };
 
-function normalizeSelection(
-  sessions: Record<string, SessionRecord>,
-  activeSessionId: string | null,
-  activeRightTab: string,
-  focusedPane: string,
-  sessionRightTabs: Record<string, string>,
-  maximizedPanes: Record<string, string | null>,
-): Pick<SessionState, 'activeSessionId' | 'activeRightTab' | 'focusedPane' | 'maximizedPane'> {
-  const ordered = Object.values(sessions);
-  const nextActiveSessionId =
-    (activeSessionId && sessions[activeSessionId] ? activeSessionId : null) ??
-    ordered.find((session) => session.type === 'architect')?.id ??
-    ordered[0]?.id ??
-    null;
+type Selection = Pick<
+  SessionState,
+  'activeSessionId' | 'activeRightTab' | 'focusedPane' | 'maximizedPane'
+>;
 
-  if (!nextActiveSessionId) {
+// The session to show for a project: the one last shown, else its architect
+// session, else its first worker. Never another project's session.
+export function projectSessionFor(
+  sessions: Record<string, SessionRecord>,
+  architectKey: string,
+  remembered: string | undefined,
+): string | null {
+  if (remembered && sessions[remembered]?.architectKey === architectKey) return remembered;
+  const own = Object.values(sessions).filter((session) => session.architectKey === architectKey);
+  return (own.find((session) => session.type === 'architect') ?? own[0])?.id ?? null;
+}
+
+// The view state for showing `sessionId` (or nothing): its saved right tab,
+// focused pane and maximize state.
+function selectionFor(
+  state: Pick<
+    SessionState,
+    'sessions' | 'sessionRightTabs' | 'sessionFocusedPanes' | 'maximizedPanes'
+  >,
+  sessionId: string | null,
+): Selection {
+  if (!sessionId) {
     return {
       activeSessionId: null,
       activeRightTab: 'event-log',
@@ -147,21 +186,117 @@ function normalizeSelection(
       maximizedPane: null,
     };
   }
-
-  const session = sessions[nextActiveSessionId];
+  const session = state.sessions[sessionId];
+  if (!session) throw new Error(`Cannot switch to missing session ${sessionId}`);
+  // The session's own last tab, else its first: another session's tab never
+  // carries over.
   const validTabs = session.tabs.map(tabIdOf);
-  const candidate = sessionRightTabs[nextActiveSessionId] ?? activeRightTab;
-  const nextActiveRightTab = validTabs.includes(candidate) ? candidate : validTabs[0];
-  if (!nextActiveRightTab) {
+  const remembered = state.sessionRightTabs[sessionId];
+  const activeRightTab = remembered && validTabs.includes(remembered) ? remembered : validTabs[0];
+  if (!activeRightTab) {
     throw new Error(`Session ${session.id} returned no right-pane tabs`);
   }
-
+  const saved = state.sessionFocusedPanes[sessionId] ?? 'main-terminal';
+  const focusedPane =
+    saved === 'main-terminal' || validTabs.some((tab) => focusIdForTab(tab) === saved)
+      ? saved
+      : 'main-terminal';
   return {
-    activeSessionId: nextActiveSessionId,
-    activeRightTab: nextActiveRightTab,
-    focusedPane:
-      focusedPane === 'main-terminal' ? 'main-terminal' : focusIdForTab(nextActiveRightTab),
-    maximizedPane: maximizedPanes[nextActiveSessionId] ?? null,
+    activeSessionId: sessionId,
+    activeRightTab,
+    focusedPane,
+    maximizedPane: state.maximizedPanes[sessionId] ?? null,
+  };
+}
+
+// Re-derives the selection after the session map changed. The active session
+// stays when it still exists; otherwise the selected project falls back to
+// another of its own sessions — a session ending never moves the workspace to
+// another project.
+function normalizeSelection(
+  state: Pick<
+    SessionState,
+    | 'sessions'
+    | 'selectedArchitectKey'
+    | 'activeSessionId'
+    | 'activeRightTab'
+    | 'focusedPane'
+    | 'projectSessions'
+    | 'sessionRightTabs'
+    | 'sessionFocusedPanes'
+    | 'maximizedPanes'
+  >,
+): Selection {
+  const { sessions, selectedArchitectKey, activeSessionId } = state;
+  const current = activeSessionId ? sessions[activeSessionId] : undefined;
+  if (current && current.architectKey === selectedArchitectKey) {
+    // Same session: keep the live focus, only re-validate the right tab.
+    const validTabs = current.tabs.map(tabIdOf);
+    const candidate = state.sessionRightTabs[current.id] ?? state.activeRightTab;
+    const activeRightTab = validTabs.includes(candidate) ? candidate : validTabs[0];
+    if (!activeRightTab) {
+      throw new Error(`Session ${current.id} returned no right-pane tabs`);
+    }
+    return {
+      activeSessionId: current.id,
+      activeRightTab,
+      focusedPane:
+        state.focusedPane === 'main-terminal' ? 'main-terminal' : focusIdForTab(activeRightTab),
+      maximizedPane: state.maximizedPanes[current.id] ?? null,
+    };
+  }
+  const next = selectedArchitectKey
+    ? projectSessionFor(sessions, selectedArchitectKey, state.projectSessions[selectedArchitectKey])
+    : null;
+  return selectionFor(state, next);
+}
+
+// Drops per-session view state of sessions that no longer exist.
+function retainSessions<T>(record: Record<string, T>, sessions: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(record).filter(([id]) => id in sessions));
+}
+
+// The state after the session map changed: per-session view state and
+// cross-session records of removed sessions are dropped and the selection is
+// re-derived. A remembered project session survives only while it runs.
+function withSessions(
+  state: SessionState,
+  sessions: Record<string, SessionRecord>,
+): Partial<SessionState> {
+  const events = retainSessions(state.events, sessions);
+  const sessionRightTabs = retainSessions(state.sessionRightTabs, sessions);
+  const sessionFocusedPanes = retainSessions(state.sessionFocusedPanes, sessions);
+  const maximizedPanes = retainSessions(state.maximizedPanes, sessions);
+  const projectSessions = Object.fromEntries(
+    Object.entries(state.projectSessions).filter(([, id]) => id in sessions),
+  );
+  const pendingIntents = Object.fromEntries(
+    Object.entries(state.pendingIntents).filter(
+      ([, intent]) => intent.origin.session_id in sessions,
+    ),
+  );
+  const questions = Object.fromEntries(
+    Object.entries(state.questions).filter(([, q]) => q.origin.session_id in sessions),
+  );
+  const next = {
+    ...state,
+    sessions,
+    events,
+    sessionRightTabs,
+    sessionFocusedPanes,
+    maximizedPanes,
+    projectSessions,
+  };
+  return {
+    sessions,
+    events,
+    sessionRightTabs,
+    sessionFocusedPanes,
+    maximizedPanes,
+    projectSessions,
+    pendingIntents,
+    questions,
+    ...normalizeSelection(next),
   };
 }
 
@@ -169,47 +304,28 @@ export const useSessionStore = create<SessionStore>((set) => ({
   ...initialState,
 
   registerSession(record) {
-    set((state) => ({
-      sessions: { ...state.sessions, [record.id]: record },
-    }));
+    set((state) => {
+      const sessions = { ...state.sessions, [record.id]: record };
+      return { sessions, ...normalizeSelection({ ...state, sessions }) };
+    });
   },
 
-  reconcileSessions(records) {
+  reconcileArchitectSessions(architectKey, records) {
     set((state) => {
-      const sessions = Object.fromEntries(records.map((record) => [record.id, record]));
-      const events = Object.fromEntries(
-        Object.entries(state.events).filter(([sessionId]) => sessionId in sessions),
-      );
-      const sessionRightTabs = Object.fromEntries(
-        Object.entries(state.sessionRightTabs).filter(([id]) => id in sessions),
-      );
-      const pendingIntents = Object.fromEntries(
-        Object.entries(state.pendingIntents).filter(
-          ([, intent]) => intent.origin.session_id in sessions,
+      for (const record of records) {
+        if (record.architectKey !== architectKey) {
+          throw new Error(
+            `Session ${record.id} of ${record.architectKey} reconciled as ${architectKey}`,
+          );
+        }
+      }
+      const sessions = Object.fromEntries([
+        ...Object.entries(state.sessions).filter(
+          ([, session]) => session.architectKey !== architectKey,
         ),
-      );
-      const maximizedPanes = Object.fromEntries(
-        Object.entries(state.maximizedPanes).filter(([id]) => id in sessions),
-      );
-      const questions = Object.fromEntries(
-        Object.entries(state.questions).filter(([, q]) => q.origin.session_id in sessions),
-      );
-      return {
-        sessions,
-        events,
-        sessionRightTabs,
-        pendingIntents,
-        questions,
-        maximizedPanes,
-        ...normalizeSelection(
-          sessions,
-          state.activeSessionId,
-          state.activeRightTab,
-          state.focusedPane,
-          sessionRightTabs,
-          maximizedPanes,
-        ),
-      };
+        ...records.map((record) => [record.id, record] as const),
+      ]);
+      return withSessions(state, sessions);
     });
   },
 
@@ -217,33 +333,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set((state) => {
       if (!state.sessions[id]) return state;
       const { [id]: _removed, ...sessions } = state.sessions;
-      const { [id]: _removedEvents, ...events } = state.events;
-      const { [id]: _removedRightTab, ...sessionRightTabs } = state.sessionRightTabs;
-      const pendingIntents = Object.fromEntries(
-        Object.entries(state.pendingIntents).filter(
-          ([, intent]) => intent.origin.session_id !== id,
-        ),
-      );
-      const { [id]: _removedMaximized, ...maximizedPanes } = state.maximizedPanes;
-      const questions = Object.fromEntries(
-        Object.entries(state.questions).filter(([, q]) => q.origin.session_id !== id),
-      );
-      return {
-        sessions,
-        events,
-        sessionRightTabs,
-        pendingIntents,
-        questions,
-        maximizedPanes,
-        ...normalizeSelection(
-          sessions,
-          state.activeSessionId,
-          state.activeRightTab,
-          state.focusedPane,
-          sessionRightTabs,
-          maximizedPanes,
-        ),
-      };
+      return withSessions(state, sessions);
     });
   },
 
@@ -301,19 +391,37 @@ export const useSessionStore = create<SessionStore>((set) => ({
     });
   },
 
+  selectArchitect(architectKey) {
+    set((state) => {
+      const sessionId = projectSessionFor(
+        state.sessions,
+        architectKey,
+        state.projectSessions[architectKey],
+      );
+      return {
+        selectedArchitectKey: architectKey,
+        openArchitects: state.openArchitects.includes(architectKey)
+          ? state.openArchitects
+          : [...state.openArchitects, architectKey],
+        selectionEpoch: state.selectionEpoch + 1,
+        ...selectionFor(state, sessionId),
+      };
+    });
+  },
+
   setActiveSession(sessionId) {
     set((state) => {
-      if (!sessionId) return { activeSessionId: null };
       const session = state.sessions[sessionId];
       if (!session) throw new Error(`Cannot switch to missing session ${sessionId}`);
-      const validTabIds = session.tabs.map(tabIdOf);
-      const savedTab = state.sessionRightTabs[sessionId];
-      const nextTab = savedTab && validTabIds.includes(savedTab) ? savedTab : validTabIds[0];
-      if (!nextTab) throw new Error(`Session ${sessionId} has no right-pane tabs`);
+      const key = session.architectKey;
       return {
-        activeSessionId: sessionId,
-        activeRightTab: nextTab,
-        maximizedPane: state.maximizedPanes[sessionId] ?? null,
+        selectedArchitectKey: key,
+        openArchitects: state.openArchitects.includes(key)
+          ? state.openArchitects
+          : [...state.openArchitects, key],
+        projectSessions: { ...state.projectSessions, [key]: sessionId },
+        selectionEpoch: state.selectionEpoch + 1,
+        ...selectionFor(state, sessionId),
       };
     });
   },
@@ -329,7 +437,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
   },
 
   setFocusedPane(pane) {
-    set({ focusedPane: pane });
+    set((state) => {
+      if (!state.activeSessionId) return { focusedPane: pane };
+      return {
+        focusedPane: pane,
+        sessionFocusedPanes: { ...state.sessionFocusedPanes, [state.activeSessionId]: pane },
+      };
+    });
   },
 
   setMaximizedPane(pane) {
@@ -355,17 +469,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
           tabs,
         },
       };
-      return {
-        sessions,
-        ...normalizeSelection(
-          sessions,
-          state.activeSessionId,
-          state.activeRightTab,
-          state.focusedPane,
-          state.sessionRightTabs,
-          state.maximizedPanes,
-        ),
-      };
+      return { sessions, ...normalizeSelection({ ...state, sessions }) };
     });
   },
 

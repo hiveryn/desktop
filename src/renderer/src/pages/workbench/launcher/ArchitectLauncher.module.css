@@ -1,0 +1,42 @@
+/* The architect grid: the workbench's empty state and the plus dialog. */
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-6) var(--space-5);
+  max-width: 88rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.heading {
+  margin-bottom: var(--space-4);
+  color: var(--theme-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (min-width: 1280px) {
+  .content .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dialogGrid {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.centerState {
+  min-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  text-align: center;
+}

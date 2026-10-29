@@ -197,26 +197,36 @@ export interface Architect {
   repos?: ArchitectRepo[];
 }
 
+// A running ticket worker as listed by GET /api/architects/status. machine and
+// connection are set for a remote (SSH) worker only.
 export interface ArchitectStatusSession {
   id: string;
   title: string;
   status: 'running' | 'completed' | 'failed';
   agent_status: string;
   started_at: string;
+  machine?: string;
+  connection?: 'connected' | 'disconnected' | 'missing';
 }
 
+// One configured architect for the session sidebar. status is the running
+// architect session's agent status and session_id its id; both are null when no
+// architect session is running.
 export interface ArchitectStatus {
   key: string;
   name: string;
   path: string;
   status: string | null;
+  session_id: string | null;
   sessions: ArchitectStatusSession[];
 }
 
-export interface ArchitectInfo {
-  name: string;
-  path: string;
-}
+// A request from the main process to the workbench renderer: the global
+// shortcut / tray icon reveal the sidebar search, a notification click selects
+// the session that raised it.
+export type WorkbenchRequest =
+  | { type: 'reveal-sidebar-search' }
+  | { type: 'select-session'; architectKey: string; sessionId: string };
 
 // ── Git diff (repo-scoped, native git-diff tab) ─────────────────────────────
 

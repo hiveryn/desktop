@@ -520,12 +520,15 @@ const IntentActions: React.FC<{
       </div>
 );
 
-// Window-level, cross-session popup of every pending intent for the sessions in
-// this architect window. Keyed by intent id; a single session can raise several.
-const IntentCenter: React.FC = () => {
+// Window-level, cross-session popup of every pending intent of the selected
+// project (other projects' intents badge their sidebar rows instead). Keyed by
+// intent id; a single session can raise several.
+const IntentCenter: React.FC<{ architectKey: string }> = ({ architectKey }) => {
   const pendingIntents = useSessionStore((s) => s.pendingIntents);
   // Newest first, so a just-raised intent lands at the top of the stack.
-  const intents = Object.values(pendingIntents).sort(
+  const intents = Object.values(pendingIntents)
+    .filter((intent) => intent.origin.architect_key === architectKey)
+    .sort(
     (a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0),
   );
 

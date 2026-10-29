@@ -21,3 +21,6 @@ export { default as TicketIcon } from './TicketIcon';
 export { default as GitDiff } from './GitDiff';
 export { default as AlertTriangle } from './AlertTriangle';
 export { default as Keyboard } from './Keyboard';
+export { default as AgentInactive } from './AgentInactive';
+export { default as Disconnected } from './Disconnected';
+export { default as SidebarToggle } from './SidebarToggle';

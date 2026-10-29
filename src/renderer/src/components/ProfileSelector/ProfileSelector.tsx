@@ -16,8 +16,8 @@ interface ProfileSelectorProps {
 
 /**
  * The standalone profile picker: the shared `ProfileList` in a modal of its
- * own. Picking closes it: the one-step selector the launcher and the tray
- * palette need.
+ * own. Picking closes it: the one-step variant selector for launching an
+ * architect session from the session sidebar or the launcher view.
  */
 const ProfileSelector: React.FC<ProfileSelectorProps> = ({ profiles, open, onClose, onSelect, emptyLabel }) => {
   if (!open) return null;

@@ -143,7 +143,7 @@ describe('question store', () => {
 
   it('drops a session’s questions when the session goes away', () => {
     const store = useSessionStore.getState();
-    store.registerSession({ id: 's-1', type: 'ticket', label: 't', contextId: 't-1', mainTerminalId: 'm', tabs: [] });
+    store.registerSession({ architectKey: 'p', id: 's-1', type: 'ticket', label: 't', contextId: 't-1', mainTerminalId: 'm', tabs: [] });
     store.setQuestion(question);
     store.unregisterSession('s-1');
     expect(useSessionStore.getState().questions).toEqual({});

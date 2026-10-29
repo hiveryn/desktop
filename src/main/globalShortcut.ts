@@ -1,11 +1,12 @@
 import { globalShortcut, Notification } from 'electron';
 import { daemonFetch } from './daemon/client';
-import { togglePalette } from './tray';
+import { revealSidebarSearch } from './workbench';
 
-// Default OS-global binding for the command palette. Chosen over Cmd+Space to
-// avoid colliding with Spotlight. Override via the `os-global.palette` key in
-// ~/.hiveryn/shortcuts.yaml.
-const DEFAULT_PALETTE_BINDING = 'Option+Space';
+// Default OS-global binding that brings the workbench forward with the sidebar
+// search focused. Chosen over Cmd+Space to avoid colliding with Spotlight; the
+// daemon ships the same default. Override via the `os-global.sidebar-search` key
+// in ~/.hiveryn/shortcuts.yaml.
+const DEFAULT_SIDEBAR_SEARCH_BINDING = 'Option+Space';
 
 // Modifier vocabulary mirrors src/renderer/src/keys/matchers.ts, mapped to the
 // names Electron's accelerator parser expects.
@@ -36,7 +37,7 @@ function toAccelerator(binding: string): string {
     .join('+');
 }
 
-async function readPaletteBinding(): Promise<string> {
+async function readSidebarSearchBinding(): Promise<string> {
   const result = await daemonFetch<Record<string, Record<string, string>>>('/api/config/shortcuts');
   // The daemon may not be reachable yet at startup. Falling back to the default
   // still registers a working shortcut (a clear recovery, not a silent swallow);
@@ -46,18 +47,18 @@ async function readPaletteBinding(): Promise<string> {
       '[global-shortcut] failed to read shortcuts config; using default binding:',
       result.envelope.error.message,
     );
-    return DEFAULT_PALETTE_BINDING;
+    return DEFAULT_SIDEBAR_SEARCH_BINDING;
   }
-  return result.envelope.data?.['os-global']?.palette ?? DEFAULT_PALETTE_BINDING;
+  return result.envelope.data?.['os-global']?.['sidebar-search'] ?? DEFAULT_SIDEBAR_SEARCH_BINDING;
 }
 
 function notifyRegistrationFailed(binding: string): void {
   const body =
-    `Couldn't bind "${binding}" for the command palette — it's already taken by macOS ` +
-    'or another app. Set os-global.palette in ~/.hiveryn/shortcuts.yaml to a free combination.';
+    `Couldn't bind "${binding}" for the sidebar search — it's already taken by macOS ` +
+    'or another app. Set os-global.sidebar-search in ~/.hiveryn/shortcuts.yaml to a free combination.';
   console.error(`[global-shortcut] ${body}`);
   if (Notification.isSupported()) {
-    new Notification({ title: 'Hiveryn: palette shortcut unavailable', body }).show();
+    new Notification({ title: 'Hiveryn: sidebar shortcut unavailable', body }).show();
   }
 }
 
@@ -67,7 +68,7 @@ function notifyRegistrationFailed(binding: string): void {
 let currentAccelerator: string | null = null;
 let failedAccelerator: string | null = null;
 
-// Read the configured binding and (re)register the OS-global palette shortcut.
+// Read the configured binding and (re)register the OS-global sidebar shortcut.
 // Idempotent: when the desired accelerator is already registered (ours), this is
 // a no-op — it does NOT unregisterAll+re-register. It only churns the
 // registration when the binding actually changes, which avoids the race where
@@ -75,7 +76,7 @@ let failedAccelerator: string | null = null;
 // accelerator is bound. Source of truth for success is isRegistered(), never the
 // register() return value.
 export async function loadAndRegisterGlobalShortcut(): Promise<void> {
-  const binding = await readPaletteBinding();
+  const binding = await readSidebarSearchBinding();
   const accelerator = toAccelerator(binding);
 
   // Already live and unchanged — nothing to do.
@@ -87,7 +88,7 @@ export async function loadAndRegisterGlobalShortcut(): Promise<void> {
   globalShortcut.unregisterAll();
   currentAccelerator = null;
 
-  globalShortcut.register(accelerator, () => togglePalette());
+  globalShortcut.register(accelerator, () => revealSidebarSearch());
 
   if (globalShortcut.isRegistered(accelerator)) {
     currentAccelerator = accelerator;
@@ -95,8 +96,8 @@ export async function loadAndRegisterGlobalShortcut(): Promise<void> {
     return;
   }
 
-  // Genuinely couldn't bind (combo owned by macOS or another app). Surface it —
-  // there's no in-app palette fallback anymore — but only once per binding.
+  // Genuinely couldn't bind (combo owned by macOS or another app). Surface it,
+  // once per binding: only the in-app sidebar-search binding is left.
   if (failedAccelerator !== accelerator) {
     failedAccelerator = accelerator;
     notifyRegistrationFailed(binding);

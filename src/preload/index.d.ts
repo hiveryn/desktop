@@ -176,26 +176,11 @@ type SessionTab = import('@hiveryn/shared/domain').SessionTab;
 
 // ── Architects ─────────────────────────────────────────────────────────────
 
-interface ArchitectInfo {
-  name: string;
-  path: string;
-}
+type ArchitectStatusSession = import('../shared/types').ArchitectStatusSession;
 
-interface ArchitectStatusSession {
-  id: string;
-  title: string;
-  status: 'running' | 'completed' | 'failed';
-  agent_status: string;
-  started_at: string;
-}
+type ArchitectStatus = import('../shared/types').ArchitectStatus;
 
-interface ArchitectStatus {
-  key: string;
-  name: string;
-  path: string;
-  status: string | null;
-  sessions: ArchitectStatusSession[];
-}
+type WorkbenchRequest = import('../shared/types').WorkbenchRequest;
 
 interface SystemRuntime {
   environment: string;
@@ -300,11 +285,6 @@ interface HiverynAPI {
   profiles: {
     list: () => Promise<AgentProfile[]>;
   };
-  architect: {
-    getInfo: () => Promise<ArchitectInfo>;
-    openLauncher: () => Promise<void>;
-    closeWindow: () => Promise<void>;
-  };
   architects: {
     list: () => Promise<Architect[]>;
     get: (key: string) => Promise<Architect>;
@@ -329,17 +309,9 @@ interface HiverynAPI {
       callback: (payload: { sessionId: string; terminalId: string }) => void,
     ) => () => void;
   };
-  launcher: {
-    openArchitect: (key: string) => Promise<void>;
-  };
-  tray: {
-    hide: () => Promise<void>;
-    setHeight: (height: number) => Promise<void>;
-    onShown: (callback: () => void) => () => void;
-  };
-  palette: {
-    focusArchitect: (key: string, sessionId?: string) => Promise<void>;
-    onSwitchSession: (callback: (sessionId: string | null) => void) => () => void;
+  workbench: {
+    onRequest: (callback: (request: WorkbenchRequest) => void) => () => void;
+    setIntentScope: (architectKey: string | null) => void;
   };
   workflows: {
     list: (architectKey: string) => Promise<WorkflowList>;

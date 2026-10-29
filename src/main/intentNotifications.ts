@@ -2,18 +2,38 @@ import type { SessionEvent } from '@hiveryn/shared/domain';
 import { type BrowserWindow, Notification } from 'electron';
 
 // Native OS notifications for pending intents, so an approval request reaches
-// the user even when no hiveryn window is focused. The notification is only an
-// attention-getter + deep link: clicking it focuses the originating architect
-// window and switches to the session tab that raised the intent, where the
-// intent center card (the actual approve/deny surface) is already shown.
+// the user when its approve/deny card is not on screen. The notification is only
+// an attention-getter + deep link: clicking it brings the workbench window
+// forward and selects the session that raised the intent, whose project's
+// intent center shows the card.
 
 interface IntentNotificationDeps {
-  // Focus the architect window for `architectKey` (creating it if needed) and
-  // activate the given session's tab.
+  // Bring the workbench forward and select the given session.
   focusSession: (architectKey: string, sessionId: string) => void;
-  // The architect's window, if one is open — used to suppress a redundant toast
-  // when the card is already on screen.
-  getArchitectWindow: (architectKey: string) => BrowserWindow | undefined;
+  // The workbench window, if open.
+  getWindow: () => BrowserWindow | null;
+}
+
+// The project whose intent cards the workbench is showing, as reported by the
+// renderer (null when no project is selected). The intent center renders only
+// the selected project's intents, so a focused window alone does not mean the
+// card is visible.
+let visibleIntentArchitect: string | null = null;
+
+export function setVisibleIntentArchitect(architectKey: string | null): void {
+  visibleIntentArchitect = architectKey;
+}
+
+export interface IntentSurfaceState {
+  windowFocused: boolean;
+  windowVisible: boolean;
+  visibleArchitectKey: string | null;
+}
+
+// Whether the approve/deny card for an intent of `architectKey` is already in
+// front of the user, which makes an OS toast redundant.
+export function isIntentSurfaceVisible(state: IntentSurfaceState, architectKey: string): boolean {
+  return state.windowFocused && state.windowVisible && state.visibleArchitectKey === architectKey;
 }
 
 let deps: IntentNotificationDeps | null = null;
@@ -86,7 +106,7 @@ export function handleIntentEvent(event: SessionEvent): void {
     console.warn('[main:intent-notify] Notification unsupported — no OS toast', { intentId });
     return;
   }
-  if (active.has(intentId)) return; // already toasted (backlog replay / second window)
+  if (active.has(intentId)) return; // already toasted (backlog replay / resubscribe)
 
   const at = Date.parse(event.at);
   if (Number.isFinite(at) && Date.now() - at > FRESH_MS) {
@@ -100,11 +120,15 @@ export function handleIntentEvent(event: SessionEvent): void {
   const origin = readOrigin(event.raw?.origin);
   if (!origin) return;
 
-  // If the architect's window is the focused window, the card is already on
-  // screen — an OS toast would just be noise. Only notify when it isn't.
-  const win = deps.getArchitectWindow(origin.architectKey);
-  if (win && !win.isDestroyed() && win.isFocused()) {
-    console.log('[main:intent-notify] skip — architect window focused (card visible)', {
+  // The card is already on screen — an OS toast would just be noise.
+  const win = deps.getWindow();
+  const surface: IntentSurfaceState = {
+    windowFocused: win !== null && !win.isDestroyed() && win.isFocused(),
+    windowVisible: win !== null && !win.isDestroyed() && win.isVisible() && !win.isMinimized(),
+    visibleArchitectKey: visibleIntentArchitect,
+  };
+  if (isIntentSurfaceVisible(surface, origin.architectKey)) {
+    console.log('[main:intent-notify] skip — intent card visible in the workbench', {
       intentId,
       architectKey: origin.architectKey,
     });

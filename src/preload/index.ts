@@ -21,7 +21,6 @@ import type {
   AgentProfile,
   AppMode,
   Architect,
-  ArchitectInfo,
   ArchitectStatus,
   ArchitectStreamEvent,
   DaemonHealthState,
@@ -38,7 +37,19 @@ import type {
   TicketDeleteResult,
   TicketEditInput,
   TicketMetadataInput,
+  WorkbenchRequest,
 } from '../shared/types';
+
+// ── Architect event listeners, per project key ────────────────────────────
+const architectEventListeners = new Map<string, Set<(event: ArchitectStreamEvent) => void>>();
+ipcRenderer.on(
+  'architect:workspace-event',
+  (_event: Electron.IpcRendererEvent, workspaceEvent: ArchitectStreamEvent) => {
+    const listeners = architectEventListeners.get(workspaceEvent.architect_key);
+    if (!listeners) return;
+    for (const listener of [...listeners]) listener(workspaceEvent);
+  },
+);
 
 // ── Request log listeners ──────────────────────────────────────────────────
 type RequestCallback = (entry: RequestLogEntry) => void;
@@ -70,8 +81,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'tickets:move': { method: 'POST', path: '/api/architects/:key/tickets/:id/move?to=:status' },
   'tickets:delete': { method: 'DELETE', path: '/api/architects/:key/tickets/:id' },
   'tickets:create': { method: 'POST', path: '/api/architects/:key/tickets' },
-  'architect:getInfo': { method: 'GET', path: '/architect/info' },
-  'architect:openLauncher': { method: 'POST', path: '/architect/launcher' },
   'architects:list': { method: 'GET', path: '/api/architects' },
   'architects:get': { method: 'GET', path: '/api/architects/:key' },
   'architects:status': { method: 'GET', path: '/api/architects/status' },
@@ -81,11 +90,9 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
     method: 'GET',
     path: '/api/architects/:key/workspace/worker-preflight',
   },
-  'palette:focus-architect': { method: 'POST', path: '/architect/focus' },
   'sessions:createRun': { method: 'POST', path: '/api/sessions/:id/runs' },
   'architects:events:subscribe': { method: 'SSE', path: '/api/architects/:key/events' },
   'architects:events:unsubscribe': { method: 'SSE', path: '/api/architects/:key/events' },
-  'launcher:open-architect': { method: 'GET', path: '/api/architects/:key' },
   'session:subscribe': { method: 'SSE', path: '/api/sessions/:id/events' },
   'session:connect': { method: 'WS', path: '/session/connect' },
   'session:disconnect': { method: 'WS', path: '/session/disconnect' },
@@ -97,7 +104,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
   'terminals:kill': { method: 'DELETE', path: '/api/sessions/:id/terminals/:uuid' },
   'tabs:list': { method: 'GET', path: '/api/sessions/:id/tabs' },
   'sessions:getTicket': { method: 'GET', path: '/api/sessions/:id/ticket' },
-  'architect:closeWindow': { method: 'POST', path: '/architect/close' },
   'config:shortcuts': { method: 'GET', path: '/api/config/shortcuts' },
   'config:desktop': { method: 'GET', path: '/api/config/desktop' },
   'repos:diff': { method: 'GET', path: '/api/architects/:key/repos/:repoKey/diff' },
@@ -105,8 +111,6 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
     method: 'GET',
     path: '/api/architects/:key/repos/:repoKey/commits/:sha/diff',
   },
-  'tray:hide': { method: 'IPC', path: '/tray/hide' },
-  'tray:set-height': { method: 'IPC', path: '/tray/set-height' },
 };
 
 // Unwrap a DaemonResult: notify log listeners, throw IpcError on error, return data on success.
@@ -165,32 +169,36 @@ contextBridge.exposeInMainWorld('hiveryn', {
   profiles: {
     list: (): Promise<AgentProfile[]> => invoke('profiles:list'),
   },
-  architect: {
-    getInfo: (): Promise<ArchitectInfo> => invoke('architect:getInfo'),
-    openLauncher: (): Promise<void> => invoke('architect:openLauncher'),
-    closeWindow: (): Promise<void> => invoke('architect:closeWindow'),
-  },
   architects: {
     list: (): Promise<Architect[]> => invoke('architects:list'),
     get: (key: string): Promise<Architect> => invoke('architects:get', key),
     status: (): Promise<ArchitectStatus[]> => invoke('architects:status'),
     messages: (key: string): Promise<AgentMessage[]> => invoke('architects:messages', key),
+    // Several consumers (board, session discovery, agent messages, sidebar)
+    // listen to the same project's stream, and come and go independently as
+    // projects are selected. The main process holds one stream per project for
+    // this window, so it is opened by the first listener and closed by the last.
     subscribeEvents: (
       key: string,
       callback: (event: ArchitectStreamEvent) => void,
     ): (() => void) => {
-      void ipcRenderer.invoke('architects:events:subscribe', key);
-      const listener = (
-        _event: Electron.IpcRendererEvent,
-        workspaceEvent: ArchitectStreamEvent,
-      ): void => {
-        if (workspaceEvent.architect_key !== key) return;
-        callback(workspaceEvent);
-      };
-      ipcRenderer.on('architect:workspace-event', listener);
+      let listeners = architectEventListeners.get(key);
+      if (!listeners) {
+        listeners = new Set();
+        architectEventListeners.set(key, listeners);
+        void ipcRenderer.invoke('architects:events:subscribe', key);
+      }
+      listeners.add(callback);
+      let subscribed = true;
       return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        const current = architectEventListeners.get(key);
+        if (!current) return;
+        current.delete(callback);
+        if (current.size > 0) return;
+        architectEventListeners.delete(key);
         void ipcRenderer.invoke('architects:events:unsubscribe', key);
-        ipcRenderer.removeListener('architect:workspace-event', listener);
       };
     },
   },
@@ -240,26 +248,18 @@ contextBridge.exposeInMainWorld('hiveryn', {
       return () => ipcRenderer.removeListener('session:terminal-closed', listener);
     },
   },
-  launcher: {
-    openArchitect: (key: string): Promise<void> => invoke('launcher:open-architect', key),
-  },
-  tray: {
-    hide: (): Promise<void> => invoke('tray:hide'),
-    setHeight: (height: number): Promise<void> => invoke('tray:set-height', height),
-    onShown: (callback: () => void): (() => void) => {
-      const listener = (): void => callback();
-      ipcRenderer.on('tray:shown', listener);
-      return () => ipcRenderer.removeListener('tray:shown', listener);
+  workbench: {
+    // Requests from the main process: the global shortcut / tray icon
+    // (reveal-sidebar-search) and notification clicks (select-session).
+    onRequest: (callback: (request: WorkbenchRequest) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, request: WorkbenchRequest): void =>
+        callback(request);
+      ipcRenderer.on('workbench:request', listener);
+      return () => ipcRenderer.removeListener('workbench:request', listener);
     },
-  },
-  palette: {
-    focusArchitect: (key: string, sessionId?: string): Promise<void> =>
-      invoke('palette:focus-architect', key, sessionId),
-    onSwitchSession: (callback: (sessionId: string | null) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, sessionId: string | null): void =>
-        callback(sessionId);
-      ipcRenderer.on('palette:switch-session', listener);
-      return () => ipcRenderer.removeListener('palette:switch-session', listener);
+    // The project whose intent cards are on screen (null: none).
+    setIntentScope: (architectKey: string | null): void => {
+      ipcRenderer.send('workbench:intent-scope', architectKey);
     },
   },
   workflows: {

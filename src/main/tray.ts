@@ -1,23 +1,9 @@
 import { join } from 'node:path';
-import { is } from '@electron-toolkit/utils';
-import { app, BrowserWindow, nativeImage, type Rectangle, screen, Tray } from 'electron';
+import { app, nativeImage, Tray } from 'electron';
 import type { ArchitectStatus } from '../shared/types';
 import { daemonFetch } from './daemon/client';
 import { IS_DESKTOP_DEVELOPMENT } from './runtime';
-
-// Fixed width; the renderer measures its content and asks us to resize the
-// height to fit (capped at TRAY_MAX_HEIGHT, after which the list scrolls).
-// Dimensions track the global --ui-scale (1.1): the popover content scales via
-// CSS, so these grow with it to avoid horizontal overflow / vertical clipping.
-// The renderer reports height in CSS px, which equals DIP here (no zoom factor),
-// so the measured height stays correct without extra conversion.
-const TRAY_WIDTH = 418; // 380 × 1.1
-const TRAY_INITIAL_HEIGHT = 462; // 420 × 1.1
-const TRAY_MAX_HEIGHT = 572; // 520 × 1.1
-// Gap between the menu bar icon and the top of the popover.
-const TRAY_GAP = 6;
-
-const rendererEntry = join(__dirname, '../renderer/index.html');
+import { revealSidebarSearch } from './workbench';
 
 // Daemon `SessionRun.AgentStatus` values (internal/domain/session.go). `active`
 // = the agent is working; `idle`/`waiting` = it needs the user's attention;
@@ -28,8 +14,7 @@ const AGENT_STATUS_IDLE = 'idle';
 const AGENT_STATUS_WAITING = 'waiting';
 
 // How often the main process polls the aggregate status for the tray title. The
-// menu-bar count is ambient info, so a relaxed cadence is fine; the TrayPalette
-// popover polls separately (faster, only while visible).
+// menu-bar count is ambient info, so a relaxed cadence is fine.
 const STATUS_POLL_INTERVAL_MS = 3000;
 
 interface ArchitectStatusPayload {
@@ -42,7 +27,6 @@ interface AgentCounts {
 }
 
 let tray: Tray | null = null;
-let trayWindow: BrowserWindow | null = null;
 let statusPollTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Tally running architect + worker sessions into working vs needs-attention.
@@ -120,124 +104,6 @@ function resolveTrayIconPath(): string {
     : join(__dirname, '../../resources/trayTemplate.png');
 }
 
-function loadTrayRoute(window: BrowserWindow): void {
-  if (is.dev && process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(`${process.env.ELECTRON_RENDERER_URL}#/tray`);
-  } else {
-    window.loadFile(rendererEntry, { hash: '/tray' });
-  }
-}
-
-function createTrayWindow(): BrowserWindow {
-  const window = new BrowserWindow({
-    width: TRAY_WIDTH,
-    height: TRAY_INITIAL_HEIGHT,
-    show: false,
-    frame: false,
-    resizable: false,
-    movable: false,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    skipTaskbar: true,
-    transparent: true,
-    alwaysOnTop: true,
-    // An NSPanel can take key focus (so the search input works) without
-    // activating the rest of the app's windows.
-    ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
-    backgroundColor: '#00000000',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  if (process.platform === 'darwin') {
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  }
-
-  // Dismiss when focus leaves the popover (e.g. clicking a row focuses an
-  // architect window, or the user clicks elsewhere).
-  window.on('blur', () => {
-    if (!window.webContents.isDevToolsFocused()) window.hide();
-  });
-
-  window.on('closed', () => {
-    trayWindow = null;
-  });
-
-  loadTrayRoute(window);
-  return window;
-}
-
-function positionWindow(window: BrowserWindow, trayBounds: Rectangle): void {
-  const { width } = window.getBounds();
-  const display = screen.getDisplayMatching(trayBounds);
-  const workArea = display.workArea;
-
-  let x = Math.round(trayBounds.x + trayBounds.width / 2 - width / 2);
-  // Keep the popover fully on-screen horizontally.
-  const minX = workArea.x;
-  const maxX = workArea.x + workArea.width - width;
-  x = Math.max(minX, Math.min(x, maxX));
-
-  const y = Math.round(trayBounds.y + trayBounds.height + TRAY_GAP);
-  window.setPosition(x, y, false);
-}
-
-// Center the palette on the display under the cursor (the "active" display in a
-// multi-monitor setup). Sits a bit above the vertical middle, Raycast-style.
-function positionCentered(window: BrowserWindow): void {
-  const { width, height } = window.getBounds();
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-
-  let x = Math.round(workArea.x + (workArea.width - width) / 2);
-  x = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - width));
-
-  let y = Math.round(workArea.y + (workArea.height - height) / 3);
-  y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - height));
-
-  window.setPosition(x, y, false);
-}
-
-function showTrayWindow(trayBounds: Rectangle): void {
-  if (!trayWindow || trayWindow.isDestroyed()) {
-    trayWindow = createTrayWindow();
-  }
-  positionWindow(trayWindow, trayBounds);
-  trayWindow.show();
-  trayWindow.focus();
-  // Tell the renderer it just became visible so it refreshes data, resets the
-  // query, and focuses the search input.
-  trayWindow.webContents.send('tray:shown');
-}
-
-function toggleTrayWindow(trayBounds: Rectangle): void {
-  if (trayWindow && !trayWindow.isDestroyed() && trayWindow.isVisible()) {
-    trayWindow.hide();
-    return;
-  }
-  showTrayWindow(trayBounds);
-}
-
-// Toggle the palette from the OS-global shortcut: same window as the tray
-// popover, but centered on the active display instead of anchored to the icon.
-export function togglePalette(): void {
-  if (trayWindow && !trayWindow.isDestroyed() && trayWindow.isVisible()) {
-    trayWindow.hide();
-    return;
-  }
-  if (!trayWindow || trayWindow.isDestroyed()) {
-    trayWindow = createTrayWindow();
-  }
-  positionCentered(trayWindow);
-  trayWindow.show();
-  trayWindow.focus();
-  trayWindow.webContents.send('tray:shown');
-}
-
 export function createTray(): void {
   if (tray) return;
 
@@ -252,26 +118,14 @@ export function createTray(): void {
   // Seed the title (dev marker, no counts yet) so the first paint is correct
   // before the first poll lands; the poll then keeps it live with agent counts.
   created.setTitle(renderTrayTitle({ active: 0, attention: 0 }));
-  created.on('click', () => toggleTrayWindow(created.getBounds()));
-  created.on('right-click', () => toggleTrayWindow(created.getBounds()));
-
-  // Create the window up front (hidden) so the first open is instant.
-  trayWindow = createTrayWindow();
+  // The icon is a way back to the workbench: forward, sidebar expanded,
+  // search focused — the same as the global shortcut.
+  created.on('click', () => revealSidebarSearch());
+  created.on('right-click', () => revealSidebarSearch());
 
   // Keep the menu-bar count live: poll the aggregate session status and reflect
   // working / needs-attention totals in the tray title.
   void pollAgentCounts().catch((err) => {
     throw err;
   });
-}
-
-export function hideTrayWindow(): void {
-  if (trayWindow && !trayWindow.isDestroyed()) trayWindow.hide();
-}
-
-export function setTrayWindowHeight(height: number): void {
-  if (!trayWindow || trayWindow.isDestroyed()) return;
-  const clamped = Math.max(1, Math.min(Math.round(height), TRAY_MAX_HEIGHT));
-  const { width } = trayWindow.getBounds();
-  trayWindow.setBounds({ width, height: clamped }, false);
 }

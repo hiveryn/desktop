@@ -25,8 +25,8 @@ interface ProfileListProps {
 
 /**
  * The filter-and-pick profile list: the whole body of the profile selector,
- * without a backdrop or a panel of its own — the modal selector (launcher,
- * tray palette) is this list plus a portal.
+ * without a backdrop or a panel of its own — the modal selector (architect
+ * launch) is this list plus a portal.
  */
 const ProfileList: React.FC<ProfileListProps> = ({ profiles, onChoose, onCancel, emptyLabel }) => {
   const [query, setQuery] = React.useState('');

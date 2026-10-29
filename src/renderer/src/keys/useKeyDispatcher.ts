@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { ShortcutConfig } from '../hooks/useShortcutConfig';
 import { dispatch, setActiveShortcutConfig } from './dispatcher';
 
-// The single document-level keydown listener for the architect window. Mounted
+// The single document-level keydown listener for the workbench window. Mounted
 // once at the top level. Events that originate inside xterm's helper textarea
 // are skipped — those are handled by TerminalView's attachCustomKeyEventHandler
 // instead, which runs inside xterm before any DOM-level handler sees the key.
