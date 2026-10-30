@@ -109,6 +109,22 @@ export interface DaemonResult<T = unknown> {
   httpStatus: number;
 }
 
+// A daemon error returned as data. Errors thrown across the context bridge
+// reach the renderer with their message only, so a caller that must act on
+// the status, code or details gets them this way.
+export interface DaemonErrorInfo {
+  // HTTP status; 0 when the daemon did not answer (unreachable, timeout).
+  status: number;
+  code?: string;
+  message: string;
+  details?: unknown;
+}
+
+// A companion action decision: the resolved request, or the daemon's error.
+export type ActionDecisionResult =
+  | { ok: true; action: import('@hiveryn/shared/domain').ActionRequest }
+  | { ok: false; error: DaemonErrorInfo };
+
 // ── Structured logging ─────────────────────────────────────────────────────
 
 export type StructuredLogLevel = 'debug' | 'info' | 'warn' | 'error';

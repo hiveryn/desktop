@@ -144,6 +144,7 @@ interface ConcludeSessionParams {
 // ── Desktop-specific IPC types (canonical home: ../shared/types) ────────────
 
 type SessionRunResult = import('../shared/types').SessionRunResult;
+type ActionDecisionResult = import('../shared/types').ActionDecisionResult;
 type TicketEditInput = import('../shared/types').TicketEditInput;
 type TicketMetadataInput = import('../shared/types').TicketMetadataInput;
 type TicketCreateInput = import('../shared/types').TicketCreateInput;
@@ -345,14 +346,15 @@ interface HiverynAPI {
       questionId: string,
       answer: string,
     ) => Promise<AgentQuestion>;
-    // A companion action request's accept, deny or reply (message required);
-    // 409 when it is no longer decidable (with the daemon's reason), 404 when
-    // it is unknown to this session.
+    // A companion action request's accept, deny or reply (message required).
+    // Daemon errors are returned, not thrown: a 409 ACTION_REQUEST_RESOLVED
+    // carries the recorded outcome in details.action, a 404 means the request
+    // is unknown to this session. It rejects only when the IPC call fails.
     decideAction: (
       sessionId: string,
       actionId: string,
       decision: ActionDecisionRequest,
-    ) => Promise<ActionRequest>;
+    ) => Promise<ActionDecisionResult>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {

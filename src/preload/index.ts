@@ -20,6 +20,7 @@ import type {
 } from '@hiveryn/shared/domain';
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  ActionDecisionResult,
   AgentProfile,
   AppMode,
   Architect,
@@ -303,11 +304,34 @@ contextBridge.exposeInMainWorld('hiveryn', {
       questionId: string,
       answer: string,
     ): Promise<AgentQuestion> => invoke('sessions:answer-question', sessionId, questionId, answer),
-    decideAction: (
+    // Daemon errors come back as data: thrown across the context bridge they
+    // would lose their status, code and details (the recorded outcome).
+    decideAction: async (
       sessionId: string,
       actionId: string,
       decision: ActionDecisionRequest,
-    ): Promise<ActionRequest> => invoke('sessions:decide-action', sessionId, actionId, decision),
+    ): Promise<ActionDecisionResult> => {
+      try {
+        const action = await invoke<ActionRequest>(
+          'sessions:decide-action',
+          sessionId,
+          actionId,
+          decision,
+        );
+        return { ok: true, action };
+      } catch (err) {
+        const e = err as { status?: number; code?: string; message?: string; details?: unknown };
+        return {
+          ok: false,
+          error: {
+            status: e.status ?? 0,
+            code: e.code,
+            message: e.message ?? String(err),
+            details: e.details,
+          },
+        };
+      }
+    },
     getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {

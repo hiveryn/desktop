@@ -57,6 +57,35 @@ describe('action requests in the session store', () => {
     expect(useSessionStore.getState().actions.a).toBeUndefined();
   });
 
+  it('keeps the recorded outcome of a decision whose answer was lost', () => {
+    const store = useSessionStore.getState();
+    store.setAction(action('a'));
+    store.setAction(action('b'));
+    // Accept on "a" got no answer; then its resolution arrives as an event.
+    store.markActionUncertain('a');
+    expect(useSessionStore.getState().actions.a).toMatchObject({
+      status: 'pending',
+      uncertain: true,
+    });
+    store.resolveAction({ action_id: 'a', status: 'accepted' }, false);
+    expect(useSessionStore.getState().actions.a).toMatchObject({
+      status: 'accepted',
+      recorded: true,
+      uncertain: false,
+    });
+    // The retry of "b" was refused with the recorded outcome.
+    store.resolveAction({ action_id: 'b', status: 'expired' }, true, true);
+    expect(useSessionStore.getState().actions.b).toMatchObject({
+      status: 'expired',
+      recorded: true,
+    });
+    // A later replay of the same resolution changes nothing; dismiss removes it.
+    store.resolveAction({ action_id: 'a', status: 'accepted' }, false);
+    expect(useSessionStore.getState().actions.a?.status).toBe('accepted');
+    store.dismissAction('a');
+    expect(useSessionStore.getState().actions.a).toBeUndefined();
+  });
+
   it('drops the requests of a removed session', () => {
     useSessionStore.getState().setAction(action('a'));
     useSessionStore.getState().unregisterSession('c-1');

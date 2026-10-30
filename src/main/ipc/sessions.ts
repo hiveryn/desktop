@@ -205,8 +205,9 @@ export function registerSessionsIpc(): void {
   );
 
   // A companion's action request (requestAction): the user's accept, deny or
-  // reply. The daemon resolves it once; a 409 names why it is no longer
-  // decidable (decided, expired, withdrawn), a 404 that it is unknown here.
+  // reply. The daemon resolves it once; a decision on a resolved request is a
+  // 409 ACTION_REQUEST_RESOLVED carrying the recorded outcome, a 404 means the
+  // request is unknown here (its outcome is not known).
   ipcMain.handle(
     'sessions:decide-action',
     async (

@@ -86,7 +86,12 @@ interface SessionState {
   dismissedActions: Record<string, true>;
 }
 
-export type ActionEntry = ActionRequest;
+// uncertain: a decision call for this request ended without an answer, so its
+// outcome is not known here. recorded: the outcome shown is the daemon's
+// record learned after such a call (or from a refused retry), not this
+// window's own successful decision. Either way the resolution stays on screen
+// as a notice, never silently removed.
+export type ActionEntry = ActionRequest & { uncertain?: boolean; recorded?: boolean };
 
 export interface ActionResolution {
   action_id: string;
@@ -151,7 +156,8 @@ interface SessionActions {
   setAction(action: ActionRequest): void;
   // keepNotice: keep the request as a non-actionable notice instead of
   // removing it.
-  resolveAction(resolution: ActionResolution, keepNotice: boolean): void;
+  resolveAction(resolution: ActionResolution, keepNotice: boolean, recorded?: boolean): void;
+  markActionUncertain(actionId: string): void;
   dismissAction(actionId: string): void;
   reset(): void;
 }
@@ -612,11 +618,12 @@ export const useSessionStore = create<SessionStore>((set) => ({
     set((state) => ({ actions: { ...state.actions, [action.id]: action } }));
   },
 
-  resolveAction(resolution, keepNotice) {
+  resolveAction(resolution, keepNotice, recorded = false) {
     set((state) => {
       const current = state.actions[resolution.action_id];
       if (!current || current.status !== 'pending') return state;
-      if (!keepNotice || state.dismissedActions[resolution.action_id]) {
+      const fromRecord = recorded || current.uncertain === true;
+      if ((!keepNotice && !fromRecord) || state.dismissedActions[resolution.action_id]) {
         const { [resolution.action_id]: _removed, ...actions } = state.actions;
         return { actions };
       }
@@ -628,9 +635,19 @@ export const useSessionStore = create<SessionStore>((set) => ({
             status: resolution.status,
             message: resolution.message,
             reason: resolution.reason,
+            uncertain: false,
+            recorded: fromRecord,
           },
         },
       };
+    });
+  },
+
+  markActionUncertain(actionId) {
+    set((state) => {
+      const current = state.actions[actionId];
+      if (!current || current.status !== 'pending' || current.uncertain) return state;
+      return { actions: { ...state.actions, [actionId]: { ...current, uncertain: true } } };
     });
   },
 
