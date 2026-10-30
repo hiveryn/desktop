@@ -55,8 +55,8 @@ export default function MainTerminalStack({ className }: Props) {
                 {session.connection === 'connected'
                   ? 'Connected'
                   : session.connection === 'missing'
-                    ? 'Remote worker unavailable'
-                    : 'Disconnected — remote worker may still be running; activity is stale.'}
+                    ? `Remote ${session.type === 'companion' ? 'companion' : 'worker'} unavailable`
+                    : `Disconnected — remote ${session.type === 'companion' ? 'companion' : 'worker'} may still be running; activity is stale.`}
                 {session.connectionMessage && ` ${session.connectionMessage}`}
               </Caption>
             )}

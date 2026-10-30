@@ -1,4 +1,6 @@
 import type {
+  ActionDecisionRequest,
+  ActionRequest,
   AgentQuestion,
   AnswerQuestionRequest,
   ConcludeSessionParams,
@@ -199,6 +201,24 @@ export function registerSessionsIpc(): void {
         { timeoutMs: INTENT_DENY_TIMEOUT_MS },
       );
       return explainStoppedWaiting(result, 'the denial is recorded when the daemon finishes it.');
+    },
+  );
+
+  // A companion's action request (requestAction): the user's accept, deny or
+  // reply. The daemon resolves it once; a 409 names why it is no longer
+  // decidable (decided, expired, withdrawn), a 404 that it is unknown here.
+  ipcMain.handle(
+    'sessions:decide-action',
+    async (
+      _event,
+      sessionId: string,
+      actionId: string,
+      decision: ActionDecisionRequest,
+    ): Promise<DaemonResult<ActionRequest>> => {
+      return daemonFetch<ActionRequest>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/actions/${encodeURIComponent(actionId)}/decision`,
+        { method: 'POST', body: JSON.stringify(decision) },
+      );
     },
   );
 

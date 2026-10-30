@@ -1,4 +1,6 @@
 import type {
+  ActionRequest,
+  ActionRequestStatus,
   AgentQuestion,
   Intent,
   QuestionAnswerSource,
@@ -74,6 +76,23 @@ interface SessionState {
   // (expired, cancelled, interrupted) is kept as a notice until dismissed.
   // The workspace renders only the questions of the session it shows.
   questions: Record<string, QuestionEntry>;
+  // Companion action requests (requestAction) keyed by action id, across all
+  // sessions. Pending until the daemon resolves it; a resolution the user did
+  // not make (expired, withdrawn, interrupted) is kept as a non-actionable
+  // notice until dismissed. The action center renders the selected project's.
+  actions: Record<string, ActionEntry>;
+  // Notices the user dismissed this window: the SSE backlog replays their
+  // resolution on every reconnect and must not bring them back.
+  dismissedActions: Record<string, true>;
+}
+
+export type ActionEntry = ActionRequest;
+
+export interface ActionResolution {
+  action_id: string;
+  status: ActionRequestStatus;
+  message?: string;
+  reason?: string;
 }
 
 // An intent card's view state. resolving: the intent was approved (by the
@@ -129,6 +148,11 @@ interface SessionActions {
   resolveQuestion(resolution: QuestionResolution, keepNotice: boolean): void;
   dismissQuestion(questionId: string): void;
   setQuestionMinimized(questionId: string, minimized: boolean): void;
+  setAction(action: ActionRequest): void;
+  // keepNotice: keep the request as a non-actionable notice instead of
+  // removing it.
+  resolveAction(resolution: ActionResolution, keepNotice: boolean): void;
+  dismissAction(actionId: string): void;
   reset(): void;
 }
 
@@ -150,6 +174,8 @@ const initialState: SessionState = {
   maximizedPanes: {},
   pendingIntents: {},
   questions: {},
+  actions: {},
+  dismissedActions: {},
 };
 
 type Selection = Pick<
@@ -278,6 +304,9 @@ function withSessions(
   const questions = Object.fromEntries(
     Object.entries(state.questions).filter(([, q]) => q.origin.session_id in sessions),
   );
+  const actions = Object.fromEntries(
+    Object.entries(state.actions).filter(([, a]) => a.origin.session_id in sessions),
+  );
   const next = {
     ...state,
     sessions,
@@ -296,6 +325,7 @@ function withSessions(
     projectSessions,
     pendingIntents,
     questions,
+    actions,
     ...normalizeSelection(next),
   };
 }
@@ -575,6 +605,43 @@ export const useSessionStore = create<SessionStore>((set) => ({
       const current = state.questions[questionId];
       if (!current) return state;
       return { questions: { ...state.questions, [questionId]: { ...current, minimized } } };
+    });
+  },
+
+  setAction(action) {
+    set((state) => ({ actions: { ...state.actions, [action.id]: action } }));
+  },
+
+  resolveAction(resolution, keepNotice) {
+    set((state) => {
+      const current = state.actions[resolution.action_id];
+      if (!current || current.status !== 'pending') return state;
+      if (!keepNotice || state.dismissedActions[resolution.action_id]) {
+        const { [resolution.action_id]: _removed, ...actions } = state.actions;
+        return { actions };
+      }
+      return {
+        actions: {
+          ...state.actions,
+          [resolution.action_id]: {
+            ...current,
+            status: resolution.status,
+            message: resolution.message,
+            reason: resolution.reason,
+          },
+        },
+      };
+    });
+  },
+
+  dismissAction(actionId) {
+    set((state) => {
+      const current = state.actions[actionId];
+      // A pending request can only be decided: dismissing it must not look
+      // like a decision.
+      if (!current || current.status === 'pending') return state;
+      const { [actionId]: _removed, ...actions } = state.actions;
+      return { actions, dismissedActions: { ...state.dismissedActions, [actionId]: true } };
     });
   },
 

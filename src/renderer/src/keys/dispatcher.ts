@@ -277,7 +277,9 @@ async function closeCurrentTab(): Promise<void> {
 
   if (!activeSessionId) return;
   const session = sessions[activeSessionId];
-  if (session?.type !== 'architect') {
+  // Architects and companions are never closed from a tab: they end through a
+  // conclusion or their architect's shutdown request.
+  if (session && session.type !== 'architect' && session.type !== 'companion') {
     await window.hiveryn.session.disconnect(activeSessionId);
     const s = useSessionStore.getState();
     s.unregisterSession(activeSessionId);

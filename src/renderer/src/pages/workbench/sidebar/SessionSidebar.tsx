@@ -1,5 +1,5 @@
-import { Close, Glyph, IconButton, SidebarToggle } from '@components';
-import type { SessionType } from '@hiveryn/shared/domain';
+import { AlertTriangle, Close, Glyph, IconButton, SidebarToggle } from '@components';
+import type { Companion, SessionType } from '@hiveryn/shared/domain';
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -24,24 +24,36 @@ import {
 import { focusActivePane } from '../focusActivePane';
 import { selectSession } from '../navigation';
 import { useArchitectLaunch } from './launchArchitect';
-import { architectInitial, buildRows, rowKey, type SidebarRow } from './rows';
+import { architectInitial, buildRows, companionSessionId, rowKey, type SidebarRow } from './rows';
 import styles from './SessionSidebar.module.css';
 import {
   architectIndicator,
+  companionIndicator,
+  companionNeedsDecision,
+  companionRecovery,
   needsAttention,
   type StatusIndicator,
   workerIndicator,
 } from './sidebarModel';
 
-// A session the conclude dialog can end.
+// A session the conclude dialog can end. Never a companion: companions end
+// through their architect's shutdown request.
 export interface ConcludeTarget {
   id: string;
-  type: SessionType;
+  type: Exclude<SessionType, 'companion'>;
   label: string;
+}
+
+// A companion whose termination is unconfirmed (stop_failed) or whose
+// process ended (failed): the user's explicit recovery.
+export interface CompanionRecoveryTarget {
+  architectName: string;
+  companion: Companion;
 }
 
 interface Props {
   onConclude(target: ConcludeTarget): void;
+  onRecoverCompanion(target: CompanionRecoveryTarget): void;
 }
 
 function StatusIcon({ indicator }: { indicator: StatusIndicator }) {
@@ -66,7 +78,7 @@ function architectName(architect: ArchitectStatus): string {
 // The collapsible session sidebar: every architect (active ones first) with its
 // running workers indented beneath, searchable like the former palette.
 // Selecting a row switches the workspace in place.
-export default function SessionSidebar({ onConclude }: Props) {
+export default function SessionSidebar({ onConclude, onRecoverCompanion }: Props) {
   const collapsed = useSidebarStore((s) => s.collapsed);
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const setCollapsed = useSidebarStore((s) => s.setCollapsed);
@@ -82,6 +94,7 @@ export default function SessionSidebar({ onConclude }: Props) {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const pendingIntents = useSessionStore((s) => s.pendingIntents);
   const questions = useSessionStore((s) => s.questions);
+  const actions = useSessionStore((s) => s.actions);
 
   const launchingKey = useArchitectLaunch((s) => s.launchingKey);
   const openArchitect = useArchitectLaunch((s) => s.open);
@@ -126,14 +139,39 @@ export default function SessionSidebar({ onConclude }: Props) {
 
   const attentionFor = (sessionId: string | null): boolean =>
     sessionId !== null && needsAttention(sessionId, activeSessionId, pendingIntents, questions);
+  // A companion needs attention for an undecided action request (shown even
+  // when it is the shown session) or an intent/question elsewhere.
+  const companionAttention = (companion: Companion): boolean =>
+    companionNeedsDecision(
+      companion,
+      actions,
+      companion.session_id !== undefined && companion.session_id in sessions,
+    ) || attentionFor(companionSessionId(companion));
+  const architectAttention = (architect: ArchitectStatus): boolean =>
+    [architect.session_id, ...architect.sessions.map((s) => s.id)].some((id) => attentionFor(id)) ||
+    architect.companions.some(companionAttention);
+
+  // The session a row shows, or null (an inactive architect launches; a
+  // companion without a live session cannot be shown).
+  const rowSessionId = (row: SidebarRow): string | null => {
+    switch (row.kind) {
+      case 'architect':
+        return row.architect.session_id;
+      case 'companion':
+        return companionSessionId(row.companion);
+      case 'session':
+        return row.session.id;
+    }
+  };
 
   // Pointer selection: switches the workspace; the sidebar stays as it is.
   const select = (row: SidebarRow): void => {
-    if (row.kind === 'session') {
-      void selectSession(row.architect.key, row.session.id);
-    } else {
+    if (row.kind === 'architect') {
       void openArchitect(row.architect);
+      return;
     }
+    const sessionId = rowSessionId(row);
+    if (sessionId) void selectSession(row.architect.key, sessionId);
   };
 
   // Keyboard confirmation (Enter): select, then collapse the sidebar and hand
@@ -144,11 +182,12 @@ export default function SessionSidebar({ onConclude }: Props) {
   const confirm = async (index: number): Promise<void> => {
     const row = rows[index];
     if (!row) return;
+    const target = rowSessionId(row);
+    if (row.kind !== 'architect' && !target) return;
     const shown =
-      row.kind === 'session'
-        ? selectSession(row.architect.key, row.session.id)
-        : openArchitect(row.architect, { collapse: true });
-    const target = row.kind === 'session' ? row.session.id : row.architect.session_id;
+      row.kind === 'architect'
+        ? openArchitect(row.architect, { collapse: true })
+        : selectSession(row.architect.key, target as string);
     // A newer selection meanwhile (rapid navigation) owns the workspace now.
     if (!(await shown) || useSessionStore.getState().activeSessionId !== target) return;
     setQuery('');
@@ -185,9 +224,7 @@ export default function SessionSidebar({ onConclude }: Props) {
     }
   };
 
-  const projectAttention = rows.some((row) =>
-    row.kind === 'session' ? attentionFor(row.session.id) : attentionFor(row.architect.session_id),
-  );
+  const projectAttention = statuses.some(architectAttention);
 
   if (collapsed) {
     return (
@@ -220,14 +257,14 @@ export default function SessionSidebar({ onConclude }: Props) {
                 sessionId !== null,
                 record?.status ?? architect.status,
               );
-              const attention = [sessionId, ...architect.sessions.map((s) => s.id)].some((id) =>
-                attentionFor(id),
-              );
+              const attention = architectAttention(architect);
               const workers = architect.sessions.length;
+              const companions = architect.companions.length;
               const isSelectedProject = architect.key === selectedArchitectKey;
               const label = [
                 architectName(architect),
                 indicator.label,
+                companions > 0 ? `${companions} companion${companions === 1 ? '' : 's'}` : null,
                 workers > 0 ? `${workers} worker${workers === 1 ? '' : 's'} running` : null,
                 launchingKey === architect.key ? 'launching…' : null,
                 attention ? 'needs attention' : null,
@@ -362,6 +399,81 @@ export default function SessionSidebar({ onConclude }: Props) {
                           })
                         }
                       />
+                    )}
+                  </li>
+                );
+              }
+
+              if (row.kind === 'companion') {
+                const companion = row.companion;
+                const sessionId = companionSessionId(companion);
+                const record = sessionId ? sessions[sessionId] : undefined;
+                const indicator = companionIndicator(companion, record);
+                const isCurrent = sessionId !== null && sessionId === activeSessionId;
+                const recovery = companionRecovery(companion);
+                const attention = companionAttention(companion);
+                const title = `Companion ${companion.name} · ${companion.repo} · ${companion.variant} — ${indicator.label}`;
+                return (
+                  <li
+                    key={rowKey(row)}
+                    ref={isCursor ? cursorRowRef : undefined}
+                    className={styles.row}
+                    data-kind="companion"
+                    data-companion-status={companion.status}
+                    data-cursor={isCursor || undefined}
+                    data-current={isCurrent || undefined}
+                    data-unavailable={sessionId === null || undefined}
+                    onMouseMove={() => setCursor(i)}
+                  >
+                    <button
+                      type="button"
+                      className={styles.rowButton}
+                      aria-current={isCurrent ? 'page' : undefined}
+                      aria-disabled={sessionId === null || undefined}
+                      title={title}
+                      onClick={() => select(row)}
+                    >
+                      <StatusIcon indicator={indicator} />
+                      <span className={styles.name}>{companion.name}</span>
+                      <span className={styles.roleTag}>companion</span>
+                      {companion.machine && (
+                        <span className={styles.machine} title={companion.machine}>
+                          {companion.machine}
+                        </span>
+                      )}
+                      {attention && (
+                        <span
+                          className={styles.notifyDot}
+                          role="img"
+                          aria-label="Action request awaiting your decision"
+                          title="Action request awaiting your decision"
+                        />
+                      )}
+                    </button>
+                    {recovery && (
+                      <button
+                        type="button"
+                        className={styles.recover}
+                        aria-label={
+                          recovery === 'retry-termination'
+                            ? `Retry termination of companion ${companion.name}`
+                            : `Remove ended companion ${companion.name}`
+                        }
+                        title={
+                          recovery === 'retry-termination'
+                            ? 'Retry termination (recovery)'
+                            : 'Remove ended companion (recovery)'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRecoverCompanion({
+                            architectName: architectName(row.architect),
+                            companion,
+                          });
+                        }}
+                      >
+                        <AlertTriangle />
+                      </button>
                     )}
                   </li>
                 );

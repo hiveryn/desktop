@@ -108,6 +108,8 @@ type SessionEvent = import('@hiveryn/shared/domain').SessionEvent;
 // ── Intents ────────────────────────────────────────────────────────────────
 
 type AgentQuestion = import('@hiveryn/shared/domain').AgentQuestion;
+type ActionRequest = import('@hiveryn/shared/domain').ActionRequest;
+type ActionDecisionRequest = import('@hiveryn/shared/domain').ActionDecisionRequest;
 type AgentMessage = import('@hiveryn/shared/domain').AgentMessage;
 type IntentType = import('@hiveryn/shared/domain').IntentType;
 type IntentPolicy = import('@hiveryn/shared/domain').IntentPolicy;
@@ -343,6 +345,14 @@ interface HiverynAPI {
       questionId: string,
       answer: string,
     ) => Promise<AgentQuestion>;
+    // A companion action request's accept, deny or reply (message required);
+    // 409 when it is no longer decidable (with the daemon's reason), 404 when
+    // it is unknown to this session.
+    decideAction: (
+      sessionId: string,
+      actionId: string,
+      decision: ActionDecisionRequest,
+    ) => Promise<ActionRequest>;
     getTicket: (sessionId: string) => Promise<Ticket>;
   };
   tickets: {

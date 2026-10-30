@@ -1,5 +1,6 @@
 import type { AgentProfile } from '@components';
 import {
+  ActionCenter,
   Button,
   Caption,
   DevBadge,
@@ -26,6 +27,7 @@ import { noVariantMessage, profilesForMachine } from '../../lib/variantMachines'
 import { useArchitectStatusStore } from '../../state/architectStatusStore';
 import { useSessionStore } from '../../state/sessionStore';
 import AgentMessagesStrip from './components/AgentMessages/AgentMessagesStrip';
+import CompanionRecoveryDialog from './components/CompanionRecoveryDialog';
 import ConcludeSessionDialog from './components/ConcludeSessionDialog';
 import MainTerminalStack from './components/MainTerminalStack';
 import RightPane from './components/RightPane';
@@ -40,7 +42,10 @@ import { useWorkbenchRequests } from './hooks/useWorkbenchRequests';
 import styles from './index.module.css';
 import { ArchitectLauncherDialog, ArchitectLauncherView } from './launcher/ArchitectLauncher';
 import { useArchitectLaunch } from './sidebar/launchArchitect';
-import SessionSidebar, { type ConcludeTarget } from './sidebar/SessionSidebar';
+import SessionSidebar, {
+  type CompanionRecoveryTarget,
+  type ConcludeTarget,
+} from './sidebar/SessionSidebar';
 import {
   createSelectedTerminal,
   TERMINAL_WORKDIR_REQUEST,
@@ -111,11 +116,13 @@ export default function Workbench() {
   const sessionTitle = useMemo(() => {
     if (!activeSession) return null;
     if (activeSession.type === 'architect') return 'Architect';
+    if (activeSession.type === 'companion') return `Companion ${activeSession.label}`;
     const listed = architectStatus?.sessions.find((session) => session.id === activeSession.id);
     return listed?.title ?? activeSession.label;
   }, [activeSession, architectStatus]);
 
   const [concludeTarget, setConcludeTarget] = useState<ConcludeTarget | null>(null);
+  const [recoveryTarget, setRecoveryTarget] = useState<CompanionRecoveryTarget | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [terminalRequest, setTerminalRequest] = useState<TerminalCreationRequest | null>(null);
@@ -309,7 +316,7 @@ export default function Workbench() {
       />
 
       <div className={styles.body}>
-        <SessionSidebar onConclude={setConcludeTarget} />
+        <SessionSidebar onConclude={setConcludeTarget} onRecoverCompanion={setRecoveryTarget} />
 
         <main className={styles.content}>
           {architectKey ? (
@@ -397,6 +404,9 @@ export default function Workbench() {
         onTicketReference={handleTicketReference}
       />
 
+      {recoveryTarget && (
+        <CompanionRecoveryDialog target={recoveryTarget} onClose={() => setRecoveryTarget(null)} />
+      )}
       {concludeTarget && (
         <ConcludeSessionDialog session={concludeTarget} onClose={() => setConcludeTarget(null)} />
       )}
@@ -422,6 +432,7 @@ export default function Workbench() {
       )}
 
       <IntentCenter architectKey={architectKey} />
+      <ActionCenter architectKey={architectKey || null} />
       <WorkdirSelector
         choices={terminalWorkdirs}
         open={terminalRequest !== null && terminalWorkdirs.length > 0}

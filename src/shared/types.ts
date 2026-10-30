@@ -47,7 +47,7 @@ export type {
   ValidationError,
 } from '@hiveryn/shared/domain';
 
-import type { ArchitectEvent } from '@hiveryn/shared/domain';
+import type { ArchitectEvent, Companion } from '@hiveryn/shared/domain';
 
 // ── Backward-compat aliases (gradual rename targets) ───────────────────────
 export type SessionKind = import('@hiveryn/shared/domain').SessionType;
@@ -211,7 +211,8 @@ export interface ArchitectStatusSession {
 
 // One configured architect for the session sidebar. status is the running
 // architect session's agent status and session_id its id; both are null when no
-// architect session is running.
+// architect session is running. companions are the running architect session's
+// companions (empty without one); they are never listed among `sessions`.
 export interface ArchitectStatus {
   key: string;
   name: string;
@@ -219,6 +220,7 @@ export interface ArchitectStatus {
   status: string | null;
   session_id: string | null;
   sessions: ArchitectStatusSession[];
+  companions: Companion[];
 }
 
 // A request from the main process to the workbench renderer: the tray icon

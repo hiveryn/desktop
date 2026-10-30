@@ -98,6 +98,7 @@ describe('cycleSession', () => {
       path: `/ws/${key}`,
       status: null,
       session_id: null,
+      companions: [],
       sessions: [
         {
           id: sessionId,

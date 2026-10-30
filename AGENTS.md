@@ -28,6 +28,15 @@ The desktop is **one window** (`src/main/workbench.ts`). There is no launcher wi
 - **Window-level hooks** — `useSessionEvents`, `useErrorCenterCapture`, `useKeyDispatcher`, `useDaemonRecovery`, status polling and main-process requests are mounted once in `Workbench`; per-project work is limited to `ProjectSessionSync`. There is a single `RightPane`, so pane-local key handlers never multiply.
 - **Main → renderer** — `workbench:request` carries `reveal-sidebar-search` (tray click, or the OS-global shortcut while the window is not frontmost: raise window, expand sidebar, focus search), `toggle-sidebar-search` (the OS-global shortcut on the frontmost window: collapse an expanded sidebar, expand a collapsed one with its search focused) and `select-session` (notification click). The renderer reports the selected project via `workbench:intent-scope`; an intent's OS notification is suppressed only when the window is focused and visible **and** shows that project (`isIntentSurfaceVisible`). Closing the window does not quit on macOS; the tray, the global shortcut and dock activation reopen it.
 
+## Companions
+
+Companions (daemon `docs/companions.md`) are persistent agent sessions the daemon starts with each architect session. The desktop never starts, messages or stops them; it shows them and lets the user decide their action requests.
+
+- **Rows** — the status listing's `companions` (never among `sessions`) render beneath their architect, before its workers, by configured name with a `COMPANION` tag and machine tag (`rows.ts`). The icon (`sidebarModel.companionIndicator`) shows the lifecycle (`starting`, `shutdown_requested`, `stopping`, `stopped`, `stop_failed`, `start_failed`, `failed` with the daemon's error as label) and, while running, the live agent status and remote connection like a worker. Search matches names. A row is selectable while its session is live (`companionSessionId`: running, shutdown_requested, stopping, stop_failed); others are `aria-disabled`. `companion_changed` on the architect stream refreshes the listing.
+- **Sessions** — companion sessions are ordinary sessions for discovery, terminals, tabs, events and cycling (`cycleOrder` includes live companions). A `session_started` for a companion never auto-activates it: companions start on their own with the architect and must not take the workspace from it. The main pane caption names a remote companion as such.
+- **No conclude/discard** — companion rows have no × and close-tab never unregisters one: a running companion ends only through its architect's shutdown request. `stop_failed` (termination unconfirmed) and `failed` (process ended) rows get a recovery action opening `CompanionRecoveryDialog`, which calls `sessions:discard` — the daemon's only retry of confirmed termination — and shows the daemon's error inline when it still cannot confirm. The architect's conclusion dialog shows the daemon's companion blocker verbatim.
+- **Action requests** — `action_request` `required`/`resolved` session events (strictly parsed, `actionModel.ts`) feed `store.actions`. The `ActionCenter` shows the selected project's requests; Review opens the dialog: title, origin, expiry, the proposal rendered as Markdown with an exact-text toggle, an optional reply. Accept, Deny and Reply (message required) call `sessions:decide-action`; a 409/404 is shown as "no longer decidable" with the daemon's reason. Past `expires_at` the dialog stops offering a decision before the daemon's expiry arrives; withdrawn, expired and interrupted requests become dismissible notices (when fresh), never actionable. Nothing is accepted automatically and nothing goes to the architect. The sidebar dot marks a companion with an undecided request (also when shown; unopened projects use the listing's `pending_actions`), and the rail initial carries it. The daemon alerts the phone; the main process adds an OS notification whose click selects the companion.
+
 ## Source layout
 
 ```
@@ -37,7 +46,7 @@ src/
     workbench.ts          The one workbench BrowserWindow — create/raise/recreate, navigation guard (blocks in-window navigation; external links → default browser), and main→renderer requests (`workbench:request`: reveal-sidebar-search, toggle-sidebar-search, select-session)
     tray.ts               Menu bar Tray — icon + live agent counts; click reveals the workbench with the sidebar search focused
     globalShortcut.ts     OS-global sidebar shortcut — reads os-global.sidebar-search, registers via globalShortcut (toggles the sidebar of the frontmost window, reveals a background one), surfaces failures
-    intentNotifications.ts Native OS notifications for pending intents — click selects the session; suppressed only while that project's intent cards are on screen
+    intentNotifications.ts Native OS notifications for pending intents and companion action requests — click selects the session; suppressed only while that project's cards are on screen
     logging.ts            Structured JSONL logger — patches main console, writes desktop/renderer logs
     daemon/
       client.ts           daemonFetch() — base URL, timeout, envelope unwrap, never throws
@@ -53,7 +62,7 @@ src/
       profiles.ts         profiles:* handlers → daemon HTTP via daemonFetch
       architects.ts       architects:* handlers → daemon HTTP via daemonFetch (incl. architects:messages → GET /api/architects/:key/messages, the project's agent-message delivery states)
       session.ts          sessionManager — WebSocket + SSE lifecycle, multi-terminal per session
-      sessions.ts         sessions:list/create/conclude/discard/approve-intent/deny-intent/answer-question → daemon HTTP (sessions:create carries the ticket session's explicit `workflows` selection)
+      sessions.ts         sessions:list/create/conclude/discard/approve-intent/deny-intent/answer-question/decide-action → daemon HTTP (sessions:create carries the ticket session's explicit `workflows` selection; decide-action is a companion action request's accept/deny/reply)
       workflows.ts        workflows:list → GET /api/architects/:key/workflows?repos=… (discovery for a ticket's writable repo scope); workflows:preflight → GET /api/architects/:key/workspace/worker-preflight (the launch's own project-context validation) — the ticket launch dialog's two read calls
       tabs.ts             tabs:list → daemon HTTP; canonical right-pane session layout
       terminals.ts        terminals:list/create/kill → daemon HTTP
@@ -70,7 +79,7 @@ src/
     main.tsx              React entry, Nerd Font preload, renderer console logging install
     logging.ts            Renderer console patch — captures console.* and forwards structured logs
     state/
-      sessionStore.ts     Zustand store — sessions of every open project (each record carries its architectKey), selectedArchitectKey, openArchitects, active session (always one of the selected project's), per-session right tab / focused pane / maximize, per-project last session, selectionEpoch, main terminal IDs, daemon tabs, events, pendingIntents (keyed by intent id), questions (agent questions keyed by question id; pending or a dismissible resolution notice)
+      sessionStore.ts     Zustand store — sessions of every open project (each record carries its architectKey), selectedArchitectKey, openArchitects, active session (always one of the selected project's), per-session right tab / focused pane / maximize, per-project last session, selectionEpoch, main terminal IDs, daemon tabs, events, pendingIntents (keyed by intent id), questions (agent questions keyed by question id; pending or a dismissible resolution notice), actions (companion action requests keyed by action id; pending or a dismissible notice, dismissals remembered for the window)
       architectStatusStore.ts Zustand store — GET /api/architects/status listing (latest-wins) for the sidebar and launcher view
       sidebarStore.ts     Zustand store — sidebar collapsed flag and width bounds (localStorage conveniences), search-focus requests, reveal vs toggle
       projectViewStore.ts Zustand store — per-project view state kept for the window's lifetime (kanban search text/open)
@@ -96,7 +105,8 @@ src/
         focusActivePane.ts       Returns DOM focus from the sidebar to the shown pane (via data-pane-slot / data-visible)
         sidebar/                 SessionSidebar (search, architect rows, indented worker rows, status icons, attention dots, conclude actions,
                                  collapsed initials rail, resize handle), rows.ts (ordering/filtering, global cycle order, rail initials), sidebarModel.ts (status icon + attention model),
-                                 launchArchitect.ts (select a running architect session or pick a variant and launch one)
+                                 launchArchitect.ts (select a running architect session or pick a variant and launch one);
+                                 companion rows and their status/recovery model (see "Companions")
         launcher/                ArchitectLauncher — architect card grid: the empty state and the appbar plus dialog
         SessionTerminal.tsx      Electron wiring for the terminal/ module — builds the transport + theme/keyboard/GPU adapters
         terminal-adapters/       Electron impls of the terminal module interfaces (electronTransport, cssThemeSource, dispatcherRouteKey, gpuCrashSource)
@@ -111,11 +121,12 @@ src/
                                  selection model), GitDiffPane,
                                  RepoPicker (git-diff repo selector), ShortcutsDialog
                                  (read-only keybinding reference, opened from the appbar),
-                                 ConcludeSessionDialog
+                                 ConcludeSessionDialog, CompanionRecoveryDialog
     components/
       index.ts            Renderer component barrel exported through @components
       */                  Co-located React components and CSS Modules
       icons/              Component icon exports
+      ActionCenter/        Companion action requests (requestAction) of the selected project: cards (bottom right) and the decision dialog (exact proposal, Accept / Deny / Reply); actionModel.ts parses the events and owns decidability
       DiffView/            Reusable read-only diff viewer (react-diff-view) — parsed-diff props in, no fetching; wraps long lines unless `wrapLines={false}` (then scrolls horizontally); used by GitDiffPane and the concluded-ticket Changes tab. Tokenizes syntax highlighting on the main thread, or in a Web Worker (tokenize.worker.ts) above ~1500 changed lines — the renderer's only worker
       TicketDetail/        Ticket detail modal — Ticket/Conclusion tabs plus a lazy, per-repository commit-diff Changes tab when a conclusion records commits; references render through `ReferenceItem`/`referenceModel.ts` from the daemon's explicit path `status` (present/missing/unverified + error) and `location` (local/remote + machine/unknown) — paths are display-only text (no Finder or copy actions), ticket IDs open the ticket
     terminal/             Transport-agnostic xterm module — no window.hiveryn / store / dispatcher / CSS deps

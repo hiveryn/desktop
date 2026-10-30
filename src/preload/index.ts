@@ -1,4 +1,6 @@
 import type {
+  ActionDecisionRequest,
+  ActionRequest,
   AgentMessage,
   AgentQuestion,
   ConcludeSessionParams,
@@ -68,6 +70,10 @@ const CHANNEL_INFO: Record<string, { method: string; path: string }> = {
     path: '/api/sessions/:id/intents/:intentId/approve',
   },
   'sessions:deny-intent': { method: 'POST', path: '/api/sessions/:id/intents/:intentId/deny' },
+  'sessions:decide-action': {
+    method: 'POST',
+    path: '/api/sessions/:id/actions/:actionId/decision',
+  },
   'sessions:answer-question': {
     method: 'POST',
     path: '/api/sessions/:id/questions/:questionId/answer',
@@ -297,6 +303,11 @@ contextBridge.exposeInMainWorld('hiveryn', {
       questionId: string,
       answer: string,
     ): Promise<AgentQuestion> => invoke('sessions:answer-question', sessionId, questionId, answer),
+    decideAction: (
+      sessionId: string,
+      actionId: string,
+      decision: ActionDecisionRequest,
+    ): Promise<ActionRequest> => invoke('sessions:decide-action', sessionId, actionId, decision),
     getTicket: (sessionId: string): Promise<Ticket> => invoke('sessions:getTicket', sessionId),
   },
   tickets: {

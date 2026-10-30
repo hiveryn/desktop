@@ -86,11 +86,17 @@ function subtitleFor(origin: IntentOriginRaw): string {
 }
 
 // Called for every session event the main process streams. Fires a toast on a
-// fresh intent/required and closes it on the matching intent/resolved.
+// fresh intent/required or companion action_request/required (requestAction —
+// the daemon also alerts the phone) and closes it on the matching resolved
+// event. Clicking selects the originating session, whose project's intent or
+// action center shows the card.
 export function handleIntentEvent(event: SessionEvent): void {
-  if (event.type !== 'intent') return;
-  const intentId = event.raw?.intent_id;
-  if (typeof intentId !== 'string' || !intentId) return;
+  if (event.type !== 'intent' && event.type !== 'action_request') return;
+  const isAction = event.type === 'action_request';
+  const rawId = isAction ? event.raw?.action_id : event.raw?.intent_id;
+  if (typeof rawId !== 'string' || !rawId) return;
+  // Intent and action ids come from different generators; keep them apart.
+  const intentId = isAction ? `action:${rawId}` : rawId;
 
   if (event.status === 'resolved') {
     const existing = active.get(intentId);
@@ -135,14 +141,21 @@ export function handleIntentEvent(event: SessionEvent): void {
     return;
   }
 
-  const summary =
-    typeof event.raw?.summary === 'string' && event.raw.summary
+  const companion =
+    typeof (event.raw?.origin as { companion?: unknown } | undefined)?.companion === 'string'
+      ? (event.raw?.origin as { companion: string }).companion
+      : undefined;
+  const summary = isAction
+    ? typeof event.raw?.title === 'string' && event.raw.title
+      ? `Action request: ${event.raw.title}`
+      : 'A companion is requesting your authorization'
+    : typeof event.raw?.summary === 'string' && event.raw.summary
       ? event.raw.summary
       : 'An agent is requesting your approval';
 
   const notification = new Notification({
     title: origin.architectKey,
-    subtitle: subtitleFor(origin),
+    subtitle: isAction ? `companion ${companion ?? ''}`.trim() : subtitleFor(origin),
     body: summary,
   });
   notification.on('click', () => deps?.focusSession(origin.architectKey, origin.sessionId));

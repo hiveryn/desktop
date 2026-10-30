@@ -1,5 +1,10 @@
 import type { Intent, IntentOrigin } from '@hiveryn/shared/domain';
 import { useEffect, useRef } from 'react';
+import {
+  keepActionNotice,
+  parseActionRequired,
+  parseActionResolved,
+} from '../../../components/ActionCenter/actionModel';
 import { keepIntentFailure } from '../../../components/IntentCenter/intentCardModel';
 import {
   keepResolutionNotice,
@@ -193,6 +198,20 @@ export function useSessionEvents(): void {
       if (event.type === 'question' && event.status === 'resolved') {
         const resolution = parseQuestionResolved(event);
         store.resolveQuestion(resolution, keepResolutionNotice(resolution, event.at, Date.now()));
+        return;
+      }
+
+      // A companion's action request (requestAction), decided in the action
+      // center. Like questions, every resolution (decision, expiry, shutdown
+      // withdrawal, daemon restart) is published, so the replayed backlog nets
+      // to exactly the still-pending requests.
+      if (event.type === 'action_request' && event.status === 'required') {
+        store.setAction(parseActionRequired(event));
+        return;
+      }
+      if (event.type === 'action_request' && event.status === 'resolved') {
+        const resolution = parseActionResolved(event);
+        store.resolveAction(resolution, keepActionNotice(resolution, event.at, Date.now()));
         return;
       }
 

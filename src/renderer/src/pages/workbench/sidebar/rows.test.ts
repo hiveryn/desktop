@@ -1,6 +1,14 @@
+import type { Companion } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import type { ArchitectStatus } from '../../../../../shared/types';
-import { architectInitial, buildRows, cycleOrder, cycleTarget, rowKey } from './rows';
+import {
+  architectInitial,
+  buildRows,
+  companionSessionId,
+  cycleOrder,
+  cycleTarget,
+  rowKey,
+} from './rows';
 
 function architect(key: string, overrides: Partial<ArchitectStatus> = {}): ArchitectStatus {
   return {
@@ -10,6 +18,7 @@ function architect(key: string, overrides: Partial<ArchitectStatus> = {}): Archi
     status: null,
     session_id: null,
     sessions: [],
+    companions: [],
     ...overrides,
   };
 }
@@ -108,5 +117,84 @@ describe('rail initials', () => {
     expect(architectInitial('  _radius')).toBe('R');
     expect(architectInitial('9lives')).toBe('9');
     expect(architectInitial('—')).toBe('?');
+  });
+});
+
+function companion(name: string, overrides: Partial<Companion> = {}): Companion {
+  return {
+    architect_key: 'busy',
+    architect_session_id: 'arch-busy',
+    name,
+    repo: name,
+    workdir: `/repos/${name}`,
+    variant: 'claude',
+    session_id: `c-${name}`,
+    status: 'running',
+    created_at: '2026-10-30T00:00:00Z',
+    updated_at: '2026-10-30T00:00:00Z',
+    pending_actions: [],
+    ...overrides,
+  };
+}
+
+describe('companion rows', () => {
+  const statuses = [
+    architect('busy', {
+      status: 'idle',
+      session_id: 'arch-busy',
+      companions: [
+        companion('browser'),
+        companion('research', { status: 'start_failed', session_id: undefined }),
+        companion('mail', { status: 'stop_failed' }),
+        companion('old', { status: 'failed' }),
+      ],
+      sessions: [
+        {
+          id: 's-1',
+          title: 'Ship board',
+          status: 'running',
+          agent_status: 'active',
+          started_at: '2026-09-25T00:00:00Z',
+        },
+      ],
+    }),
+    architect('other', { status: 'idle', session_id: 'arch-other' }),
+  ];
+
+  it('lists companions beneath their architect, before its workers', () => {
+    expect(buildRows(statuses, '').map(rowKey)).toEqual([
+      'architect:busy',
+      'companion:busy:browser',
+      'companion:busy:research',
+      'companion:busy:mail',
+      'companion:busy:old',
+      'session:s-1',
+      'architect:other',
+    ]);
+  });
+
+  it('matches companions by name', () => {
+    expect(buildRows(statuses, 'brows').map(rowKey)).toEqual([
+      'architect:busy',
+      'companion:busy:browser',
+    ]);
+  });
+
+  it('cycles through companions with a live session only', () => {
+    expect(cycleOrder(statuses).map((e) => e.sessionId)).toEqual([
+      'arch-busy',
+      'c-browser',
+      'c-mail',
+      's-1',
+      'arch-other',
+    ]);
+  });
+
+  it('shows only a live companion session', () => {
+    expect(companionSessionId(companion('a'))).toBe('c-a');
+    expect(companionSessionId(companion('a', { status: 'starting' }))).toBeNull();
+    expect(companionSessionId(companion('a', { status: 'stopped' }))).toBeNull();
+    expect(companionSessionId(companion('a', { status: 'failed' }))).toBeNull();
+    expect(companionSessionId(companion('a', { status: 'shutdown_requested' }))).toBe('c-a');
   });
 });

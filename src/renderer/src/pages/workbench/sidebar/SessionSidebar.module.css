@@ -224,8 +224,16 @@
   }
 
   &[data-status="disconnected"],
-  &[data-status="missing"] {
+  &[data-status="missing"],
+  &[data-status="stop-failed"],
+  &[data-status="start-failed"],
+  &[data-status="failed"] {
     color: var(--theme-status-error);
+  }
+
+  &[data-status="shutting-down"],
+  &[data-status="stopping"] {
+    color: var(--theme-status-warning);
   }
 }
 
@@ -322,8 +330,43 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.row[data-kind="session"] .rowButton {
+.row[data-kind="session"] .rowButton,
+.row[data-kind="companion"] .rowButton {
   padding-left: 3ch;
+}
+
+/* A companion without a live session to show (starting, stopped, failed). */
+.row[data-unavailable] .rowButton {
+  cursor: default;
+}
+
+.row[data-unavailable] .name {
+  color: var(--theme-text-muted);
+}
+
+.roleTag {
+  flex-shrink: 0;
+  color: var(--theme-text-subtle);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* The recovery action of a stop_failed / failed companion: always visible,
+   it is the only way past an unconfirmed termination. */
+.recover {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 1ch;
+  background: transparent;
+  border: none;
+  color: var(--theme-status-warning);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--theme-status-error);
+  }
 }
 
 .row[data-inactive] .name {

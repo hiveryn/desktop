@@ -1,8 +1,11 @@
-import type { AgentQuestion, Intent } from '@hiveryn/shared/domain';
+import type { ActionRequest, AgentQuestion, Companion, Intent } from '@hiveryn/shared/domain';
 import { describe, expect, it } from 'vitest';
 import {
   agentStatusIndicator,
   architectIndicator,
+  companionIndicator,
+  companionNeedsDecision,
+  companionRecovery,
   needsAttention,
   workerIndicator,
 } from './sidebarModel';
@@ -51,5 +54,73 @@ describe('attention', () => {
   it('ignores resolved question notices', () => {
     const notice = { ...question, status: 'expired' } as AgentQuestion;
     expect(needsAttention('s2', null, {}, { q1: notice })).toBe(false);
+  });
+});
+
+describe('companion indicators', () => {
+  const base: Companion = {
+    architect_key: 'p',
+    architect_session_id: 'arch',
+    name: 'browser',
+    repo: 'chrome',
+    workdir: '/r',
+    variant: 'claude',
+    machine: 'ka',
+    session_id: 'c-1',
+    status: 'running',
+    agent_status: 'idle',
+    connection: 'connected',
+    created_at: '',
+    updated_at: '',
+    pending_actions: [],
+  };
+
+  it('shows the lifecycle, and the live status and connection only while running', () => {
+    expect(companionIndicator(base).kind).toBe('idle');
+    expect(companionIndicator(base, { status: 'active' }).kind).toBe('active');
+    expect(companionIndicator(base, { connection: 'disconnected' }).kind).toBe('disconnected');
+    expect(
+      companionIndicator({ ...base, status: 'stop_failed', error: 'ssh down' }).label,
+    ).toContain('ssh down');
+    const statuses = [
+      'starting',
+      'shutdown_requested',
+      'stopping',
+      'stopped',
+      'stop_failed',
+      'start_failed',
+      'failed',
+    ] as const;
+    const kinds = statuses.map((status) => companionIndicator({ ...base, status }).kind);
+    expect(new Set(kinds).size).toBe(kinds.length);
+  });
+
+  it('offers recovery only for unconfirmed termination or an ended process', () => {
+    expect(companionRecovery(base)).toBeNull();
+    expect(companionRecovery({ ...base, status: 'shutdown_requested' })).toBeNull();
+    expect(companionRecovery({ ...base, status: 'stop_failed' })).toBe('retry-termination');
+    expect(companionRecovery({ ...base, status: 'failed' })).toBe('remove');
+    expect(
+      companionRecovery({ ...base, status: 'start_failed', session_id: undefined }),
+    ).toBeNull();
+  });
+
+  it('needs a decision for a pending action request', () => {
+    const action: ActionRequest = {
+      id: 'a1',
+      title: 't',
+      description: 'd',
+      origin: { architect_key: 'p', session_id: 'c-1', session_type: 'companion' },
+      status: 'pending',
+      created_at: '',
+      expires_at: '',
+    };
+    expect(companionNeedsDecision(base, {}, true)).toBe(false);
+    expect(companionNeedsDecision(base, { a1: action }, true)).toBe(true);
+    expect(companionNeedsDecision(base, { a1: { ...action, status: 'expired' } }, true)).toBe(
+      false,
+    );
+    // An unopened project: the polled listing.
+    expect(companionNeedsDecision({ ...base, pending_actions: [action] }, {}, false)).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { STREAM_CONNECTED_EVENT_TYPE } from '../../../../../shared/types';
+import { useArchitectStatusStore } from '../../../state/architectStatusStore';
 import { useSessionStore } from '../../../state/sessionStore';
 import { syncSessionsForArchitect } from './sessionSnapshot';
 
@@ -33,6 +34,13 @@ export function useArchitectSessionDiscovery(architectKey: string): void {
         return;
       }
 
+      // A companion's lifecycle, connection or pending action requests
+      // changed: the sidebar reads companions from the status listing.
+      if (event.reason === 'companion_changed') {
+        void useArchitectStatusStore.getState().refresh();
+        return;
+      }
+
       if (event.reason !== 'session_started' && event.reason !== 'session_ended') {
         return;
       }
@@ -57,7 +65,11 @@ export function useArchitectSessionDiscovery(architectKey: string): void {
         if (store.selectedArchitectKey !== architectKey) return;
         // setActiveSession throws on an unknown id, and the session can legally
         // have ended between the sync and here.
-        if (!store.sessions[event.session_id]) return;
+        const session = store.sessions[event.session_id];
+        if (!session) return;
+        // Companions start on their own with each architect session; they
+        // appear beneath it without taking the workspace from the architect.
+        if (session.type === 'companion') return;
         store.setActiveSession(event.session_id);
         store.setFocusedPane('main-terminal');
       });
